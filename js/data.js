@@ -4,11 +4,11 @@
  */
 
 const STORAGE_KEYS = {
-    DAYS: 'clinic_exp_days_v5_clean',
-    CATEGORIES: 'clinic_exp_categories_v5',
-    STAFF: 'clinic_exp_staff_v5',
-    SETTINGS: 'clinic_exp_settings_v5',
-    INITIALIZED: 'clinic_exp_initialized_v5_clean'
+    DAYS: 'clinic_exp_days_v6_clean',
+    CATEGORIES: 'clinic_exp_categories_v6',
+    STAFF: 'clinic_exp_staff_v6',
+    SETTINGS: 'clinic_exp_settings_v6',
+    INITIALIZED: 'clinic_exp_initialized_v6_clean'
 };
 
 const DEFAULT_STAFF_LIST = [
@@ -49,11 +49,9 @@ const DEFAULT_CATEGORIES = {
         { id: 'lb_inc', name: 'LB (Lab) Income', code: 'LBI', system: true },
         { id: 'us_inc', name: 'US (Ultrasound) Income', code: 'USI', system: true },
         { id: 'st_s', name: 'St S (Store Sale)', code: 'STS', system: true },
-        { id: 'ecg', name: 'ECG Income', code: 'ECG', system: true },
-        { id: 'darex_credit', name: 'Darex credit', code: 'DC', system: true }
+        { id: 'ecg', name: 'ECG Income', code: 'ECG', system: true }
     ],
     partners: [
-        { id: 'kam_hisab', name: 'Kam hisab', type: 'debit' },
         { id: 'partner_zk', name: 'ZK', type: 'debit' },
         { id: 'partner_kh', name: 'KH', type: 'debit' },
         { id: 'partner_bp', name: 'BP', type: 'debit' },
@@ -86,6 +84,9 @@ class ClinicDataManager {
         } else {
             try {
                 this.days = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAYS)) || {};
+                Object.keys(this.days).forEach(k => {
+                    this.days[k] = this.cleanDayItemNames(this.days[k]);
+                });
                 this.categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES)) || DEFAULT_CATEGORIES;
                 this.staffList = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF)) || DEFAULT_STAFF_LIST;
                 this.settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS)) || this.settings;
@@ -109,6 +110,23 @@ class ClinicDataManager {
         this.saveAll();
     }
 
+    cleanDayItemNames(dayData) {
+        if (!dayData) return dayData;
+        if (dayData.debits) {
+            dayData.debits = dayData.debits.filter(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n !== 'kam hisab' && n !== 'kam_hisab';
+            });
+        }
+        if (dayData.credits) {
+            dayData.credits = dayData.credits.filter(c => {
+                const n = (c.name || '').trim().toLowerCase();
+                return n !== 'darex credit' && n !== 'darex_credit';
+            });
+        }
+        return dayData;
+    }
+
     createBlankDay(dateKey) {
         return {
             date: dateKey,
@@ -122,7 +140,6 @@ class ClinicDataManager {
                 { name: 'Dental Exp', amount: 0, isAuto: true },
                 { name: 'Store Exp', amount: 0, isAuto: true },
                 { name: 'Receivables', amount: 0, isAuto: true },
-                { name: 'Kam hisab', amount: 0, isPartner: true },
                 { name: 'ZK', amount: 0, isPartner: true },
                 { name: 'KH', amount: 0, isPartner: true },
                 { name: 'BP', amount: 0, isPartner: true },
@@ -134,8 +151,7 @@ class ClinicDataManager {
                 { name: 'LB', amount: 0, isAuto: false },
                 { name: 'US', amount: 0, isAuto: true },
                 { name: 'St S', amount: 0, isAuto: false },
-                { name: 'ECG', amount: 0, isAuto: false },
-                { name: 'Darex credit', amount: 0, isAuto: false }
+                { name: 'ECG', amount: 0, isAuto: false }
             ],
             dispPurchases: [],
             storePurchases: [],
@@ -168,6 +184,7 @@ class ClinicDataManager {
     }
 
     saveDay(dateKey, dayData) {
+        dayData = this.cleanDayItemNames(dayData);
         this.days[dateKey] = dayData;
         const dayMatch = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (dayMatch) {
@@ -179,22 +196,25 @@ class ClinicDataManager {
     }
 
     getDay(dateKey) {
+        let res = null;
         if (this.days[dateKey]) {
-            return JSON.parse(JSON.stringify(this.days[dateKey]));
-        }
-
-        const dayMatch = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (dayMatch) {
-            const dayNum = parseInt(dayMatch[3], 10);
-            const strDay = String(dayNum).padStart(2, '0');
-            if (this.days[strDay]) {
-                return JSON.parse(JSON.stringify(this.days[strDay]));
+            res = JSON.parse(JSON.stringify(this.days[dateKey]));
+        } else {
+            const dayMatch = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (dayMatch) {
+                const dayNum = parseInt(dayMatch[3], 10);
+                const strDay = String(dayNum).padStart(2, '0');
+                if (this.days[strDay]) {
+                    res = JSON.parse(JSON.stringify(this.days[strDay]));
+                }
             }
         }
 
-        const newBlank = this.createBlankDay(dateKey);
-        this.saveDay(dateKey, newBlank);
-        return newBlank;
+        if (!res) {
+            res = this.createBlankDay(dateKey);
+            this.saveDay(dateKey, res);
+        }
+        return this.cleanDayItemNames(res);
     }
 
     getCategories() {

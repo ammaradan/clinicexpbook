@@ -8,7 +8,7 @@ An interactive Excel-identical financial bookkeeping, daily reconciliation, and 
 
 - **7 Side-by-Side Excel Panels (Daily Sheet)**:
   1. **Debit (Expenses)**: Store Med Purchases, Dispensary Purchases, Clinic Expenses, LB, Home Expenses, US Exp, Dental Exp, Store Exp, Receivables, Partner Payouts (ZK, KH, BP), and custom lines.
-  2. **Credit (Income)**: Daraz Cash, Clinic Pt + Dispensary Income, LB, US, St S, ECG, Darex Credit.
+  2. **Credit (Income)**: Daraz Cash, Clinic Pt + Dispensary Income, LB, US, St S, ECG.
   3. **Dispensary & Store Purchases & Clinic Expenses**: Itemized vendor tracking with TP & Retail calculations.
   4. **US Total, Cash Breakdown & Home Expenses**: Detailed daily receipts and household petty items.
   5. **Staff & Vendors & Receivables**:
