@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinic Finance & Expense Management System</title>
+  <meta name="description" content="Excel-accurate daily accounting, bookkeeping, and multi-category financial reporting for Clinic and Medical Store.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- TOP NAVBAR -->
+    <header class="navbar no-print">
+      <div class="nav-brand">
+        <div class="brand-icon">🏥</div>
+        <div class="brand-details">
+          <h1>CLINIC EXPENSE BOOK</h1>
+          <p>Spreadsheet Accounting & Multi-Category Management System</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs" role="tablist">
+        <button type="button" class="tab-btn active" data-view="view-daily" id="tab-daily">
+          <span>📋</span> Daily Sheet
+        </button>
+        <button type="button" class="tab-btn" data-view="view-master" id="tab-master">
+          <span>📊</span> Master Grid (Data)
+        </button>
+        <button type="button" class="tab-btn" data-view="view-staff" id="tab-staff">
+          <span>👥</span> Staff Ledger
+        </button>
+        <button type="button" class="tab-btn" data-view="view-pnl" id="tab-pnl">
+          <span>📈</span> Total P&L
+        </button>
+        <button type="button" class="tab-btn" data-view="view-reports" id="tab-reports">
+          <span>📑</span> Category Reports
+        </button>
+        <button type="button" class="tab-btn" data-view="view-settings" id="tab-settings">
+          <span>⚙️</span> Categories & Setup
+        </button>
+      </nav>
+
+      <!-- Quick Action Buttons -->
+      <div class="nav-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="today-btn">
+          <span>🎯</span> Day 01
+        </button>
+        <button type="button" class="btn btn-success btn-sm" id="save-day-btn">
+          <span>💾</span> Save Sheet
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN BODY -->
+    <main class="main-content">
+
+      <!-- ==========================================================
+           1. DAILY SHEET VIEW (EXCEL SPREADSHEET RECREATION)
+           ========================================================== -->
+      <section id="view-daily" class="app-view active">
+        
+        <!-- Print Header Banner (Only visible on paper / PDF print) -->
+        <div class="print-only print-header-banner">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px;">
+            <div>
+              <h2 style="font-size: 15pt; font-weight: 800; margin: 0; text-transform: uppercase;">Clinic & Medical Store - Daily Expense Voucher</h2>
+              <p style="font-size: 8.5pt; margin: 0; color: #444;">Complete Daily Accounts, Ledger & Cash Reconciliation Sheet</p>
+            </div>
+            <div style="text-align: right;">
+              <span id="print-sheet-date" style="font-size: 11pt; font-weight: 700;">Date: 01-Sep-2026</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day Selector & Quick Stats Bar (Hidden on print) -->
+        <div class="daily-header no-print">
+          <div class="date-selector-wrapper">
+            <button type="button" class="btn-icon" id="prev-day-btn" title="Previous Day">◀</button>
+            <div class="date-badge" id="daily-date-badge">Day 01 - 01 Sep 2026</div>
+            <input type="date" id="daily-date-picker" class="date-input">
+            <button type="button" class="btn-icon" id="next-day-btn" title="Next Day">▶</button>
+          </div>
+
+          <!-- Quick KPIs -->
+          <div class="kpi-summary-strip">
+            <div class="kpi-card">
+              <span class="kpi-label">Credit (Income) Total</span>
+              <span class="kpi-val credit" id="kpi-credit-total">Rs. 0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Debit (Expense) Total</span>
+              <span class="kpi-val debit" id="kpi-debit-total">Rs. 0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Difference (Cr - Dr)</span>
+              <span class="kpi-val diff-pos" id="kpi-diff-total">Rs. 0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Total Cash</span>
+              <span class="kpi-val cash" id="kpi-cash-total">Rs. 0</span>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="print-day-btn">
+              <span>🖨️</span> Print Voucher (Landscape 1-Page)
+            </button>
+          </div>
+        </div>
+
+        <!-- SPREADSHEET WORKSPACE (SIDE-BY-SIDE EXCEL LAYOUT) -->
+        <div class="excel-sheet-viewport">
+          <div class="excel-sheet-grid" id="excel-daily-grid">
+            
+            <!-- COLUMN BLOCK 1: DEBIT (EXPENSES) -->
+            <div class="excel-col-panel col-debit" style="min-width: 310px; flex: 1.2;">
+              <div class="excel-panel-header header-lavender">
+                <span>Debit (Expences)</span>
+                <span class="panel-header-badge" id="badge-debit-total">Rs. 0</span>
+              </div>
+              <div class="excel-table-wrapper">
+                <table class="excel-table" id="table-debit">
+                  <thead>
+                    <tr>
+                      <th style="width: 60%;">Expense Category / Payee</th>
+                      <th class="num-cell" style="width: 40%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-debit"></tbody>
+                  <tfoot>
+                    <tr class="excel-total-row">
+                      <td>Debit (Expences)Total</td>
+                      <td class="num-cell highlight-debit" id="footer-debit-total">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div class="no-print" style="padding: 0.4rem; background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-color); display: flex; gap: 0.35rem;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-debit-row" style="flex: 1; font-size: 0.72rem; padding: 0.3rem;">
+                  + Add Expense Line
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-add-staff-debit-btn" style="flex: 1; font-size: 0.72rem; padding: 0.3rem;">
+                  👤 Pay Staff / Vendor
+                </button>
+              </div>
+            </div>
+
+            <!-- COLUMN BLOCK 2: CREDIT (INCOME) -->
+            <div class="excel-col-panel col-credit" style="min-width: 290px; flex: 1.1;">
+              <div class="excel-panel-header header-lavender">
+                <span>Credit ( Income)</span>
+                <span class="panel-header-badge" id="badge-credit-total">Rs. 0</span>
+              </div>
+              <div class="excel-table-wrapper">
+                <table class="excel-table" id="table-credit">
+                  <thead>
+                    <tr>
+                      <th style="width: 60%;">Income Category</th>
+                      <th class="num-cell" style="width: 40%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-credit"></tbody>
+                  <tfoot>
+                    <tr class="excel-total-row">
+                      <td>Credit ( Income)Total</td>
+                      <td class="num-cell highlight-credit" id="footer-credit-total">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div class="no-print" style="padding: 0.4rem; background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-credit-row" style="width: 100%; font-size: 0.72rem; padding: 0.3rem;">
+                  + Add Custom Income Line
+                </button>
+              </div>
+            </div>
+
+            <!-- COLUMN BLOCK 3: DISP PURCHASES + STORE PURCHASES + CLINIC EXP DETAILS -->
+            <div class="excel-col-panel" style="min-width: 370px; flex: 1.35;">
+              
+              <!-- 3A: Dispensary Purchases -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+                <span>Dispensary Purchases</span>
+                <span class="panel-header-badge" id="badge-disp-purch-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">Vendor / Item Name</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-disp-purchases"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total Dispensary Purchases</td>
+                    <td class="num-cell" id="subtotal-disp-purch">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-disp-purch-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Dispensary Item
+                </button>
+              </div>
+
+              <!-- 3B: Store Purchases -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>Store Purchases (TP & Retail)</span>
+                <span class="panel-header-badge" id="badge-store-purch-tp">TP: 0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 44%;">Distributor / Supplier</th>
+                    <th class="num-cell" style="width: 28%;">TP (Rs.)</th>
+                    <th class="num-cell" style="width: 28%;">Retail (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-store-purchases"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total Store Purchases</td>
+                    <td class="num-cell" id="subtotal-store-tp">0</td>
+                    <td class="num-cell" id="subtotal-store-retail">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Distributor Row
+                </button>
+              </div>
+
+              <!-- 3C: Clinic Expenses Details -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>Clinic Expenses Details</span>
+                <span class="panel-header-badge" id="badge-clinic-exp-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">Detail Item (chae, pani, baraf...)</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-clinic-exp-details"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total Clinic Expenses</td>
+                    <td class="num-cell" id="subtotal-clinic-exp">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-clinic-exp-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Clinic Petty Item
+                </button>
+              </div>
+
+            </div>
+
+            <!-- COLUMN BLOCK 4: US TOTAL & CASH & HOME X -->
+            <div class="excel-col-panel" style="min-width: 280px; flex: 1;">
+              
+              <!-- 4A: US Total -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+                <span>US Total</span>
+                <span class="panel-header-badge" id="badge-us-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">US Patient / Receipt Detail</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-us-details"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>US Total</td>
+                    <td class="num-cell" id="subtotal-us-total">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add US Receipt
+                </button>
+              </div>
+
+              <!-- 4B: Cash Breakdown -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>Cash Breakdown</span>
+                <span class="panel-header-badge" id="badge-cash-breakdown-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">Cash Note / Source</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-cash-items"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Cash Total</td>
+                    <td class="num-cell" id="subtotal-cash-total">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-cash-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Cash Entry
+                </button>
+              </div>
+
+              <!-- 4C: Home X Details -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>Home X (Home Expenses)</span>
+                <span class="panel-header-badge" id="badge-home-x-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">Household Item / Reason</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-home-x-details"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total Home X</td>
+                    <td class="num-cell" id="subtotal-home-x">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-home-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Home Expense Line
+                </button>
+              </div>
+
+            </div>
+
+            <!-- COLUMN BLOCK 5: STAFF & VENDORS (WITH REASON / DETAIL) -->
+            <div class="excel-col-panel" style="min-width: 380px; flex: 1.3;">
+              
+              <!-- 5A: Staff & Vendors with Reason Column -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+                <span>Staff & Vendors (Name & Reason)</span>
+                <span class="panel-header-badge" id="badge-staff-vendors-total">0</span>
+              </div>
+              <div class="excel-table-wrapper" style="max-height: 480px; overflow-y: auto;">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 40%;">Staff Member</th>
+                      <th style="width: 35%;">Reason / Detail</th>
+                      <th class="num-cell" style="width: 25%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-staff-vendors"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td colspan="2">Total Staff & Vendors</td>
+                      <td class="num-cell" id="subtotal-staff-vendors">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <!-- 5B: Receivables -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>Receivables (Pending / Due)</span>
+                <span class="panel-header-badge" id="badge-receivables-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 38%;">Party Name</th>
+                    <th style="width: 37%;">Detail / Note</th>
+                    <th class="num-cell" style="width: 25%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-receivables"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td colspan="2">Total Receivables (Auto to Debit)</td>
+                    <td class="num-cell" id="subtotal-receivables">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-rec-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Receivable Line
+                </button>
+              </div>
+
+            </div>
+
+            <!-- COLUMN BLOCK 6: DENTAL, STORE & US EXPENSES -->
+            <div class="excel-col-panel" style="min-width: 270px; flex: 0.95;">
+              
+              <!-- 6A: Dental Exp -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+                <span>Dental Exp</span>
+                <span class="panel-header-badge" id="badge-dental-exp-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">Dental Item / Note</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-dental-details"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total Dental Exp</td>
+                    <td class="num-cell" id="subtotal-dental-exp">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Dental Item
+                </button>
+              </div>
+
+              <!-- 6B: Store Exp -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>Store Exp</span>
+                <span class="panel-header-badge" id="badge-store-exp-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">Store Exp Item</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-store-exp-details"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total Store Exp</td>
+                    <td class="num-cell" id="subtotal-store-exp">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add Store Exp Item
+                </button>
+              </div>
+
+              <!-- 6C: US Exp -->
+              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+                <span>US Exp</span>
+                <span class="panel-header-badge" id="badge-us-exp-total">0</span>
+              </div>
+              <table class="excel-table">
+                <thead>
+                  <tr>
+                    <th style="width: 65%;">US Exp Item / Doctor</th>
+                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-us-exp-details"></tbody>
+                <tfoot>
+                  <tr class="excel-subtotal-row">
+                    <td>Total US Exp</td>
+                    <td class="num-cell" id="subtotal-us-exp">0</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-exp-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add US Exp Item
+                </button>
+              </div>
+
+            </div>
+
+            <!-- COLUMN BLOCK 7: CLINIC BILLS -->
+            <div class="excel-col-panel" style="min-width: 250px; flex: 0.85;">
+              <div class="excel-panel-header header-lavender">
+                <span>Clinic Bills</span>
+                <span class="panel-header-badge" id="badge-clinic-bills-total">0</span>
+              </div>
+              <div class="excel-table-wrapper" style="max-height: 520px; overflow-y: auto;">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 55%;">Patient / Bill #</th>
+                      <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-clinic-bills"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Clinic Bills</td>
+                      <td class="num-cell" id="subtotal-clinic-bills">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-bill-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+                  + Add More Bills
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- EXCEL BOTTOM RECONCILIATION BAR (ROWS 37-39 RECREATION) -->
+        <div class="excel-footer-reconciliation">
+          <div class="recon-cell-group">
+            <span class="recon-cell-label">Cash Taken Away</span>
+            <input type="number" step="any" class="recon-excel-input" id="input-cash-taken" value="0">
+          </div>
+          <div class="recon-cell-group">
+            <span class="recon-cell-label">Daraz Cash</span>
+            <input type="number" step="any" class="recon-excel-input" id="input-daraz" value="0">
+          </div>
+          <div class="recon-cell-group highlight-diff">
+            <span class="recon-cell-label">Difference (Cr - Dr)</span>
+            <input type="text" class="recon-excel-input" id="input-diff" readonly value="0">
+          </div>
+          <div class="recon-cell-group highlight-cash">
+            <span class="recon-cell-label">Total Cash (Taken + Daraz)</span>
+            <input type="text" class="recon-excel-input" id="input-total-cash" readonly value="0">
+          </div>
+          <div class="recon-cell-group">
+            <span class="recon-cell-label">Reconciliation Status</span>
+            <div id="box-recon-status" class="recon-status-badge">Balanced</div>
+          </div>
+        </div>
+
+        <!-- PRINT ONLY SIGNATURE BLOCK -->
+        <div class="print-only print-signature-area">
+          <div class="sig-col">
+            <p class="sig-line">__________________________</p>
+            <p><strong>Prepared By / Cashier</strong></p>
+          </div>
+          <div class="sig-col">
+            <p class="sig-line">__________________________</p>
+            <p><strong>Verified By / Accountant</strong></p>
+          </div>
+          <div class="sig-col">
+            <p class="sig-line">__________________________</p>
+            <p><strong>Authorized Signature</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           2. MASTER GRID (DATA SHEET)
+           ========================================================== -->
+      <section id="view-master" class="app-view">
+        <div id="master-grid-container"></div>
+      </section>
+
+      <!-- ==========================================================
+           3. STAFF LEDGER (STAFF SHEET)
+           ========================================================== -->
+      <section id="view-staff" class="app-view">
+        <div id="staff-matrix-container"></div>
+      </section>
+
+      <!-- ==========================================================
+           4. FINANCIAL STATEMENTS & P&L (TOTAL SHEET)
+           ========================================================== -->
+      <section id="view-pnl" class="app-view">
+        <div id="pnl-container"></div>
+      </section>
+
+      <!-- ==========================================================
+           5. CATEGORY REPORTS & AUDITS
+           ========================================================== -->
+      <section id="view-reports" class="app-view">
+        <div class="report-filter-bar no-print">
+          <div class="filter-group">
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Select Category:</label>
+              <select id="report-category-select" class="filter-select">
+                <option value="all">-- All Categories --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Date Range:</label>
+              <select id="report-range-select" class="filter-select">
+                <option value="month">Full Month (September 2026)</option>
+                <option value="today">Selected Date</option>
+                <option value="custom">Custom Date Range</option>
+              </select>
+            </div>
+            <div id="custom-date-group" style="display: none; align-items: center; gap: 0.5rem;">
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Start Date:</label>
+                <input type="date" id="report-start-date" class="date-input" value="2026-09-01">
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">End Date:</label>
+                <input type="date" id="report-end-date" class="date-input" value="2026-09-30">
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="run-report-btn" style="margin-top: 1.25rem;">
+              🔍 Generate Report
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="export-report-csv-btn">
+              📥 Export CSV
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="print-report-btn">
+              🖨️ Print Report
+            </button>
+          </div>
+        </div>
+
+        <div id="report-results-container"></div>
+      </section>
+
+      <!-- ==========================================================
+           6. SETTINGS & CATEGORY MANAGEMENT
+           ========================================================== -->
+      <section id="view-settings" class="app-view">
+        <div class="settings-grid">
+          <!-- Expense Categories -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3 style="font-family: var(--font-heading); font-size: 1.15rem;">Predefined Expense Categories</h3>
+              <button type="button" class="btn btn-primary btn-sm" id="add-expense-cat-btn">+ Add Category</button>
+            </div>
+            <div class="settings-list" id="settings-expense-categories"></div>
+          </div>
+
+          <!-- Income Categories -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3 style="font-family: var(--font-heading); font-size: 1.15rem;">Predefined Income Categories</h3>
+              <button type="button" class="btn btn-primary btn-sm" id="add-income-cat-btn">+ Add Category</button>
+            </div>
+            <div class="settings-list" id="settings-income-categories"></div>
+          </div>
+
+          <!-- Staff & Vendors -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3 style="font-family: var(--font-heading); font-size: 1.15rem;">Staff & Doctors Roster</h3>
+              <button type="button" class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff Member</button>
+            </div>
+            <div class="settings-list" id="settings-staff-list"></div>
+          </div>
+
+          <!-- Backup & Reset -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3 style="font-family: var(--font-heading); font-size: 1.15rem;">Data Backup & Reset</h3>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+              Download a complete JSON backup of your records or restore from an existing backup file.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <button type="button" class="btn btn-secondary" id="download-backup-btn">
+                💾 Download Complete Data Backup
+              </button>
+              <input type="file" id="restore-backup-file" accept=".json" style="display: none;">
+              <button type="button" class="btn btn-secondary" id="restore-backup-btn">
+                📂 Restore Data from Backup File
+              </button>
+              <hr style="border-color: var(--border-color); margin: 0.5rem 0;">
+              <button type="button" class="btn btn-warning" id="clear-all-zero-btn">
+                🧹 Clear All Data to 0 (Start Fresh Daily Entry)
+              </button>
+              <button type="button" class="btn btn-danger" id="reset-seed-btn">
+                🔄 Reload Original Reference Excel (Sept 2026) Data
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- TOAST NOTIFICATIONS CONTAINER -->
+    <div class="toast-container" id="toast-container"></div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="js/seedData.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
