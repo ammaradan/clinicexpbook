@@ -186,32 +186,26 @@ class ClinicDataManager {
     saveDay(dateKey, dayData) {
         dayData = this.cleanDayItemNames(dayData);
         this.days[dateKey] = dayData;
-        const dayMatch = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (dayMatch) {
-            const dayNum = parseInt(dayMatch[3], 10);
-            const strDay = String(dayNum).padStart(2, '0');
-            this.days[strDay] = dayData;
-        }
         localStorage.setItem(STORAGE_KEYS.DAYS, JSON.stringify(this.days));
     }
 
     getDay(dateKey) {
+        if (!dateKey) {
+            dateKey = new Date().toISOString().split('T')[0];
+        }
         let res = null;
         if (this.days[dateKey]) {
             res = JSON.parse(JSON.stringify(this.days[dateKey]));
-        } else {
-            const dayMatch = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (dayMatch) {
-                const dayNum = parseInt(dayMatch[3], 10);
-                const strDay = String(dayNum).padStart(2, '0');
-                if (this.days[strDay]) {
-                    res = JSON.parse(JSON.stringify(this.days[strDay]));
-                }
+        } else if (dateKey.startsWith('2026-09-')) {
+            const dayNum = dateKey.split('-')[2];
+            if (this.days[dayNum]) {
+                res = JSON.parse(JSON.stringify(this.days[dayNum]));
             }
         }
 
         if (!res) {
             res = this.createBlankDay(dateKey);
+            this.days[dateKey] = res;
             this.saveDay(dateKey, res);
         }
         return this.cleanDayItemNames(res);
@@ -266,13 +260,22 @@ class ClinicDataManager {
 
     getDaysForMonth(yearMonthStr = '2026-09') {
         const results = [];
-        for (let i = 1; i <= 31; i++) {
+        const parts = yearMonthStr.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const daysInMonth = new Date(year, month, 0).getDate();
+
+        for (let i = 1; i <= daysInMonth; i++) {
             const dayStr = String(i).padStart(2, '0');
             const dateKey = `${yearMonthStr}-${dayStr}`;
-            let dayData = this.days[dayStr] || this.days[dateKey];
-            if (dayData) {
-                results.push({ dayNum: i, dateKey, data: dayData });
+            let dayData = this.days[dateKey];
+            if (!dayData && yearMonthStr === '2026-09' && this.days[dayStr]) {
+                dayData = this.days[dayStr];
             }
+            if (!dayData) {
+                dayData = this.createBlankDay(dateKey);
+            }
+            results.push({ dayNum: i, dateKey, data: dayData });
         }
         return results;
     }
@@ -703,7 +706,124 @@ class ClinicDataManager {
                     }
                 });
             }
-            // 12. All (Complete Ledger Audit)
+            // 12. Clinic Bills (User Requested)
+            else if (catKeyLower === 'clinic_bills') {
+                if (dayData.clinicBills && dayData.clinicBills.length > 0) {
+                    dayData.clinicBills.forEach((cb, idx) => {
+                        if (cb.amount > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Clinic Bills',
+                                item: cb.item || `Bill #${idx + 1}`,
+                                description: `Patient Clinic Bill #${idx + 1}`,
+                                type: 'Credit (Income)',
+                                amount: cb.amount
+                            });
+                            grandTotal += cb.amount;
+                        }
+                    });
+                }
+            }
+            // 13. Store Exp
+            else if (catKeyLower === 'store_exp' || catKeyLower === 'store_expenses') {
+                if (dayData.storeExpenseDetails && dayData.storeExpenseDetails.length > 0) {
+                    dayData.storeExpenseDetails.forEach(se => {
+                        if (se.amount > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Store Exp',
+                                item: se.item || 'Store Expense',
+                                description: se.item || 'Store operating expense',
+                                type: 'Debit (Expense)',
+                                amount: se.amount
+                            });
+                            grandTotal += se.amount;
+                        }
+                    });
+                } else {
+                    const match = (dayData.debits || []).find(d => (d.name || '').toLowerCase().includes('store exp'));
+                    if (match && match.amount > 0) {
+                        rows.push({
+                            date: formattedDate,
+                            category: 'Store Exp',
+                            item: 'Store Expense',
+                            description: 'Store running expense',
+                            type: 'Debit (Expense)',
+                            amount: match.amount
+                        });
+                        grandTotal += match.amount;
+                    }
+                }
+            }
+            // 14. Dispensary Purchases
+            else if (catKeyLower === 'disp_purchases' || catKeyLower === 'dispensary_purchases') {
+                if (dayData.dispPurchases && dayData.dispPurchases.length > 0) {
+                    dayData.dispPurchases.forEach(dp => {
+                        if (dp.amount > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Dispensary Purchases',
+                                item: dp.item || 'Medicine / Stock',
+                                description: dp.item || 'Dispensary procurement',
+                                type: 'Debit (Expense)',
+                                amount: dp.amount
+                            });
+                            grandTotal += dp.amount;
+                        }
+                    });
+                }
+            }
+            // 15. Cash Breakdown
+            else if (catKeyLower === 'cash_breakdown') {
+                if (dayData.cashItems && dayData.cashItems.length > 0) {
+                    dayData.cashItems.forEach(ci => {
+                        if (ci.amount > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Cash Breakdown',
+                                item: ci.item || 'Cash Entry',
+                                description: ci.item || 'Cash denomination / source',
+                                type: 'Cash / Asset',
+                                amount: ci.amount
+                            });
+                            grandTotal += ci.amount;
+                        }
+                    });
+                }
+            }
+            // 16. All Debits (All Expenses)
+            else if (catKeyLower === 'all_debits' || catKeyLower === 'all_expenses') {
+                (dayData.debits || []).forEach(d => {
+                    if (d.amount > 0) {
+                        rows.push({
+                            date: formattedDate,
+                            category: d.name,
+                            item: d.name,
+                            description: 'Daily Expense Item',
+                            type: 'Debit (Expense)',
+                            amount: d.amount
+                        });
+                        grandTotal += d.amount;
+                    }
+                });
+            }
+            // 17. All Credits (All Incomes)
+            else if (catKeyLower === 'all_credits' || catKeyLower === 'all_incomes') {
+                (dayData.credits || []).forEach(c => {
+                    if (c.amount > 0) {
+                        rows.push({
+                            date: formattedDate,
+                            category: c.name,
+                            item: c.name,
+                            description: 'Daily Income Receipt',
+                            type: 'Credit (Income)',
+                            amount: c.amount
+                        });
+                        grandTotal += c.amount;
+                    }
+                });
+            }
+            // 18. All (Complete Ledger Audit)
             else if (catKeyLower === 'all') {
                 (dayData.debits || []).forEach(d => {
                     if (d.amount > 0) {

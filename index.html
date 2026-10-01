@@ -177,83 +177,98 @@
             <div class="excel-col-panel col-disp-store" data-col="2">
               
               <!-- 3A: Dispensary Purchases -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
-                <span>Dispensary Purchases</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-disp-purch" title="Click to collapse / expand">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Dispensary Purchases</span>
+                </div>
                 <span class="panel-header-badge" id="badge-disp-purch-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 58%;">Vendor / Item Name</th>
-                    <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-disp-purchases"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total Dispensary Purchases</td>
-                    <td class="num-cell" id="subtotal-disp-purch">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-disp-purch-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Item
-                </button>
+              <div class="collapsible-body" id="sec-disp-purch">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 58%;">Vendor / Item Name</th>
+                      <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-disp-purchases"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Dispensary Purchases</td>
+                      <td class="num-cell" id="subtotal-disp-purch">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-disp-purch-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Item
+                  </button>
+                </div>
               </div>
 
               <!-- 3B: Store Purchases -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>Store Purchases</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-store-purch" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Store Purchases</span>
+                </div>
                 <span class="panel-header-badge" id="badge-store-purch-tp">TP: 0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 42%;">Distributor</th>
-                    <th class="num-cell" style="width: 29%;">TP (Rs.)</th>
-                    <th class="num-cell" style="width: 29%;">Retail</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-store-purchases"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total Store Purchases</td>
-                    <td class="num-cell" id="subtotal-store-tp">0</td>
-                    <td class="num-cell" id="subtotal-store-retail">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Distributor
-                </button>
+              <div class="collapsible-body" id="sec-store-purch">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 42%;">Distributor</th>
+                      <th class="num-cell" style="width: 29%;">TP (Rs.)</th>
+                      <th class="num-cell" style="width: 29%;">Retail</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-store-purchases"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Store Purchases</td>
+                      <td class="num-cell" id="subtotal-store-tp">0</td>
+                      <td class="num-cell" id="subtotal-store-retail">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Distributor
+                  </button>
+                </div>
               </div>
 
               <!-- 3C: Clinic Expenses Details -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>Clinic Expenses Details</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-clinic-exp" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Clinic Expenses Details</span>
+                </div>
                 <span class="panel-header-badge" id="badge-clinic-exp-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 58%;">Detail Item (chae, etc.)</th>
-                    <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-clinic-exp-details"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total Clinic Expenses</td>
-                    <td class="num-cell" id="subtotal-clinic-exp">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-clinic-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Petty Item
-                </button>
+              <div class="collapsible-body" id="sec-clinic-exp">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 58%;">Detail Item (chae, etc.)</th>
+                      <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-clinic-exp-details"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Clinic Expenses</td>
+                      <td class="num-cell" id="subtotal-clinic-exp">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-clinic-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Petty Item
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -262,81 +277,96 @@
             <div class="excel-col-panel col-us-cash" data-col="3">
               
               <!-- 4A: US Total -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
-                <span>US Total</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-us-total" title="Click to collapse / expand">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>US Total</span>
+                </div>
                 <span class="panel-header-badge" id="badge-us-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 50%;">Receipt Detail</th>
-                    <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-us-details"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>US Total</td>
-                    <td class="num-cell" id="subtotal-us-total">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add US Line
-                </button>
+              <div class="collapsible-body" id="sec-us-total">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50%;">Receipt Detail</th>
+                      <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-us-details"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>US Total</td>
+                      <td class="num-cell" id="subtotal-us-total">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add US Line
+                  </button>
+                </div>
               </div>
 
               <!-- 4B: Cash Breakdown -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>Cash Breakdown</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-cash-breakdown" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Cash Breakdown</span>
+                </div>
                 <span class="panel-header-badge" id="badge-cash-breakdown-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 50%;">Note / Source</th>
-                    <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-cash-items"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Cash Total</td>
-                    <td class="num-cell" id="subtotal-cash-total">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-cash-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Cash Entry
-                </button>
+              <div class="collapsible-body" id="sec-cash-breakdown">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50%;">Note / Source</th>
+                      <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-cash-items"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Cash Total</td>
+                      <td class="num-cell" id="subtotal-cash-total">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-cash-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Cash Entry
+                  </button>
+                </div>
               </div>
 
               <!-- 4C: Home X Details -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>Home X (Expenses)</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-home-x" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Home X (Expenses)</span>
+                </div>
                 <span class="panel-header-badge" id="badge-home-x-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 50%;">Item / Reason</th>
-                    <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-home-x-details"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total Home X</td>
-                    <td class="num-cell" id="subtotal-home-x">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-home-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Home Exp
-                </button>
+              <div class="collapsible-body" id="sec-home-x">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50%;">Item / Reason</th>
+                      <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-home-x-details"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Home X</td>
+                      <td class="num-cell" id="subtotal-home-x">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-home-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Home Exp
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -345,54 +375,64 @@
             <div class="excel-col-panel col-staff" data-col="4">
               
               <!-- 5A: Staff & Vendors with Reason Column -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
-                <span>Staff & Vendors (Name & Reason)</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-staff-vendors" title="Click to collapse / expand">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Staff & Vendors (Name & Reason)</span>
+                </div>
                 <span class="panel-header-badge" id="badge-staff-vendors-total">0</span>
               </div>
-              <div class="excel-table-wrapper" style="max-height: 480px; overflow-y: auto;">
-                <table class="excel-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 38%;">Staff Member</th>
-                      <th style="width: 34%;">Reason / Detail</th>
-                      <th class="num-cell" style="width: 28%;">Amount (Rs.)</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody-staff-vendors"></tbody>
-                  <tfoot>
-                    <tr class="excel-subtotal-row">
-                      <td colspan="2">Total Staff & Vendors</td>
-                      <td class="num-cell" id="subtotal-staff-vendors">0</td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <div class="collapsible-body" id="sec-staff-vendors">
+                <div class="excel-table-wrapper" style="max-height: 480px; overflow-y: auto;">
+                  <table class="excel-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 38%;">Staff Member</th>
+                        <th style="width: 34%;">Reason / Detail</th>
+                        <th class="num-cell" style="width: 28%;">Amount (Rs.)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-staff-vendors"></tbody>
+                    <tfoot>
+                      <tr class="excel-subtotal-row">
+                        <td colspan="2">Total Staff & Vendors</td>
+                        <td class="num-cell" id="subtotal-staff-vendors">0</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
 
               <!-- 5B: Receivables -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>Receivables (Pending / Due)</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-receivables" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Receivables (Pending / Due)</span>
+                </div>
                 <span class="panel-header-badge" id="badge-receivables-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 38%;">Party Name</th>
-                    <th style="width: 34%;">Detail / Note</th>
-                    <th class="num-cell" style="width: 28%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-receivables"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td colspan="2">Total Receivables (Auto to Debit)</td>
-                    <td class="num-cell" id="subtotal-receivables">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-rec-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Receivable Line
-                </button>
+              <div class="collapsible-body" id="sec-receivables">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 38%;">Party Name</th>
+                      <th style="width: 34%;">Detail / Note</th>
+                      <th class="num-cell" style="width: 28%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-receivables"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td colspan="2">Total Receivables (Auto to Debit)</td>
+                      <td class="num-cell" id="subtotal-receivables">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-rec-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Receivable Line
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -401,112 +441,132 @@
             <div class="excel-col-panel col-dental-misc" data-col="5">
               
               <!-- 6A: Dental Exp -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
-                <span>Dental Exp</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-dental-exp" title="Click to collapse / expand">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Dental Exp</span>
+                </div>
                 <span class="panel-header-badge" id="badge-dental-exp-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 55%;">Dental Item / Note</th>
-                    <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-dental-details"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total Dental Exp</td>
-                    <td class="num-cell" id="subtotal-dental-exp">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Dental Item
-                </button>
+              <div class="collapsible-body" id="sec-dental-exp">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 55%;">Dental Item / Note</th>
+                      <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-dental-details"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Dental Exp</td>
+                      <td class="num-cell" id="subtotal-dental-exp">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Dental Item
+                  </button>
+                </div>
               </div>
 
               <!-- 6B: Store Exp -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>Store Exp</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-store-exp" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Store Exp</span>
+                </div>
                 <span class="panel-header-badge" id="badge-store-exp-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 55%;">Store Exp Item</th>
-                    <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-store-exp-details"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total Store Exp</td>
-                    <td class="num-cell" id="subtotal-store-exp">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Store Exp Item
-                </button>
+              <div class="collapsible-body" id="sec-store-exp">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 55%;">Store Exp Item</th>
+                      <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-store-exp-details"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total Store Exp</td>
+                      <td class="num-cell" id="subtotal-store-exp">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Store Exp Item
+                  </button>
+                </div>
               </div>
 
               <!-- 6C: US Exp -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
-                <span>US Exp</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-us-exp" title="Click to collapse / expand" style="margin-top: 0.35rem;">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>US Exp</span>
+                </div>
                 <span class="panel-header-badge" id="badge-us-exp-total">0</span>
               </div>
-              <table class="excel-table">
-                <thead>
-                  <tr>
-                    <th style="width: 55%;">US Exp Item / Doctor</th>
-                    <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-us-exp-details"></tbody>
-                <tfoot>
-                  <tr class="excel-subtotal-row">
-                    <td>Total US Exp</td>
-                    <td class="num-cell" id="subtotal-us-exp">0</td>
-                  </tr>
-                </tfoot>
-              </table>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add US Exp Item
-                </button>
+              <div class="collapsible-body" id="sec-us-exp">
+                <table class="excel-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 55%;">US Exp Item / Doctor</th>
+                      <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-us-exp-details"></tbody>
+                  <tfoot>
+                    <tr class="excel-subtotal-row">
+                      <td>Total US Exp</td>
+                      <td class="num-cell" id="subtotal-us-exp">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add US Exp Item
+                  </button>
+                </div>
               </div>
 
             </div>
 
             <!-- COLUMN BLOCK 7: CLINIC BILLS -->
             <div class="excel-col-panel col-bills" data-col="6">
-              <div class="excel-panel-header header-lavender">
-                <span>Clinic Bills</span>
+              <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-clinic-bills" title="Click to collapse / expand">
+                <div class="header-title-box">
+                  <span class="collapse-icon">▾</span>
+                  <span>Clinic Bills</span>
+                </div>
                 <span class="panel-header-badge" id="badge-clinic-bills-total">0</span>
               </div>
-              <div class="excel-table-wrapper" style="max-height: 520px; overflow-y: auto;">
-                <table class="excel-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 25%; text-align: center;">#</th>
-                      <th class="num-cell" style="width: 75%;">Amount (Rs.)</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody-clinic-bills"></tbody>
-                  <tfoot>
-                    <tr class="excel-subtotal-row">
-                      <td style="text-align: center;">Total Bills</td>
-                      <td class="num-cell" id="subtotal-clinic-bills">0</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-bill-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                  + Add Bill Line
-                </button>
+              <div class="collapsible-body" id="sec-clinic-bills">
+                <div class="excel-table-wrapper" style="max-height: 520px; overflow-y: auto;">
+                  <table class="excel-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 28%; text-align: center;">#</th>
+                        <th class="num-cell" style="width: 72%;">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-clinic-bills"></tbody>
+                    <tfoot>
+                      <tr class="excel-subtotal-row">
+                        <td style="text-align: center; font-weight: 700;">Total</td>
+                        <td class="num-cell" id="subtotal-clinic-bills" style="font-weight: 700;">0</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-add-bill-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                    + Add Bill Line
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -588,21 +648,59 @@
               </select>
             </div>
             <div>
-              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Date Range:</label>
+              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Report Period:</label>
               <select id="report-range-select" class="filter-select">
-                <option value="month">Full Month (September 2026)</option>
-                <option value="today">Selected Date</option>
+                <option value="month">Month-wise</option>
+                <option value="year">Full Year (12 Months)</option>
+                <option value="single">Single Date</option>
                 <option value="custom">Custom Date Range</option>
+                <option value="all-time">All Records (All Time)</option>
               </select>
+            </div>
+            <div id="report-month-year-group" style="display: flex; align-items: center; gap: 0.5rem;">
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Year:</label>
+                <select id="report-year-select" class="filter-select">
+                  <option value="2025">2025</option>
+                  <option value="2026" selected>2026</option>
+                  <option value="2027">2027</option>
+                  <option value="2028">2028</option>
+                  <option value="2029">2029</option>
+                  <option value="2030">2030</option>
+                </select>
+              </div>
+              <div id="report-month-wrapper">
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Month:</label>
+                <select id="report-month-select" class="filter-select">
+                  <option value="01">01 - January</option>
+                  <option value="02">02 - February</option>
+                  <option value="03">03 - March</option>
+                  <option value="04">04 - April</option>
+                  <option value="05">05 - May</option>
+                  <option value="06">06 - June</option>
+                  <option value="07">07 - July</option>
+                  <option value="08">08 - August</option>
+                  <option value="09" selected>09 - September</option>
+                  <option value="10">10 - October</option>
+                  <option value="11">11 - November</option>
+                  <option value="12">12 - December</option>
+                </select>
+              </div>
+            </div>
+            <div id="report-single-date-group" style="display: none; align-items: center; gap: 0.5rem;">
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Select Date:</label>
+                <input type="date" id="report-single-date" class="date-input" value="2026-09-01">
+              </div>
             </div>
             <div id="custom-date-group" style="display: none; align-items: center; gap: 0.5rem;">
               <div>
                 <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Start Date:</label>
-                <input type="date" id="report-start-date" class="date-input" value="2026-09-01">
+                <input type="date" id="report-start-date" class="date-input" value="2026-01-01">
               </div>
               <div>
                 <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">End Date:</label>
-                <input type="date" id="report-end-date" class="date-input" value="2026-09-30">
+                <input type="date" id="report-end-date" class="date-input" value="2026-12-31">
               </div>
             </div>
             <button type="button" class="btn btn-primary btn-sm" id="run-report-btn" style="margin-top: 1.25rem;">

@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('clinic_col_widths');
         setupNavigation();
         setupDateControls();
+        setupCollapsibleSections();
         setupAddRowButtons();
         loadDay(state.currentDate);
         renderSettings();
@@ -145,6 +146,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (viewId === 'view-settings') {
             renderSettings();
         }
+    }
+
+    // Collapsible Sub-sections (Click header to toggle collapse, expands 100% on print)
+    function setupCollapsibleSections() {
+        const headers = document.querySelectorAll('.collapsible-header');
+        headers.forEach(h => {
+            if (h.dataset.collapsibleBound) return;
+            h.dataset.collapsibleBound = 'true';
+            h.addEventListener('click', (e) => {
+                if (e.target.closest('button, input, select')) return;
+                const targetId = h.dataset.collapse;
+                let body = targetId ? document.getElementById(targetId) : null;
+                if (!body) body = h.nextElementSibling;
+                if (body) {
+                    const isCurrentlyCollapsed = body.classList.contains('is-collapsed');
+                    if (isCurrentlyCollapsed) {
+                        body.classList.remove('is-collapsed');
+                        h.classList.remove('is-collapsed');
+                        const icon = h.querySelector('.collapse-icon');
+                        if (icon) icon.textContent = '▾';
+                    } else {
+                        body.classList.add('is-collapsed');
+                        h.classList.add('is-collapsed');
+                        const icon = h.querySelector('.collapse-icon');
+                        if (icon) icon.textContent = '▸';
+                    }
+                }
+            });
+        });
     }
 
     // Date Controls
@@ -195,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
         const label = `Day ${String(dayNum).padStart(2, '0')} - ${d.toLocaleDateString('en-GB', options)}`;
         elements.dateBadge.textContent = label;
+        state.currentMonth = `${parts[0]}-${parts[1]}`;
         if (elements.printSheetDate) {
             elements.printSheetDate.textContent = `Date: ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
         }
@@ -979,6 +1010,40 @@ document.addEventListener('DOMContentLoaded', () => {
         clinicDB.saveDay(state.currentDate, state.currentDayData);
     }
 
+    function formatMonthDisplay(ymStr) {
+        if (!ymStr) return '';
+        const parts = ymStr.split('-');
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = new Date(y, m - 1, 1);
+        return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    }
+
+    function getMonthSelectorHtml(id, selectedYM) {
+        const months = [
+            { ym: '2026-01', label: 'January 2026' },
+            { ym: '2026-02', label: 'February 2026' },
+            { ym: '2026-03', label: 'March 2026' },
+            { ym: '2026-04', label: 'April 2026' },
+            { ym: '2026-05', label: 'May 2026' },
+            { ym: '2026-06', label: 'June 2026' },
+            { ym: '2026-07', label: 'July 2026' },
+            { ym: '2026-08', label: 'August 2026' },
+            { ym: '2026-09', label: 'September 2026' },
+            { ym: '2026-10', label: 'October 2026' },
+            { ym: '2026-11', label: 'November 2026' },
+            { ym: '2026-12', label: 'December 2026' },
+            { ym: '2027-01', label: 'January 2027' },
+            { ym: '2027-02', label: 'February 2027' },
+            { ym: '2027-03', label: 'March 2027' }
+        ];
+        return `
+            <select id="${id}" class="filter-select" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; font-weight: 600;">
+                ${months.map(m => `<option value="${m.ym}" ${m.ym === selectedYM ? 'selected' : ''}>${m.label}</option>`).join('')}
+            </select>
+        `;
+    }
+
     // ==========================================================
     // MASTER GRID VIEW (EXCEL DATA SHEET RECREATION)
     // ==========================================================
@@ -989,9 +1054,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = `
             <div class="table-card">
-                <div class="table-toolbar">
-                    <div class="table-title">
-                        📊 September 2026 Master Grid (Excel Data Sheet)
+                <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <div class="table-title">
+                            📊 Master Grid (Data Sheet) - ${formatMonthDisplay(state.currentMonth)}
+                        </div>
+                        ${getMonthSelectorHtml('master-month-select', state.currentMonth)}
                     </div>
                     <div style="display: flex; gap: 0.75rem;">
                         <button type="button" class="btn btn-secondary btn-sm" id="export-master-csv-btn">
@@ -1119,10 +1187,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        const monthSelect = document.getElementById('master-month-select');
+        if (monthSelect) {
+            monthSelect.addEventListener('change', (e) => {
+                state.currentMonth = e.target.value;
+                renderMasterGrid();
+            });
+        }
+
         const exportBtn = document.getElementById('export-master-csv-btn');
         if (exportBtn) {
             exportBtn.addEventListener('click', () => {
-                exportTableToCSV('master-grid-table', 'September_2026_Clinic_Master_Data.csv');
+                exportTableToCSV('master-grid-table', `${state.currentMonth}_Clinic_Master_Data.csv`);
             });
         }
     }
@@ -1138,9 +1214,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = `
             <div class="table-card">
-                <div class="table-toolbar">
-                    <div class="table-title">
-                        👥 Staff & Doctors Monthly Salary Ledger (Excel Staff Sheet)
+                <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <div class="table-title">
+                            👥 Staff & Doctors Ledger - ${formatMonthDisplay(state.currentMonth)}
+                        </div>
+                        ${getMonthSelectorHtml('staff-month-select', state.currentMonth)}
                     </div>
                     <div style="display: flex; gap: 0.75rem;">
                         <button type="button" class="btn btn-secondary btn-sm" id="export-staff-csv-btn">
@@ -1249,10 +1328,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        const staffMonthSelect = document.getElementById('staff-month-select');
+        if (staffMonthSelect) {
+            staffMonthSelect.addEventListener('change', (e) => {
+                state.currentMonth = e.target.value;
+                renderStaffMatrix();
+            });
+        }
+
         const exportStaffBtn = document.getElementById('export-staff-csv-btn');
         if (exportStaffBtn) {
             exportStaffBtn.addEventListener('click', () => {
-                exportTableToCSV('staff-matrix-table', 'Staff_Salaries_September_2026.csv');
+                exportTableToCSV('staff-matrix-table', `${state.currentMonth}_Staff_Salaries.csv`);
             });
         }
     }
@@ -1266,9 +1353,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = `
             <div class="grand-statement">
-                <div class="grand-title">
-                    <h2>Clinic & Medical Center P&L Statement</h2>
-                    <p>Consolidated Accounts & Departmental Gross Profit (September 2026)</p>
+                <div class="grand-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%; gap: 1rem;">
+                    <div>
+                        <h2>Clinic & Medical Center P&L Statement</h2>
+                        <p>Consolidated Accounts & Departmental Gross Profit (${formatMonthDisplay(state.currentMonth)})</p>
+                    </div>
+                    <div style="background: rgba(255, 255, 255, 0.15); padding: 0.35rem 0.6rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 0.78rem; font-weight: 600;">Select Period:</span>
+                        ${getMonthSelectorHtml('pnl-month-select', state.currentMonth)}
+                    </div>
                 </div>
                 <div class="grand-metrics">
                     <div class="grand-metric-item">
@@ -1420,6 +1513,14 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         container.innerHTML = html;
+
+        const pnlMonthSelect = document.getElementById('pnl-month-select');
+        if (pnlMonthSelect) {
+            pnlMonthSelect.addEventListener('change', (e) => {
+                state.currentMonth = e.target.value;
+                renderPnL();
+            });
+        }
     }
 
     // ==========================================================
@@ -1428,7 +1529,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCategoryReports() {
         const filterCatSelect = document.getElementById('report-category-select');
         const filterRangeSelect = document.getElementById('report-range-select');
-        const customDateGroup = document.getElementById('custom-date-group');
         const runBtn = document.getElementById('run-report-btn');
         const printBtn = document.getElementById('print-report-btn');
         const exportCsvBtn = document.getElementById('export-report-csv-btn');
@@ -1436,18 +1536,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterCatSelect && filterCatSelect.children.length <= 1) {
             const staffList = clinicDB.getStaffList();
             let optHtml = `
-                <option value="all">-- All Categories --</option>
-                <optgroup label="Main Categories">
+                <option value="all">-- All Combined (Complete Audit) --</option>
+                <option value="all_debits">All Expenses (Debit Total)</option>
+                <option value="all_credits">All Incomes (Credit Total)</option>
+                <optgroup label="Daily Sheet Sub-Sections">
+                    <option value="clinic_bills">Clinic Bills (Patient Bills)</option>
                     <option value="receivables">Receivables (Pending / Due)</option>
                     <option value="staff_vendors">Staff & Vendors (All Staff)</option>
-                    <option value="dental_expenses">Dental Expense</option>
+                    <option value="disp_purchases">Dispensary Purchases</option>
+                    <option value="store_purchases">Store Purchases (Medicines TP)</option>
+                    <option value="st_s">Store Sales (St S)</option>
+                    <option value="clinic_expenses">Clinic Petty Expenses</option>
+                    <option value="clinic_inc">Clinic Pt + Dispensary Income</option>
                     <option value="us_expenses">US (Ultrasound) Expense</option>
                     <option value="us_inc">US (Ultrasound) Income</option>
-                    <option value="clinic_expenses">Clinic Expenses</option>
-                    <option value="clinic_inc">Clinic Pt + Dispensary Income</option>
-                    <option value="store_purchases">Store Purchases</option>
-                    <option value="st_s">Store Sales (St S)</option>
-                    <option value="home_expenses">Home Expenses</option>
+                    <option value="dental_expenses">Dental Expense</option>
+                    <option value="store_exp">Store Exp</option>
+                    <option value="cash_breakdown">Cash Breakdown</option>
+                    <option value="home_expenses">Home Expenses (Home X)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
                 </optgroup>
                 <optgroup label="Individual Staff & Doctors">
@@ -1459,31 +1565,54 @@ document.addEventListener('DOMContentLoaded', () => {
             filterCatSelect.innerHTML = optHtml;
         }
 
-        filterRangeSelect.onchange = () => {
-            customDateGroup.style.display = filterRangeSelect.value === 'custom' ? 'flex' : 'none';
-        };
+        if (filterRangeSelect) {
+            filterRangeSelect.onchange = () => {
+                const v = filterRangeSelect.value;
+                const monthYearGroup = document.getElementById('report-month-year-group');
+                const monthWrapper = document.getElementById('report-month-wrapper');
+                const singleDateGroup = document.getElementById('report-single-date-group');
+                const customDateGroup = document.getElementById('custom-date-group');
 
-        runBtn.onclick = executeCategoryReport;
-        printBtn.onclick = () => window.print();
-        exportCsvBtn.onclick = () => exportTableToCSV('category-report-table', 'Category_Report.csv');
+                if (monthYearGroup) monthYearGroup.style.display = (v === 'month' || v === 'year') ? 'flex' : 'none';
+                if (monthWrapper) monthWrapper.style.display = (v === 'month') ? 'block' : 'none';
+                if (singleDateGroup) singleDateGroup.style.display = (v === 'single') ? 'flex' : 'none';
+                if (customDateGroup) customDateGroup.style.display = (v === 'custom') ? 'flex' : 'none';
+            };
+        }
+
+        if (runBtn) runBtn.onclick = executeCategoryReport;
+        if (printBtn) printBtn.onclick = () => window.print();
+        if (exportCsvBtn) exportCsvBtn.onclick = () => exportTableToCSV('category-report-table', 'Category_Report.csv');
 
         executeCategoryReport();
     }
 
     function executeCategoryReport() {
-        const catKey = document.getElementById('report-category-select').value;
-        const range = document.getElementById('report-range-select').value;
+        const catKey = document.getElementById('report-category-select')?.value || 'all';
+        const range = document.getElementById('report-range-select')?.value || 'month';
         let start = '', end = '';
 
         if (range === 'month') {
-            start = '2026-09-01';
-            end = '2026-09-30';
-        } else if (range === 'today') {
-            start = state.currentDate;
-            end = state.currentDate;
+            const y = document.getElementById('report-year-select')?.value || '2026';
+            const m = document.getElementById('report-month-select')?.value || '09';
+            const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
+            start = `${y}-${m}-01`;
+            end = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+        } else if (range === 'year') {
+            const y = document.getElementById('report-year-select')?.value || '2026';
+            start = `${y}-01-01`;
+            end = `${y}-12-31`;
+        } else if (range === 'single' || range === 'today') {
+            const singleInput = document.getElementById('report-single-date');
+            const dVal = singleInput?.value || state.currentDate;
+            start = dVal;
+            end = dVal;
         } else if (range === 'custom') {
-            start = document.getElementById('report-start-date').value;
-            end = document.getElementById('report-end-date').value;
+            start = document.getElementById('report-start-date')?.value || '2026-01-01';
+            end = document.getElementById('report-end-date')?.value || '2026-12-31';
+        } else if (range === 'all-time') {
+            start = '2000-01-01';
+            end = '2099-12-31';
         }
 
         const report = clinicDB.getCategoryReport(catKey, start, end);
