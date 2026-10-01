@@ -109,96 +109,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Boot App
     function init() {
+        localStorage.removeItem('clinic_col_widths');
         setupNavigation();
         setupDateControls();
         setupAddRowButtons();
-        setupColumnResizers();
         loadDay(state.currentDate);
         renderSettings();
-    }
-
-    // Interactive Column Drag to Resize with LocalStorage Persistence
-    function setupColumnResizers() {
-        const grid = document.querySelector('.excel-sheet-grid');
-        if (!grid) return;
-        const panels = Array.from(grid.querySelectorAll('.excel-col-panel'));
-        const resizers = Array.from(grid.querySelectorAll('.col-resizer'));
-        const resetBtn = document.getElementById('btn-reset-col-widths');
-
-        // 1. Restore saved widths if present
-        const saved = localStorage.getItem('clinic_col_widths');
-        if (saved) {
-            try {
-                const widths = JSON.parse(saved);
-                if (Array.isArray(widths) && widths.length === panels.length) {
-                    panels.forEach((p, idx) => {
-                        if (widths[idx]) {
-                            p.style.flex = `0 0 ${widths[idx]}`;
-                            p.style.width = widths[idx];
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error('Error parsing saved column widths:', e);
-            }
-        }
-
-        // 2. Drag interaction
-        resizers.forEach((resizer) => {
-            resizer.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                const leftPanel = resizer.previousElementSibling;
-                const rightPanel = resizer.nextElementSibling;
-                if (!leftPanel || !rightPanel) return;
-
-                const startX = e.clientX;
-                const startLeftWidth = leftPanel.getBoundingClientRect().width;
-                const startRightWidth = rightPanel.getBoundingClientRect().width;
-
-                resizer.classList.add('active');
-                document.body.style.cursor = 'col-resize';
-                document.body.style.userSelect = 'none';
-
-                function onMouseMove(moveEvent) {
-                    const dx = moveEvent.clientX - startX;
-                    const minW = 110;
-                    const newLeft = Math.max(minW, startLeftWidth + dx);
-                    const newRight = Math.max(minW, startRightWidth - dx);
-
-                    leftPanel.style.flex = `0 0 ${newLeft}px`;
-                    leftPanel.style.width = `${newLeft}px`;
-                    rightPanel.style.flex = `0 0 ${newRight}px`;
-                    rightPanel.style.width = `${newRight}px`;
-                }
-
-                function onMouseUp() {
-                    resizer.classList.remove('active');
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
-                    window.removeEventListener('mousemove', onMouseMove);
-                    window.removeEventListener('mouseup', onMouseUp);
-
-                    // Persist current panel widths to localStorage
-                    const currentWidths = panels.map(p => `${Math.round(p.getBoundingClientRect().width)}px`);
-                    localStorage.setItem('clinic_col_widths', JSON.stringify(currentWidths));
-                }
-
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-            });
-        });
-
-        // 3. Reset Button
-        if (resetBtn) {
-            resetBtn.onclick = () => {
-                localStorage.removeItem('clinic_col_widths');
-                panels.forEach(p => {
-                    p.style.flex = '';
-                    p.style.width = '';
-                });
-                showToast('Column widths reset to default compact layout', 'info');
-            };
-        }
     }
 
     // Navigation Tabs
