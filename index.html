@@ -100,6 +100,9 @@
               <span class="kpi-label">Total Cash</span>
               <span class="kpi-val cash" id="kpi-cash-total">Rs. 0</span>
             </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-col-widths" title="Reset all columns to compact auto fit">
+              <span>↔</span> Fit / Reset Columns
+            </button>
             <button type="button" class="btn btn-primary btn-sm" id="print-day-btn">
               <span>🖨️</span> Print Voucher (Landscape 1-Page)
             </button>
@@ -111,7 +114,7 @@
           <div class="excel-sheet-grid" id="excel-daily-grid">
             
             <!-- COLUMN BLOCK 1: DEBIT (EXPENSES) -->
-            <div class="excel-col-panel col-debit" style="min-width: 310px; flex: 1.2;">
+            <div class="excel-col-panel col-debit" data-col="0">
               <div class="excel-panel-header header-lavender">
                 <span>Debit (Expences)</span>
                 <span class="panel-header-badge" id="badge-debit-total">Rs. 0</span>
@@ -120,8 +123,8 @@
                 <table class="excel-table" id="table-debit">
                   <thead>
                     <tr>
-                      <th style="width: 60%;">Expense Category / Payee</th>
-                      <th class="num-cell" style="width: 40%;">Amount (Rs.)</th>
+                      <th style="width: 58%;">Expense Category / Payee</th>
+                      <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-debit"></tbody>
@@ -133,18 +136,20 @@
                   </tfoot>
                 </table>
               </div>
-              <div class="no-print" style="padding: 0.4rem; background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-color); display: flex; gap: 0.35rem;">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-debit-row" style="flex: 1; font-size: 0.72rem; padding: 0.3rem;">
-                  + Add Expense Line
+              <div class="no-print" style="padding: 0.3rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell); display: flex; gap: 0.25rem;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-debit-row" style="flex: 1; font-size: 0.68rem; padding: 0.25rem;">
+                  + Add Line
                 </button>
-                <button type="button" class="btn btn-primary btn-sm" id="btn-add-staff-debit-btn" style="flex: 1; font-size: 0.72rem; padding: 0.3rem;">
-                  👤 Pay Staff / Vendor
+                <button type="button" class="btn btn-primary btn-sm" id="btn-add-staff-debit-btn" style="flex: 1; font-size: 0.68rem; padding: 0.25rem;">
+                  👤 Staff Pay
                 </button>
               </div>
             </div>
 
+            <div class="col-resizer" data-resizer="0" title="Drag to resize column"></div>
+
             <!-- COLUMN BLOCK 2: CREDIT (INCOME) -->
-            <div class="excel-col-panel col-credit" style="min-width: 290px; flex: 1.1;">
+            <div class="excel-col-panel col-credit" data-col="1">
               <div class="excel-panel-header header-lavender">
                 <span>Credit ( Income)</span>
                 <span class="panel-header-badge" id="badge-credit-total">Rs. 0</span>
@@ -153,8 +158,8 @@
                 <table class="excel-table" id="table-credit">
                   <thead>
                     <tr>
-                      <th style="width: 60%;">Income Category</th>
-                      <th class="num-cell" style="width: 40%;">Amount (Rs.)</th>
+                      <th style="width: 58%;">Income Category</th>
+                      <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-credit"></tbody>
@@ -166,26 +171,28 @@
                   </tfoot>
                 </table>
               </div>
-              <div class="no-print" style="padding: 0.4rem; background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-color);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-credit-row" style="width: 100%; font-size: 0.72rem; padding: 0.3rem;">
-                  + Add Custom Income Line
+              <div class="no-print" style="padding: 0.3rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-credit-row" style="width: 100%; font-size: 0.68rem; padding: 0.25rem;">
+                  + Add Income Line
                 </button>
               </div>
             </div>
 
+            <div class="col-resizer" data-resizer="1" title="Drag to resize column"></div>
+
             <!-- COLUMN BLOCK 3: DISP PURCHASES + STORE PURCHASES + CLINIC EXP DETAILS -->
-            <div class="excel-col-panel" style="min-width: 370px; flex: 1.35;">
+            <div class="excel-col-panel col-disp-store" data-col="2">
               
               <!-- 3A: Dispensary Purchases -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
                 <span>Dispensary Purchases</span>
                 <span class="panel-header-badge" id="badge-disp-purch-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">Vendor / Item Name</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 58%;">Vendor / Item Name</th>
+                    <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-disp-purchases"></tbody>
@@ -196,23 +203,23 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-disp-purch-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
-                  + Add Dispensary Item
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-disp-purch-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                  + Add Item
                 </button>
               </div>
 
               <!-- 3B: Store Purchases -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
-                <span>Store Purchases (TP & Retail)</span>
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
+                <span>Store Purchases</span>
                 <span class="panel-header-badge" id="badge-store-purch-tp">TP: 0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 44%;">Distributor / Supplier</th>
-                    <th class="num-cell" style="width: 28%;">TP (Rs.)</th>
-                    <th class="num-cell" style="width: 28%;">Retail (Rs.)</th>
+                    <th style="width: 42%;">Distributor</th>
+                    <th class="num-cell" style="width: 29%;">TP (Rs.)</th>
+                    <th class="num-cell" style="width: 29%;">Retail</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-store-purchases"></tbody>
@@ -224,22 +231,22 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
-                  + Add Distributor Row
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                  + Add Distributor
                 </button>
               </div>
 
               <!-- 3C: Clinic Expenses Details -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
                 <span>Clinic Expenses Details</span>
                 <span class="panel-header-badge" id="badge-clinic-exp-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">Detail Item (chae, pani, baraf...)</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 58%;">Detail Item (chae, etc.)</th>
+                    <th class="num-cell" style="width: 42%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-clinic-exp-details"></tbody>
@@ -250,27 +257,29 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-clinic-exp-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
-                  + Add Clinic Petty Item
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-clinic-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                  + Add Petty Item
                 </button>
               </div>
 
             </div>
 
+            <div class="col-resizer" data-resizer="2" title="Drag to resize column"></div>
+
             <!-- COLUMN BLOCK 4: US TOTAL & CASH & HOME X -->
-            <div class="excel-col-panel" style="min-width: 280px; flex: 1;">
+            <div class="excel-col-panel col-us-cash" data-col="3">
               
               <!-- 4A: US Total -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
                 <span>US Total</span>
                 <span class="panel-header-badge" id="badge-us-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">US Patient / Receipt Detail</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 50%;">Receipt Detail</th>
+                    <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-us-details"></tbody>
@@ -281,22 +290,22 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
-                  + Add US Receipt
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                  + Add US Line
                 </button>
               </div>
 
               <!-- 4B: Cash Breakdown -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
                 <span>Cash Breakdown</span>
                 <span class="panel-header-badge" id="badge-cash-breakdown-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">Cash Note / Source</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 50%;">Note / Source</th>
+                    <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-cash-items"></tbody>
@@ -307,22 +316,22 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-cash-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-cash-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
                   + Add Cash Entry
                 </button>
               </div>
 
               <!-- 4C: Home X Details -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
-                <span>Home X (Home Expenses)</span>
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
+                <span>Home X (Expenses)</span>
                 <span class="panel-header-badge" id="badge-home-x-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">Household Item / Reason</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 50%;">Item / Reason</th>
+                    <th class="num-cell" style="width: 50%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-home-x-details"></tbody>
@@ -333,19 +342,21 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-home-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
-                  + Add Home Expense Line
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-home-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                  + Add Home Exp
                 </button>
               </div>
 
             </div>
 
+            <div class="col-resizer" data-resizer="3" title="Drag to resize column"></div>
+
             <!-- COLUMN BLOCK 5: STAFF & VENDORS (WITH REASON / DETAIL) -->
-            <div class="excel-col-panel" style="min-width: 380px; flex: 1.3;">
+            <div class="excel-col-panel col-staff" data-col="4">
               
               <!-- 5A: Staff & Vendors with Reason Column -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
                 <span>Staff & Vendors (Name & Reason)</span>
                 <span class="panel-header-badge" id="badge-staff-vendors-total">0</span>
               </div>
@@ -353,9 +364,9 @@
                 <table class="excel-table">
                   <thead>
                     <tr>
-                      <th style="width: 40%;">Staff Member</th>
-                      <th style="width: 35%;">Reason / Detail</th>
-                      <th class="num-cell" style="width: 25%;">Amount (Rs.)</th>
+                      <th style="width: 38%;">Staff Member</th>
+                      <th style="width: 34%;">Reason / Detail</th>
+                      <th class="num-cell" style="width: 28%;">Amount (Rs.)</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-staff-vendors"></tbody>
@@ -369,7 +380,7 @@
               </div>
 
               <!-- 5B: Receivables -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
                 <span>Receivables (Pending / Due)</span>
                 <span class="panel-header-badge" id="badge-receivables-total">0</span>
               </div>
@@ -377,8 +388,8 @@
                 <thead>
                   <tr>
                     <th style="width: 38%;">Party Name</th>
-                    <th style="width: 37%;">Detail / Note</th>
-                    <th class="num-cell" style="width: 25%;">Amount (Rs.)</th>
+                    <th style="width: 34%;">Detail / Note</th>
+                    <th class="num-cell" style="width: 28%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-receivables"></tbody>
@@ -389,27 +400,29 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-rec-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05); border-top: 1px solid var(--border-cell);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-rec-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
                   + Add Receivable Line
                 </button>
               </div>
 
             </div>
 
+            <div class="col-resizer" data-resizer="4" title="Drag to resize column"></div>
+
             <!-- COLUMN BLOCK 6: DENTAL, STORE & US EXPENSES -->
-            <div class="excel-col-panel" style="min-width: 270px; flex: 0.95;">
+            <div class="excel-col-panel col-dental-misc" data-col="5">
               
               <!-- 6A: Dental Exp -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem;">
                 <span>Dental Exp</span>
                 <span class="panel-header-badge" id="badge-dental-exp-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">Dental Item / Note</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 55%;">Dental Item / Note</th>
+                    <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-dental-details"></tbody>
@@ -420,22 +433,22 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
                   + Add Dental Item
                 </button>
               </div>
 
               <!-- 6B: Store Exp -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
                 <span>Store Exp</span>
                 <span class="panel-header-badge" id="badge-store-exp-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">Store Exp Item</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 55%;">Store Exp Item</th>
+                    <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-store-exp-details"></tbody>
@@ -446,22 +459,22 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
                   + Add Store Exp Item
                 </button>
               </div>
 
               <!-- 6C: US Exp -->
-              <div class="excel-panel-header header-lavender" style="font-size: 0.82rem; margin-top: 0.5rem;">
+              <div class="excel-panel-header header-lavender" style="font-size: 0.8rem; margin-top: 0.35rem;">
                 <span>US Exp</span>
                 <span class="panel-header-badge" id="badge-us-exp-total">0</span>
               </div>
               <table class="excel-table">
                 <thead>
                   <tr>
-                    <th style="width: 65%;">US Exp Item / Doctor</th>
-                    <th class="num-cell" style="width: 35%;">Amount (Rs.)</th>
+                    <th style="width: 55%;">US Exp Item / Doctor</th>
+                    <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-us-exp-details"></tbody>
@@ -472,16 +485,18 @@
                   </tr>
                 </tfoot>
               </table>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-exp-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-us-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
                   + Add US Exp Item
                 </button>
               </div>
 
             </div>
 
+            <div class="col-resizer" data-resizer="5" title="Drag to resize column"></div>
+
             <!-- COLUMN BLOCK 7: CLINIC BILLS -->
-            <div class="excel-col-panel" style="min-width: 250px; flex: 0.85;">
+            <div class="excel-col-panel col-bills" data-col="6">
               <div class="excel-panel-header header-lavender">
                 <span>Clinic Bills</span>
                 <span class="panel-header-badge" id="badge-clinic-bills-total">0</span>
@@ -490,22 +505,22 @@
                 <table class="excel-table">
                   <thead>
                     <tr>
-                      <th style="width: 55%;">Patient / Bill #</th>
-                      <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                      <th style="width: 25%; text-align: center;">#</th>
+                      <th class="num-cell" style="width: 75%;">Amount (Rs.)</th>
                     </tr>
                   </thead>
                   <tbody id="tbody-clinic-bills"></tbody>
                   <tfoot>
                     <tr class="excel-subtotal-row">
-                      <td>Total Clinic Bills</td>
+                      <td style="text-align: center;">Total Bills</td>
                       <td class="num-cell" id="subtotal-clinic-bills">0</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
-              <div class="no-print" style="padding: 0.2rem 0.4rem; background: rgba(15, 23, 42, 0.4);">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-bill-row" style="width: 100%; font-size: 0.68rem; padding: 0.2rem;">
-                  + Add More Bills
+              <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-bill-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                  + Add Bill Line
                 </button>
               </div>
             </div>

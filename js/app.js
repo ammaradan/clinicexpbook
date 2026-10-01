@@ -112,8 +112,93 @@ document.addEventListener('DOMContentLoaded', () => {
         setupNavigation();
         setupDateControls();
         setupAddRowButtons();
+        setupColumnResizers();
         loadDay(state.currentDate);
         renderSettings();
+    }
+
+    // Interactive Column Drag to Resize with LocalStorage Persistence
+    function setupColumnResizers() {
+        const grid = document.querySelector('.excel-sheet-grid');
+        if (!grid) return;
+        const panels = Array.from(grid.querySelectorAll('.excel-col-panel'));
+        const resizers = Array.from(grid.querySelectorAll('.col-resizer'));
+        const resetBtn = document.getElementById('btn-reset-col-widths');
+
+        // 1. Restore saved widths if present
+        const saved = localStorage.getItem('clinic_col_widths');
+        if (saved) {
+            try {
+                const widths = JSON.parse(saved);
+                if (Array.isArray(widths) && widths.length === panels.length) {
+                    panels.forEach((p, idx) => {
+                        if (widths[idx]) {
+                            p.style.flex = `0 0 ${widths[idx]}`;
+                            p.style.width = widths[idx];
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error parsing saved column widths:', e);
+            }
+        }
+
+        // 2. Drag interaction
+        resizers.forEach((resizer) => {
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const leftPanel = resizer.previousElementSibling;
+                const rightPanel = resizer.nextElementSibling;
+                if (!leftPanel || !rightPanel) return;
+
+                const startX = e.clientX;
+                const startLeftWidth = leftPanel.getBoundingClientRect().width;
+                const startRightWidth = rightPanel.getBoundingClientRect().width;
+
+                resizer.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+
+                function onMouseMove(moveEvent) {
+                    const dx = moveEvent.clientX - startX;
+                    const minW = 110;
+                    const newLeft = Math.max(minW, startLeftWidth + dx);
+                    const newRight = Math.max(minW, startRightWidth - dx);
+
+                    leftPanel.style.flex = `0 0 ${newLeft}px`;
+                    leftPanel.style.width = `${newLeft}px`;
+                    rightPanel.style.flex = `0 0 ${newRight}px`;
+                    rightPanel.style.width = `${newRight}px`;
+                }
+
+                function onMouseUp() {
+                    resizer.classList.remove('active');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mouseup', onMouseUp);
+
+                    // Persist current panel widths to localStorage
+                    const currentWidths = panels.map(p => `${Math.round(p.getBoundingClientRect().width)}px`);
+                    localStorage.setItem('clinic_col_widths', JSON.stringify(currentWidths));
+                }
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            });
+        });
+
+        // 3. Reset Button
+        if (resetBtn) {
+            resetBtn.onclick = () => {
+                localStorage.removeItem('clinic_col_widths');
+                panels.forEach(p => {
+                    p.style.flex = '';
+                    p.style.width = '';
+                });
+                showToast('Column widths reset to default compact layout', 'info');
+            };
+        }
     }
 
     // Navigation Tabs
@@ -641,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- PANEL 7: CLINIC BILLS (DESCRIPTION + AMOUNT FULLY EDITABLE) ---
+    // --- PANEL 7: CLINIC BILLS (ROW # + AMOUNT DIRECT ENTRY) ---
     function renderClinicBillsTable(data) {
         elements.tbodyClinicBills.innerHTML = '';
         const list = data.clinicBills || [];
@@ -651,15 +736,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const it = list[i] || { item: `Bill #${i+1}`, amount: 0 };
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input cb-item" value="${escapeHtml(it.item)}" placeholder="Bill #${i+1}"></td>
+                <td style="text-align: center; color: var(--text-muted); font-size: 0.72rem; font-weight: 600; background: #f8fafc;">#${i+1}</td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input cb-amt" value="${it.amount || 0}"></td>
             `;
-            tr.querySelector('.cb-item').oninput = (e) => {
-                if (!data.clinicBills[i]) data.clinicBills[i] = { item: '', amount: 0 };
-                data.clinicBills[i].item = e.target.value;
-            };
             tr.querySelector('.cb-amt').oninput = (e) => {
-                if (!data.clinicBills[i]) data.clinicBills[i] = { item: '', amount: 0 };
+                if (!data.clinicBills[i]) data.clinicBills[i] = { item: `Bill #${i+1}`, amount: 0 };
                 data.clinicBills[i].amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
             };

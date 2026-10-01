@@ -367,14 +367,16 @@ body {
 .excel-sheet-viewport {
   width: 100%;
   overflow-x: auto;
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
 }
 
 .excel-sheet-grid {
   display: flex;
-  gap: 0.55rem;
-  align-items: flex-start;
-  min-width: 1780px; /* guarantees full side by side layout like Excel! */
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+  min-width: 1160px;
+  position: relative;
 }
 
 .excel-col-panel {
@@ -385,16 +387,45 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 110px;
+  flex: 1 1 0;
+}
+
+/* Default initial column proportions */
+.excel-col-panel[data-col="0"] { flex: 1.15 1 0; } /* Debit */
+.excel-col-panel[data-col="1"] { flex: 0.95 1 0; } /* Credit */
+.excel-col-panel[data-col="2"] { flex: 1.35 1 0; } /* Disp, Store, Clinic Exp */
+.excel-col-panel[data-col="3"] { flex: 1.05 1 0; } /* US, Cash, Home X */
+.excel-col-panel[data-col="4"] { flex: 1.45 1 0; } /* Staff & Receivables */
+.excel-col-panel[data-col="5"] { flex: 1.05 1 0; } /* Dental, Store, US Exp */
+.excel-col-panel[data-col="6"] { flex: 0.85 1 0; } /* Clinic Bills */
+
+/* Drag-to-resize divider */
+.col-resizer {
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+  margin: 0 -3px;
+}
+
+.col-resizer:hover,
+.col-resizer.active {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
 }
 
 /* Excel Style Headers */
 .excel-panel-header {
-  padding: 0.45rem 0.65rem;
+  padding: 0.35rem 0.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-family: var(--font-heading);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -406,9 +437,9 @@ body {
 }
 
 .panel-header-badge {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 0.12rem 0.45rem;
+  padding: 0.1rem 0.4rem;
   border-radius: var(--radius-sm);
   background: rgba(42, 27, 64, 0.1);
   color: #2a1b40;
@@ -422,24 +453,24 @@ body {
 .excel-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
 
 .excel-table th {
   background: #f8fafc;
   color: #334155;
   font-family: var(--font-heading);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 0.35rem 0.55rem;
+  padding: 0.25rem 0.35rem;
   border-bottom: 1px solid var(--border-cell);
   border-right: 1px solid var(--border-cell);
   white-space: nowrap;
 }
 
 .excel-table td {
-  padding: 0.22rem 0.42rem;
+  padding: 0.16rem 0.3rem;
   border-bottom: 1px solid #e2e8f0;
   border-right: 1px solid #e2e8f0;
   color: var(--text-main);
@@ -480,9 +511,9 @@ body {
   background: transparent;
   border: 1px solid transparent;
   color: #0f172a;
-  padding: 0.2rem 0.35rem;
+  padding: 0.14rem 0.28rem;
   font-family: var(--font-body);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   outline: none;
   border-radius: 3px;
   transition: all 0.15s ease;
@@ -496,7 +527,7 @@ body {
   text-align: right;
   font-family: var(--font-heading);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 .cell-input.auto-cell {
   background: #f0fdf4;
@@ -894,18 +925,17 @@ body {
    ========================================================== */
 @page {
   size: A4 landscape;
-  margin: 3.5mm 5mm 3.5mm 5mm;
+  margin: 3mm 4mm 3mm 4mm;
 }
 
 @media print {
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 8pt !important;
-    width: 287mm !important;
-    max-width: 287mm !important;
-    height: 203mm !important;
-    max-height: 203mm !important;
+    font-size: 7.5pt !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
@@ -922,66 +952,78 @@ body {
   }
 
   .main-content {
-    max-width: 287mm !important;
-    width: 287mm !important;
-    height: 203mm !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
     padding: 0 !important;
     margin: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
+    overflow: hidden !important;
   }
 
   #view-daily {
-    height: 203mm !important;
+    width: 100% !important;
+    height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
+    overflow: hidden !important;
   }
 
-  /* 1. Print Header Banner (~16mm) */
+  /* 1. Print Header Banner */
   .print-header-banner {
-    height: 16mm !important;
-    margin-bottom: 2mm !important;
+    height: auto !important;
+    padding: 1mm 2mm !important;
+    margin-bottom: 1.5mm !important;
     flex-shrink: 0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 1.5px solid #222222 !important;
   }
   .print-header-banner h2 {
-    font-size: 13.5pt !important;
+    font-size: 13pt !important;
     font-weight: 800 !important;
     color: #000000 !important;
     letter-spacing: 0.02em !important;
+    margin: 0 !important;
   }
   .print-header-banner p {
-    font-size: 8pt !important;
+    font-size: 7.5pt !important;
     color: #333333 !important;
+    margin: 0 !important;
   }
   #print-sheet-date {
-    font-size: 11.5pt !important;
+    font-size: 11pt !important;
     font-weight: 800 !important;
     color: #000000 !important;
   }
 
-  /* 2. Sheet Viewport in Print: Full height 143mm */
+  /* 2. Sheet Viewport in Print: 100% Width & Height */
   .excel-sheet-viewport {
     overflow: hidden !important;
-    width: 287mm !important;
-    height: 143mm !important;
-    min-height: 143mm !important;
-    max-height: 143mm !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
     padding: 0 !important;
     margin: 0 !important;
-    flex: 1 !important;
   }
 
   .excel-sheet-grid {
     min-width: 100% !important;
     width: 100% !important;
-    height: 143mm !important;
-    min-height: 143mm !important;
-    max-height: 143mm !important;
+    max-width: 100% !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
     display: grid !important;
-    grid-template-columns: 1.15fr 1fr 1.35fr 0.95fr 1.35fr 0.95fr 0.8fr !important;
-    gap: 3px !important;
+    /* Exactly 7 columns summing to 100% width - no horizontal cutoff! */
+    grid-template-columns: 14% 11.5% 17% 13.5% 19% 13% 12% !important;
+    gap: 2.5px !important;
     margin: 0 !important;
   }
 
@@ -992,34 +1034,19 @@ body {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     border-radius: 0 !important;
-    height: 143mm !important;
-    max-height: 143mm !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
-    overflow: hidden !important;
-  }
-
-  .col-debit .excel-table-wrapper,
-  .col-credit .excel-table-wrapper,
-  .excel-col-panel:last-child .excel-table-wrapper {
-    flex: 1 !important;
-    display: flex !important;
-    flex-direction: column !important;
-  }
-
-  .col-debit .excel-table,
-  .col-credit .excel-table,
-  .excel-col-panel:last-child .excel-table {
     height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    overflow: hidden !important;
   }
 
   .excel-panel-header {
     background: #e2e8f0 !important;
     color: #000000 !important;
     border-bottom: 1.2px solid #222222 !important;
-    padding: 2.5px 4px !important;
-    font-size: 8pt !important;
+    padding: 2px 4px !important;
+    font-size: 7.6pt !important;
     font-weight: 800 !important;
     flex-shrink: 0 !important;
   }
@@ -1032,9 +1059,9 @@ body {
   .panel-header-badge {
     background: #cbd5e1 !important;
     color: #000000 !important;
-    font-size: 7.2pt !important;
+    font-size: 6.8pt !important;
     font-weight: 800 !important;
-    padding: 1px 4px !important;
+    padding: 0.5px 3.5px !important;
     border: 0.5px solid #555 !important;
   }
 
@@ -1045,8 +1072,8 @@ body {
 
   .excel-table {
     width: 100% !important;
-    font-size: 7.6pt !important;
-    line-height: 1.2 !important;
+    font-size: 7.2pt !important;
+    line-height: 1.15 !important;
     border-collapse: collapse !important;
   }
 
@@ -1054,25 +1081,25 @@ body {
     background: #f1f5f9 !important;
     color: #000000 !important;
     border: 0.6px solid #444444 !important;
-    padding: 2.5px 3.5px !important;
-    font-size: 7.2pt !important;
+    padding: 2px 3px !important;
+    font-size: 6.8pt !important;
     font-weight: 800 !important;
   }
 
   .excel-table td {
     color: #000000 !important;
     border: 0.6px solid #666666 !important;
-    padding: 2px 3.5px !important;
+    padding: 1.8px 3px !important;
     background: #ffffff !important;
-    font-size: 7.6pt !important;
+    font-size: 7.2pt !important;
   }
 
   .cell-input {
     color: #000000 !important;
     padding: 0 !important;
-    font-size: 7.6pt !important;
+    font-size: 7.2pt !important;
     height: auto !important;
-    line-height: 1.2 !important;
+    line-height: 1.15 !important;
     border: none !important;
     background: transparent !important;
     font-weight: 600 !important;
@@ -1092,32 +1119,30 @@ body {
     background: #e2e8f0 !important;
     color: #000000 !important;
     font-weight: 800 !important;
-    padding: 3px 4px !important;
+    padding: 2.5px 3.5px !important;
     border-top: 1.5px solid #000000 !important;
-    font-size: 7.8pt !important;
+    font-size: 7.4pt !important;
   }
 
   .excel-subtotal-row td {
     background: #f1f5f9 !important;
     color: #000000 !important;
     font-weight: 800 !important;
-    padding: 2.5px 3.5px !important;
+    padding: 2px 3px !important;
     border-top: 1.2px solid #333333 !important;
-    font-size: 7.6pt !important;
+    font-size: 7.2pt !important;
   }
 
-  /* 3. Full Page Reconciliation Bar (~17mm) */
+  /* 3. Reconciliation Bar */
   .excel-footer-reconciliation {
     background: #f8fafc !important;
     border: 1.5px solid #222222 !important;
     box-shadow: none !important;
-    padding: 3.5px 10px !important;
-    margin-top: 2.5mm !important;
-    margin-bottom: 2mm !important;
-    height: 17mm !important;
-    min-height: 17mm !important;
-    max-height: 17mm !important;
-    gap: 12px !important;
+    padding: 2.5px 8px !important;
+    margin-top: 1.5mm !important;
+    margin-bottom: 1.5mm !important;
+    height: auto !important;
+    gap: 8px !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
@@ -1135,7 +1160,7 @@ body {
   }
 
   .recon-cell-label {
-    font-size: 7pt !important;
+    font-size: 6.6pt !important;
     color: #111111 !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
@@ -1146,30 +1171,28 @@ body {
     border: none !important;
     color: #000000 !important;
     padding: 0 !important;
-    font-size: 10pt !important;
+    font-size: 9.5pt !important;
     font-weight: 800 !important;
   }
 
   .recon-status-badge {
-    padding: 2px 6px !important;
-    font-size: 8.2pt !important;
+    padding: 1.5px 5px !important;
+    font-size: 7.8pt !important;
     font-weight: 800 !important;
     border: 1.2px solid #222 !important;
     color: #000000 !important;
     background: #f1f5f9 !important;
   }
 
-  /* 4. Signature Block across bottom (~18mm) */
+  /* 4. Signature Block across bottom */
   .print-signature-area {
     display: flex !important;
     justify-content: space-between !important;
     align-items: flex-end !important;
-    margin-top: 2mm !important;
-    height: 18mm !important;
-    min-height: 18mm !important;
-    max-height: 18mm !important;
-    padding: 4mm 35mm 1mm 35mm !important;
-    border-top: 1.5px dashed #444444 !important;
+    margin-top: 1.5mm !important;
+    height: auto !important;
+    padding: 2.5mm 30mm 1mm 30mm !important;
+    border-top: 1.2px dashed #444444 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     flex-shrink: 0 !important;
@@ -1181,14 +1204,14 @@ body {
 
   .sig-col p {
     margin: 0 !important;
-    font-size: 8.2pt !important;
+    font-size: 7.8pt !important;
     color: #000000 !important;
     font-weight: 800 !important;
   }
 
   .sig-line {
-    margin-bottom: 6px !important;
-    font-size: 8.5pt !important;
+    margin-bottom: 5px !important;
+    font-size: 8pt !important;
     letter-spacing: -0.05em !important;
     font-weight: 600 !important;
   }
