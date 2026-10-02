@@ -1611,15 +1611,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 13. Debit Column Grand Total (SUM C6:C34)
         let totalDebit = (data.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
-        elements.badgeDebitTotal.textContent = `Rs. ${formatNumber(totalDebit)}`;
-        elements.footerDebitTotal.textContent = formatNumber(totalDebit);
-        elements.kpiDebit.textContent = `Rs. ${formatNumber(totalDebit)}`;
+        if (elements.badgeDebitTotal) elements.badgeDebitTotal.textContent = `Rs. ${formatNumber(totalDebit)}`;
+        if (elements.footerDebitTotal) elements.footerDebitTotal.textContent = formatNumber(totalDebit);
+        if (elements.kpiDebit) elements.kpiDebit.textContent = `Rs. ${formatNumber(totalDebit)}`;
 
         // 14. Credit Column Grand Total (SUM F6:F34)
         let totalCredit = (data.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-        elements.badgeCreditTotal.textContent = `Rs. ${formatNumber(totalCredit)}`;
-        elements.footerCreditTotal.textContent = formatNumber(totalCredit);
-        elements.kpiCredit.textContent = `Rs. ${formatNumber(totalCredit)}`;
+        if (elements.badgeCreditTotal) elements.badgeCreditTotal.textContent = `Rs. ${formatNumber(totalCredit)}`;
+        if (elements.footerCreditTotal) elements.footerCreditTotal.textContent = formatNumber(totalCredit);
+        if (elements.kpiCredit) elements.kpiCredit.textContent = `Rs. ${formatNumber(totalCredit)}`;
 
         // 15. Reconciliation & Bottom Footer
         const diff = totalCredit - totalDebit;
@@ -1633,21 +1633,25 @@ document.addEventListener('DOMContentLoaded', () => {
         data.summary.difference = diff;
         data.summary.totalCash = totalCash;
 
-        elements.inputDiff.value = formatNumber(diff);
-        elements.inputTotalCash.value = formatNumber(totalCash);
-        elements.kpiDiff.textContent = `Rs. ${formatNumber(diff)}`;
-        elements.kpiDiff.className = `kpi-val ${diff >= 0 ? 'diff-pos' : 'diff-neg'}`;
-        elements.kpiCash.textContent = `Rs. ${formatNumber(totalCash)}`;
+        if (elements.inputDiff) elements.inputDiff.value = formatNumber(diff);
+        if (elements.inputTotalCash) elements.inputTotalCash.value = formatNumber(totalCash);
+        if (elements.kpiDiff) {
+            elements.kpiDiff.textContent = `Rs. ${formatNumber(diff)}`;
+            elements.kpiDiff.className = `kpi-val ${diff >= 0 ? 'diff-pos' : 'diff-neg'}`;
+        }
+        if (elements.kpiCash) elements.kpiCash.textContent = `Rs. ${formatNumber(totalCash)}`;
 
-        if (Math.abs(diff) < 1) {
-            elements.boxReconStatus.className = 'recon-status-badge balanced';
-            elements.boxReconStatus.textContent = 'Balanced';
-        } else if (diff > 0) {
-            elements.boxReconStatus.className = 'recon-status-badge balanced';
-            elements.boxReconStatus.textContent = `Surplus: +${formatNumber(diff)}`;
-        } else {
-            elements.boxReconStatus.className = 'recon-status-badge discrepancy';
-            elements.boxReconStatus.textContent = `Deficit: ${formatNumber(diff)}`;
+        if (elements.boxReconStatus) {
+            if (Math.abs(diff) < 1) {
+                elements.boxReconStatus.className = 'recon-status-badge balanced';
+                elements.boxReconStatus.textContent = 'Balanced';
+            } else if (diff > 0) {
+                elements.boxReconStatus.className = 'recon-status-badge balanced';
+                elements.boxReconStatus.textContent = `Surplus: +${formatNumber(diff)}`;
+            } else {
+                elements.boxReconStatus.className = 'recon-status-badge discrepancy';
+                elements.boxReconStatus.textContent = `Deficit: ${formatNumber(diff)}`;
+            }
         }
     }
 
@@ -2118,6 +2122,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th class="num-cell">US Exp</th>
                                 <th class="num-cell">Dental Exp</th>
                                 <th class="num-cell">Store Exp</th>
+                                <th class="num-cell" style="color: #f43f5e; background: rgba(244,63,94,0.06);">Others Exp</th>
+                                <th class="num-cell" style="color: #10b981; background: rgba(16,185,129,0.06);">Others Inc</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2138,6 +2144,25 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const storeRetail = (data.storePurchases || []).reduce((acc, p) => acc + (p.retail || 0), 0);
+
+            const standardDebits = [
+                'store med purchase', 'dispensary purchase', 'clinic exp',
+                'lb exp', 'home exp', 'us exp', 'dental exp', 'store exp',
+                'receivable', 'zk', 'kh', 'bp', 'total cash available'
+            ];
+            const othersDeb = debits.filter(d => {
+                const n = (d.name || '').toLowerCase().trim();
+                return !standardDebits.some(sd => n.includes(sd) || n === sd);
+            }).reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+
+            const standardCredits = [
+                'clinic pt', 'dispensary inc', 'lb', 'us', 'st s', 'store sale', 'ecg'
+            ];
+            const othersCred = credits.filter(c => {
+                const n = (c.name || '').toLowerCase().trim();
+                if (n.includes('daraz cash')) return false;
+                return !standardCredits.some(sc => n.includes(sc) || n === sc);
+            }).reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
             html += `
                 <tr class="master-row" data-date="${dateKey}" style="cursor: pointer;" title="Click to view and edit day sheet">
@@ -2162,6 +2187,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="num-cell">${formatNumber(getDeb('us exp'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('dental exp'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('store exp'))}</td>
+                    <td class="num-cell" style="color: #f43f5e; font-weight: 600;">${othersDeb > 0 ? formatNumber(othersDeb) : '-'}</td>
+                    <td class="num-cell" style="color: #10b981; font-weight: 600;">${othersCred > 0 ? formatNumber(othersCred) : '-'}</td>
                 </tr>
             `;
         });
@@ -2191,6 +2218,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="num-cell">${formatNumber(summary.sumUSExp)}</td>
                                 <td class="num-cell">${formatNumber(summary.sumDentalExp)}</td>
                                 <td class="num-cell">${formatNumber(summary.sumStoreExp)}</td>
+                                <td class="num-cell" style="color: #f43f5e; font-weight: 700;">Rs. ${formatNumber(summary.sumOthersDebit || 0)}</td>
+                                <td class="num-cell" style="color: #10b981; font-weight: 700;">Rs. ${formatNumber(summary.sumOthersCredit || 0)}</td>
                             </tr>
                         </tfoot>
                     </table>

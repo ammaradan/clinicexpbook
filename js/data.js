@@ -518,6 +518,7 @@ class ClinicDataManager {
         let sumKH = 0, sumZK = 0, sumBP = 0;
         let sumECG = 0, sumCash = 0, sumDispPurchases = 0;
         let sumReceivables = 0, sumUSExp = 0, sumDentalExp = 0, sumStoreExp = 0;
+        let sumOthersDebit = 0, sumOthersCredit = 0;
 
         const staffTotals = {};
         this.staffList.forEach(s => { staffTotals[s.name] = 0; });
@@ -528,8 +529,8 @@ class ClinicDataManager {
             sumCash += (data.summary?.cashTakenAway || 0);
 
             (data.debits || []).forEach(d => {
-                const name = (d.name || '').toLowerCase();
-                const amt = d.amount || 0;
+                const name = (d.name || '').toLowerCase().trim();
+                const amt = parseFloat(d.amount) || 0;
                 if (name.includes('store med purchase')) sumStoreMedPurchases += amt;
                 else if (name.includes('dispensary purchase')) sumDispPurchases += amt;
                 else if (name.includes('clinic exp')) sumClinicExp += amt;
@@ -542,16 +543,24 @@ class ClinicDataManager {
                 else if (name === 'kh') sumKH += amt;
                 else if (name === 'zk') sumZK += amt;
                 else if (name === 'bp') sumBP += amt;
+                else if (name.includes('total cash available')) { /* Cash row */ }
+                else {
+                    sumOthersDebit += amt;
+                }
             });
 
             (data.credits || []).forEach(c => {
-                const name = (c.name || '').toLowerCase();
-                const amt = c.amount || 0;
+                const name = (c.name || '').toLowerCase().trim();
+                const amt = parseFloat(c.amount) || 0;
                 if (name.includes('clinic pt') || name.includes('dispensary inc')) sumDispInc += amt;
                 else if (name === 'lb' || name.includes('lb inc')) sumLBInc += amt;
                 else if (name === 'us' || name.includes('us inc')) sumUSInc += amt;
                 else if (name === 'st s' || name.includes('store sale')) sumStSaleThisMonth += amt;
                 else if (name === 'ecg') sumECG += amt;
+                else if (name.includes('daraz cash')) { /* Daraz cash */ }
+                else {
+                    sumOthersCredit += amt;
+                }
             });
 
             if (data.storePurchases) {
@@ -604,6 +613,8 @@ class ClinicDataManager {
             sumUSExp,
             sumDentalExp,
             sumStoreExp,
+            sumOthersDebit,
+            sumOthersCredit,
             staffTotals,
             totalSalaries,
             storeProfit,
