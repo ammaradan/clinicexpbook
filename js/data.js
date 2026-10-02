@@ -315,9 +315,40 @@ class ClinicDataManager {
         return results;
     }
 
-    getMonthlySummary(yearMonthStr = '2026-09') {
-        const days = this.getDaysForMonth(yearMonthStr);
+    getDaysForRange(startDateStr, endDateStr) {
+        const results = [];
+        const start = new Date(startDateStr);
+        const end = new Date(endDateStr);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return this.getDaysForMonth('2026-09');
+        }
+        let cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const stop = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
+        while (cur <= stop) {
+            const y = cur.getFullYear();
+            const m = String(cur.getMonth() + 1).padStart(2, '0');
+            const d = String(cur.getDate()).padStart(2, '0');
+            const dateKey = `${y}-${m}-${d}`;
+            let dayData = this.days[dateKey];
+            if (!dayData && `${y}-${m}` === '2026-09' && this.days[d]) {
+                dayData = this.days[d];
+            }
+            if (!dayData) {
+                dayData = this.createBlankDay(dateKey);
+            }
+            results.push({
+                dayNum: parseInt(d, 10),
+                monthStr: `${y}-${m}`,
+                dateKey,
+                data: dayData
+            });
+            cur.setDate(cur.getDate() + 1);
+        }
+        return results;
+    }
+
+    getSummaryForDays(days, periodLabel = '') {
         let sumDr = 0, sumCr = 0;
         let sumStoreMedPurchases = 0, sumStoreSalesRetail = 0;
         let sumHomeExp = 0, sumClinicExp = 0, sumUSInc = 0;
@@ -388,7 +419,8 @@ class ClinicDataManager {
         const partnersTotal = sumZK + sumKH + sumBP;
 
         return {
-            yearMonth: yearMonthStr,
+            periodLabel,
+            yearMonth: periodLabel,
             daysCount: days.length,
             sumDr,
             sumCr,
@@ -422,6 +454,11 @@ class ClinicDataManager {
             overallGross,
             partnersTotal
         };
+    }
+
+    getMonthlySummary(yearMonthStr = '2026-09') {
+        const days = this.getDaysForMonth(yearMonthStr);
+        return this.getSummaryForDays(days, yearMonthStr);
     }
 
     getCategoryReport(categoryKey, startDate, endDate) {

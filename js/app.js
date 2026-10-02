@@ -19,8 +19,107 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDate: todayDateStr,
         currentMonth: todayDateStr.substring(0, 7),
         activeTab: 'daily',
-        currentDayData: null
+        currentDayData: null,
+        masterFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
+        staffFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
+        pnlFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr }
     };
+
+    // ==========================================================
+    // SECURITY AUTHENTICATION / APP LOCK SYSTEM
+    // ==========================================================
+    const SECURITY_STORAGE_KEY = 'clinic_app_security_pin';
+    const DEFAULT_PIN = '266270';
+
+    function getStoredPassword() {
+        return localStorage.getItem(SECURITY_STORAGE_KEY) || DEFAULT_PIN;
+    }
+
+    function setStoredPassword(newPin) {
+        localStorage.setItem(SECURITY_STORAGE_KEY, newPin);
+    }
+
+    function checkAppLock() {
+        const isUnlocked = sessionStorage.getItem('clinic_app_unlocked') === 'true';
+        const lockOverlay = document.getElementById('app-lock-screen');
+        const pwdInput = document.getElementById('lock-password-input');
+        const errorMsg = document.getElementById('lock-error-msg');
+
+        if (!isUnlocked) {
+            if (lockOverlay) lockOverlay.style.display = 'flex';
+            if (pwdInput) {
+                pwdInput.value = '';
+                setTimeout(() => pwdInput.focus(), 150);
+            }
+            if (errorMsg) errorMsg.style.display = 'none';
+        } else {
+            if (lockOverlay) lockOverlay.style.display = 'none';
+        }
+    }
+
+    function unlockApp(enteredPassword) {
+        const correct = getStoredPassword();
+        const lockOverlay = document.getElementById('app-lock-screen');
+        const pwdInput = document.getElementById('lock-password-input');
+        const errorMsg = document.getElementById('lock-error-msg');
+        const lockCard = document.querySelector('.lock-card');
+
+        if (enteredPassword === correct) {
+            sessionStorage.setItem('clinic_app_unlocked', 'true');
+            if (lockOverlay) lockOverlay.style.display = 'none';
+            if (errorMsg) errorMsg.style.display = 'none';
+            showToast('System unlocked successfully!', 'success');
+            return true;
+        } else {
+            if (errorMsg) errorMsg.style.display = 'block';
+            if (lockCard) {
+                lockCard.classList.remove('shake-anim');
+                void lockCard.offsetWidth;
+                lockCard.classList.add('shake-anim');
+            }
+            if (pwdInput) {
+                pwdInput.value = '';
+                pwdInput.focus();
+            }
+            return false;
+        }
+    }
+
+    function setupSecurityLock() {
+        checkAppLock();
+
+        const loginForm = document.getElementById('app-login-form');
+        const pwdInput = document.getElementById('lock-password-input');
+        const btnToggle = document.getElementById('btn-toggle-lock-pwd');
+
+        if (loginForm && pwdInput) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                unlockApp(pwdInput.value);
+            });
+        }
+
+        if (btnToggle && pwdInput) {
+            btnToggle.addEventListener('click', () => {
+                if (pwdInput.type === 'password') {
+                    pwdInput.type = 'text';
+                    btnToggle.textContent = '🔒';
+                } else {
+                    pwdInput.type = 'password';
+                    btnToggle.textContent = '👁️';
+                }
+            });
+        }
+
+        const btnLockApp = document.getElementById('btn-lock-app');
+        if (btnLockApp) {
+            btnLockApp.addEventListener('click', () => {
+                sessionStorage.removeItem('clinic_app_unlocked');
+                checkAppLock();
+                showToast('Application locked.', 'info');
+            });
+        }
+    }
 
     // DOM Elements
     const elements = {
@@ -181,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Boot App
     function init() {
         localStorage.removeItem('clinic_col_widths');
+        setupSecurityLock();
         setupNavigation();
         setupDateControls();
         setupCollapsibleSections();
@@ -1606,6 +1706,77 @@ document.addEventListener('DOMContentLoaded', () => {
         return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
     }
 
+    function formatDateToISO(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function formatDateKeyDisplay(dateKey) {
+        if (!dateKey) return '';
+        const parts = dateKey.split('-');
+        if (parts.length === 3) {
+            const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const m = parseInt(parts[1], 10);
+            return `${parts[2]}-${names[m - 1] || parts[1]}-${parts[0].slice(2)}`;
+        }
+        return dateKey;
+    }
+
+    function resolvePeriodData(filter) {
+        if (filter.mode === 'last3') {
+            const d = new Date();
+            const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+            const start = new Date(d.getFullYear(), d.getMonth() - 2, 1);
+            const sStr = formatDateToISO(start);
+            const eStr = formatDateToISO(end);
+            const days = clinicDB.getDaysForRange(sStr, eStr);
+            const summary = clinicDB.getSummaryForDays(days, `Last 3 Months (${sStr} to ${eStr})`);
+            return {
+                days,
+                summary,
+                label: `Last 3 Months (${formatMonthDisplay(sStr.substring(0, 7))} - ${formatMonthDisplay(eStr.substring(0, 7))})`,
+                fileLabel: `Last_3_Months_${sStr}_to_${eStr}`
+            };
+        } else if (filter.mode === 'last6') {
+            const d = new Date();
+            const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+            const start = new Date(d.getFullYear(), d.getMonth() - 5, 1);
+            const sStr = formatDateToISO(start);
+            const eStr = formatDateToISO(end);
+            const days = clinicDB.getDaysForRange(sStr, eStr);
+            const summary = clinicDB.getSummaryForDays(days, `Last 6 Months (${sStr} to ${eStr})`);
+            return {
+                days,
+                summary,
+                label: `Last 6 Months (${formatMonthDisplay(sStr.substring(0, 7))} - ${formatMonthDisplay(eStr.substring(0, 7))})`,
+                fileLabel: `Last_6_Months_${sStr}_to_${eStr}`
+            };
+        } else if (filter.mode === 'custom') {
+            const sStr = filter.start || '2026-09-01';
+            const eStr = filter.end || todayDateStr;
+            const days = clinicDB.getDaysForRange(sStr, eStr);
+            const summary = clinicDB.getSummaryForDays(days, `Custom (${sStr} to ${eStr})`);
+            return {
+                days,
+                summary,
+                label: `Custom Range (${sStr} to ${eStr})`,
+                fileLabel: `Custom_${sStr}_to_${eStr}`
+            };
+        } else {
+            const ym = filter.month || state.currentMonth;
+            const days = clinicDB.getDaysForMonth(ym);
+            const summary = clinicDB.getMonthlySummary(ym);
+            return {
+                days,
+                summary,
+                label: formatMonthDisplay(ym),
+                fileLabel: `${ym}_Data`
+            };
+        }
+    }
+
     function getMonthSelectorHtml(id, selectedYM) {
         const months = [
             { ym: '2026-01', label: 'January 2026' },
@@ -1631,29 +1802,93 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function getPeriodFilterBarHtml(prefix, filter) {
+        const isMonth = filter.mode === 'month';
+        const isCustom = filter.mode === 'custom';
+        return `
+            <div class="period-filter-wrapper no-print" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; background: #eef3f8; padding: 0.35rem 0.65rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Period:</span>
+                    <select id="${prefix}-filter-mode" class="filter-select" style="font-size: 0.8rem; padding: 0.25rem 0.5rem; font-weight: 600;">
+                        <option value="month" ${filter.mode === 'month' ? 'selected' : ''}>📅 Single Month</option>
+                        <option value="last3" ${filter.mode === 'last3' ? 'selected' : ''}>📊 Last 3 Months</option>
+                        <option value="last6" ${filter.mode === 'last6' ? 'selected' : ''}>📈 Last 6 Months</option>
+                        <option value="custom" ${filter.mode === 'custom' ? 'selected' : ''}>🔍 Custom Date Range</option>
+                    </select>
+                </div>
+                <div id="${prefix}-month-box" style="display: ${isMonth ? 'inline-block' : 'none'};">
+                    ${getMonthSelectorHtml(`${prefix}-month-select`, filter.month || state.currentMonth)}
+                </div>
+                <div id="${prefix}-custom-box" style="display: ${isCustom ? 'inline-flex' : 'none'}; align-items: center; gap: 0.35rem;">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">From:</span>
+                    <input type="date" id="${prefix}-start-date" class="date-input" style="font-size: 0.78rem; padding: 0.2rem 0.4rem;" value="${filter.start || '2026-09-01'}">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">To:</span>
+                    <input type="date" id="${prefix}-end-date" class="date-input" style="font-size: 0.78rem; padding: 0.2rem 0.4rem;" value="${filter.end || todayDateStr}">
+                    <button type="button" class="btn btn-primary btn-sm" id="${prefix}-apply-btn" style="padding: 0.2rem 0.55rem; font-size: 0.75rem;">Apply</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function bindPeriodFilterEvents(prefix, filter, onUpdate) {
+        const modeSel = document.getElementById(`${prefix}-filter-mode`);
+        const monthBox = document.getElementById(`${prefix}-month-box`);
+        const monthSel = document.getElementById(`${prefix}-month-select`);
+        const customBox = document.getElementById(`${prefix}-custom-box`);
+        const startInput = document.getElementById(`${prefix}-start-date`);
+        const endInput = document.getElementById(`${prefix}-end-date`);
+        const applyBtn = document.getElementById(`${prefix}-apply-btn`);
+
+        if (modeSel) {
+            modeSel.addEventListener('change', (e) => {
+                filter.mode = e.target.value;
+                if (filter.mode === 'month') {
+                    if (monthBox) monthBox.style.display = 'inline-block';
+                    if (customBox) customBox.style.display = 'none';
+                    onUpdate();
+                } else if (filter.mode === 'custom') {
+                    if (monthBox) monthBox.style.display = 'none';
+                    if (customBox) customBox.style.display = 'inline-flex';
+                } else {
+                    if (monthBox) monthBox.style.display = 'none';
+                    if (customBox) customBox.style.display = 'none';
+                    onUpdate();
+                }
+            });
+        }
+
+        if (monthSel) {
+            monthSel.addEventListener('change', (e) => {
+                filter.month = e.target.value;
+                state.currentMonth = e.target.value;
+                onUpdate();
+            });
+        }
+
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                if (startInput) filter.start = startInput.value;
+                if (endInput) filter.end = endInput.value;
+                onUpdate();
+            });
+        }
+    }
+
     // ==========================================================
     // MASTER GRID VIEW (EXCEL DATA SHEET RECREATION)
     // ==========================================================
     function renderMasterGrid() {
         const container = document.getElementById('master-grid-container');
-        const monthSummary = clinicDB.getMonthlySummary(state.currentMonth);
-        const days = clinicDB.getDaysForMonth(state.currentMonth);
-
-        const monthShort = (() => {
-            const parts = (state.currentMonth || '').split('-');
-            const m = parseInt(parts[1], 10);
-            const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return names[m - 1] || 'Sep';
-        })();
+        const { days, summary, label, fileLabel } = resolvePeriodData(state.masterFilter);
 
         let html = `
             <div class="table-card">
                 <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
                         <div class="table-title">
-                            📊 Master Grid (Data Sheet) - ${formatMonthDisplay(state.currentMonth)}
+                            📊 Master Grid (Data Sheet) - ${label}
                         </div>
-                        ${getMonthSelectorHtml('master-month-select', state.currentMonth)}
+                        ${getPeriodFilterBarHtml('master', state.masterFilter)}
                     </div>
                     <div style="display: flex; gap: 0.75rem;">
                         <button type="button" class="btn btn-secondary btn-sm" id="export-master-csv-btn">
@@ -1697,7 +1932,7 @@ document.addEventListener('DOMContentLoaded', () => {
         days.forEach(({ dayNum, dateKey, data }) => {
             const debits = data.debits || [];
             const credits = data.credits || [];
-            const summary = data.summary || {};
+            const dSummary = data.summary || {};
 
             const getDeb = (name) => {
                 const f = debits.find(d => (d.name || '').toLowerCase().includes(name));
@@ -1712,9 +1947,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `
                 <tr class="master-row" data-date="${dateKey}" style="cursor: pointer;" title="Click to view and edit day sheet">
-                    <td><strong>${String(dayNum).padStart(2, '0')}-${monthShort}</strong></td>
-                    <td class="num-cell" style="color: #fb7185;">${formatNumber(summary.debitTotal || 0)}</td>
-                    <td class="num-cell" style="color: #34d399;">${formatNumber(summary.creditTotal || 0)}</td>
+                    <td><strong>${formatDateKeyDisplay(dateKey)}</strong></td>
+                    <td class="num-cell" style="color: #fb7185;">${formatNumber(dSummary.debitTotal || 0)}</td>
+                    <td class="num-cell" style="color: #34d399;">${formatNumber(dSummary.creditTotal || 0)}</td>
                     <td class="num-cell">${formatNumber(getDeb('store med purchase'))}</td>
                     <td class="num-cell">${formatNumber(storeRetail)}</td>
                     <td class="num-cell">${formatNumber(getDeb('home exp'))}</td>
@@ -1726,7 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="num-cell">${formatNumber(getDeb('lb exp'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('kh'))}</td>
                     <td class="num-cell">${formatNumber(getCred('ecg'))}</td>
-                    <td class="num-cell">${formatNumber(summary.cashTakenAway || 0)}</td>
+                    <td class="num-cell">${formatNumber(dSummary.cashTakenAway || 0)}</td>
                     <td class="num-cell">${formatNumber(getDeb('dispensary purchase'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('zk'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('bp'))}</td>
@@ -1742,26 +1977,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tfoot>
                             <tr>
                                 <td>TOTAL</td>
-                                <td class="num-cell" style="color: #fb7185;">Rs. ${formatNumber(monthSummary.sumDr)}</td>
-                                <td class="num-cell" style="color: #34d399;">Rs. ${formatNumber(monthSummary.sumCr)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumStoreMedPurchases)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumStoreSalesRetail)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumHomeExp)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumClinicExp)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumUSInc)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumDispInc)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumStSaleThisMonth)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumLBInc)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumLBExp)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumKH)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumECG)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumCash)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumDispPurchases)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumZK)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumBP)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumUSExp)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumDentalExp)}</td>
-                                <td class="num-cell">${formatNumber(monthSummary.sumStoreExp)}</td>
+                                <td class="num-cell" style="color: #fb7185;">Rs. ${formatNumber(summary.sumDr)}</td>
+                                <td class="num-cell" style="color: #34d399;">Rs. ${formatNumber(summary.sumCr)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumStoreMedPurchases)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumStoreSalesRetail)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumHomeExp)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumClinicExp)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumUSInc)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumDispInc)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumStSaleThisMonth)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumLBInc)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumLBExp)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumKH)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumECG)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumCash)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumDispPurchases)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumZK)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumBP)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumUSExp)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumDentalExp)}</td>
+                                <td class="num-cell">${formatNumber(summary.sumStoreExp)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -1783,18 +2018,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        const monthSelect = document.getElementById('master-month-select');
-        if (monthSelect) {
-            monthSelect.addEventListener('change', (e) => {
-                state.currentMonth = e.target.value;
-                renderMasterGrid();
-            });
-        }
+        bindPeriodFilterEvents('master', state.masterFilter, renderMasterGrid);
 
         const exportBtn = document.getElementById('export-master-csv-btn');
         if (exportBtn) {
             exportBtn.addEventListener('click', () => {
-                exportTableToCSV('master-grid-table', `${state.currentMonth}_Clinic_Master_Data.csv`);
+                exportTableToCSV('master-grid-table', `${fileLabel}_Clinic_Master_Data.csv`);
             });
         }
     }
@@ -1805,24 +2034,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderStaffMatrix() {
         const container = document.getElementById('staff-matrix-container');
         const staffList = clinicDB.getStaffList();
-        const days = clinicDB.getDaysForMonth(state.currentMonth);
-        const monthSummary = clinicDB.getMonthlySummary(state.currentMonth);
-
-        const monthShort = (() => {
-            const parts = (state.currentMonth || '').split('-');
-            const m = parseInt(parts[1], 10);
-            const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return names[m - 1] || 'Sep';
-        })();
+        const { days, summary, label, fileLabel } = resolvePeriodData(state.staffFilter);
 
         let html = `
             <div class="table-card">
                 <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
                         <div class="table-title">
-                            👥 Staff & Doctors Ledger - ${formatMonthDisplay(state.currentMonth)}
+                            👥 Staff & Doctors Ledger - ${label}
                         </div>
-                        ${getMonthSelectorHtml('staff-month-select', state.currentMonth)}
+                        ${getPeriodFilterBarHtml('staff', state.staffFilter)}
                     </div>
                     <div style="display: flex; gap: 0.75rem;">
                         <button type="button" class="btn btn-secondary btn-sm" id="export-staff-csv-btn">
@@ -1855,7 +2076,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const payments = data.staffPayments || {};
             let dayTotal = 0;
 
-            html += `<tr><td><strong>${String(dayNum).padStart(2, '0')}-${monthShort}</strong></td>`;
+            html += `<tr><td><strong>${formatDateKeyDisplay(dateKey)}</strong></td>`;
 
             staffList.forEach(s => {
                 const pObj = payments[s.name];
@@ -1876,7 +2097,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let grandStaffSum = 0;
         staffList.forEach(s => {
-            const sTotal = monthSummary.staffTotals[s.name] || 0;
+            const sTotal = summary.staffTotals[s.name] || 0;
             grandStaffSum += sTotal;
             html += `<td class="num-cell" style="color: #38bdf8;">Rs. ${formatNumber(sTotal)}</td>`;
         });
@@ -1891,12 +2112,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <!-- Employee Individual Statements -->
             <div style="margin-top: 1.5rem;">
-                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem;">Employee Payout Slips & Detail Statements</h3>
+                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem;">Employee Payout Slips & Detail Statements (${label})</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
         `;
 
         staffList.forEach(s => {
-            const total = monthSummary.staffTotals[s.name] || 0;
+            const total = summary.staffTotals[s.name] || 0;
             html += `
                 <div class="pnl-card" style="padding: 1.25rem;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -1931,18 +2152,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        const staffMonthSelect = document.getElementById('staff-month-select');
-        if (staffMonthSelect) {
-            staffMonthSelect.addEventListener('change', (e) => {
-                state.currentMonth = e.target.value;
-                renderStaffMatrix();
-            });
-        }
+        bindPeriodFilterEvents('staff', state.staffFilter, renderStaffMatrix);
 
         const exportStaffBtn = document.getElementById('export-staff-csv-btn');
         if (exportStaffBtn) {
             exportStaffBtn.addEventListener('click', () => {
-                exportTableToCSV('staff-matrix-table', `${state.currentMonth}_Staff_Salaries.csv`);
+                exportTableToCSV('staff-matrix-table', `${fileLabel}_Staff_Salaries.csv`);
             });
         }
     }
@@ -1952,18 +2167,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================
     function renderPnL() {
         const container = document.getElementById('pnl-container');
-        const summary = clinicDB.getMonthlySummary(state.currentMonth);
+        const { summary, label } = resolvePeriodData(state.pnlFilter);
 
         let html = `
             <div class="grand-statement">
                 <div class="grand-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%; gap: 1rem;">
                     <div>
                         <h2>Clinic & Medical Center P&L Statement</h2>
-                        <p>Consolidated Accounts & Departmental Gross Profit (${formatMonthDisplay(state.currentMonth)})</p>
+                        <p>Consolidated Accounts & Departmental Gross Profit (${label})</p>
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.15); padding: 0.35rem 0.6rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 0.78rem; font-weight: 600;">Select Period:</span>
-                        ${getMonthSelectorHtml('pnl-month-select', state.currentMonth)}
+                        ${getPeriodFilterBarHtml('pnl', state.pnlFilter)}
                     </div>
                 </div>
                 <div class="grand-metrics">
@@ -2116,14 +2330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         container.innerHTML = html;
-
-        const pnlMonthSelect = document.getElementById('pnl-month-select');
-        if (pnlMonthSelect) {
-            pnlMonthSelect.addEventListener('change', (e) => {
-                state.currentMonth = e.target.value;
-                renderPnL();
-            });
-        }
+        bindPeriodFilterEvents('pnl', state.pnlFilter, renderPnL);
     }
 
     // ==========================================================
@@ -2453,6 +2660,51 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('Reloaded original reference Excel data!', 'success');
                     setTimeout(() => location.reload(), 800);
                 }
+            };
+        }
+
+        const btnUpdatePwd = document.getElementById('btn-update-pwd');
+        if (btnUpdatePwd) {
+            btnUpdatePwd.onclick = () => {
+                const currentInp = document.getElementById('setting-current-pwd');
+                const newInp = document.getElementById('setting-new-pwd');
+                const confirmInp = document.getElementById('setting-confirm-pwd');
+                const currentVal = (currentInp?.value || '').trim();
+                const newVal = (newInp?.value || '').trim();
+                const confirmVal = (confirmInp?.value || '').trim();
+
+                const stored = getStoredPassword();
+                if (!currentVal) {
+                    alert('Please enter your current password.');
+                    currentInp?.focus();
+                    return;
+                }
+                if (currentVal !== stored) {
+                    alert('Current password does not match.');
+                    currentInp?.focus();
+                    return;
+                }
+                if (!newVal) {
+                    alert('Please enter a new password.');
+                    newInp?.focus();
+                    return;
+                }
+                if (newVal.length < 4) {
+                    alert('Password should be at least 4 characters.');
+                    newInp?.focus();
+                    return;
+                }
+                if (newVal !== confirmVal) {
+                    alert('New password and Confirm password do not match.');
+                    confirmInp?.focus();
+                    return;
+                }
+
+                setStoredPassword(newVal);
+                if (currentInp) currentInp.value = '';
+                if (newInp) newInp.value = '';
+                if (confirmInp) confirmInp.value = '';
+                showToast('Password updated successfully! New password saved.', 'success');
             };
         }
     }

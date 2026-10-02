@@ -49,6 +49,9 @@
         <button type="button" class="btn btn-success btn-sm" id="save-day-btn">
           <span>💾</span> Save Sheet
         </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-lock-app" title="Lock App Now">
+          <span>🔒</span> Lock
+        </button>
       </div>
     </header>
 
@@ -891,6 +894,33 @@
               </button>
             </div>
           </div>
+
+          <!-- Password & Security Card -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <h3 style="font-family: var(--font-heading); font-size: 1.15rem;">🔐 App Security & Password</h3>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+              Change the password required to open and access the application. Default password is <strong>266270</strong>.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 0.65rem; max-width: 360px;">
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Current Password:</label>
+                <input type="password" id="setting-current-pwd" class="form-input" placeholder="Current password">
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">New Password:</label>
+                <input type="password" id="setting-new-pwd" class="form-input" placeholder="New password">
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Confirm New Password:</label>
+                <input type="password" id="setting-confirm-pwd" class="form-input" placeholder="Confirm new password">
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-update-pwd" style="margin-top: 0.5rem;">
+                🔑 Update Password
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -898,6 +928,28 @@
 
     <!-- TOAST NOTIFICATIONS CONTAINER -->
     <div class="toast-container" id="toast-container"></div>
+  </div>
+
+  <!-- SECURITY AUTHENTICATION / LOCK SCREEN OVERLAY -->
+  <div id="app-lock-screen" class="lock-screen-overlay" style="display: none;">
+    <div class="lock-card">
+      <div class="lock-icon-box">
+        <span style="font-size: 1.8rem;">🔒</span>
+      </div>
+      <h2 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 0.75rem;">Daily Expense Book</h2>
+      <p style="font-size: 0.82rem; color: #64748b; margin-top: 0.25rem; margin-bottom: 1.35rem;">Enter security password to access accounts</p>
+      
+      <form id="app-login-form" style="width: 100%;">
+        <div style="position: relative; margin-bottom: 0.85rem;">
+          <input type="password" id="lock-password-input" class="form-input" placeholder="Enter Password" autocomplete="current-password" autofocus style="width: 100%; padding: 0.65rem 2.5rem 0.65rem 0.85rem; font-size: 1.05rem; text-align: center; letter-spacing: 2px; border-radius: 8px;">
+          <button type="button" id="btn-toggle-lock-pwd" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1rem; color: #64748b;" title="Show/Hide Password">👁️</button>
+        </div>
+        <div id="lock-error-msg" style="display: none; color: #ef4444; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.75rem;">Incorrect password, please try again.</div>
+        <button type="submit" id="btn-unlock-app" class="btn btn-primary" style="width: 100%; padding: 0.65rem; font-size: 0.95rem; font-weight: 700; border-radius: 8px;">
+          🔓 Unlock System
+        </button>
+      </form>
+    </div>
   </div>
 
   <!-- Application Scripts -->
