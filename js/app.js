@@ -343,6 +343,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // 3. Dynamically hide any column container that has zero visible modules
+        document.querySelectorAll('.col-subsections-container').forEach(col => {
+            const visibleModules = col.querySelectorAll('.sub-section-module:not(.is-user-hidden)');
+            if (visibleModules.length === 0) {
+                col.classList.add('is-empty-col');
+            } else {
+                col.classList.remove('is-empty-col');
+            }
+        });
+
         updateHiddenSectionsBadge();
     }
 
@@ -356,6 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
             mods.forEach(m => {
                 if (m.id) columns[colId].push(m.id);
             });
+            const visibleMods = col.querySelectorAll('.sub-section-module:not(.is-user-hidden)');
+            if (visibleMods.length === 0) {
+                col.classList.add('is-empty-col');
+            } else {
+                col.classList.remove('is-empty-col');
+            }
         });
 
         const currentLayout = getSectionsLayout();
@@ -387,6 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (prevCol) {
                         prevCol.appendChild(mod);
                         recordCurrentDomLayout();
+                        applySectionsLayout();
                         showToast(`Moved to previous column!`, 'info');
                     }
                 } else {
@@ -410,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (nextCol) {
                         nextCol.appendChild(mod);
                         recordCurrentDomLayout();
+                        applySectionsLayout();
                         showToast(`Moved to next column!`, 'info');
                     }
                 } else {
@@ -430,8 +448,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!layout.hidden.includes(mod.id)) {
                     layout.hidden.push(mod.id);
                 }
-                mod.classList.add('is-user-hidden');
                 saveSectionsLayout(layout);
+                applySectionsLayout();
                 showToast(`Hidden "${secTitle}". Restore anytime from "🗂️ Organize Sections".`, 'info');
             });
         });
@@ -687,8 +705,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================
     // DAILY SHEET: RENDER ALL EXCEL PANELS
     // ==========================================================
+    function normalizeDayData(data) {
+        if (!data) return;
+        if (!Array.isArray(data.dispPurchases) || data.dispPurchases.length === 0) {
+            data.dispPurchases = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.storePurchases) || data.storePurchases.length === 0) {
+            data.storePurchases = [{ vendor: '', tp: 0, retail: 0 }, { vendor: '', tp: 0, retail: 0 }];
+        }
+        if (!Array.isArray(data.clinicExpenseDetails) || data.clinicExpenseDetails.length === 0) {
+            data.clinicExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.usDetails) || data.usDetails.length === 0) {
+            data.usDetails = [{ amount: 0 }, { amount: 0 }];
+        }
+        if (!Array.isArray(data.cashItems) || data.cashItems.length === 0) {
+            data.cashItems = [{ item: 'Entry #1', amount: 0 }, { item: 'Entry #2', amount: 0 }];
+        }
+        if (!Array.isArray(data.homeExpenseDetails) || data.homeExpenseDetails.length === 0) {
+            data.homeExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.receivables) || data.receivables.length === 0) {
+            data.receivables = [{ item: '', detail: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.dentalDetails) || data.dentalDetails.length === 0) {
+            data.dentalDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.storeExpenseDetails) || data.storeExpenseDetails.length === 0) {
+            data.storeExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.usExpenseDetails) || data.usExpenseDetails.length === 0) {
+            data.usExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        if (!Array.isArray(data.clinicBills) || data.clinicBills.length === 0) {
+            data.clinicBills = [{ amount: 0 }, { amount: 0 }, { amount: 0 }, { amount: 0 }, { amount: 0 }];
+        }
+    }
+
     function loadDay(dateKey) {
         state.currentDayData = clinicDB.getDay(dateKey);
+        normalizeDayData(state.currentDayData);
         renderAllPanels();
         recalculateAll();
     }
@@ -828,162 +884,145 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDispPurchasesTable(data) {
         elements.tbodyDispPurch.innerHTML = '';
         const list = data.dispPurchases || [];
-        const count = Math.max(list.length, 3);
-
-        for (let i = 0; i < count; i++) {
-            const item = list[i] || { item: '', amount: 0 };
+        list.forEach((item, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input dp-item" value="${escapeHtml(item.item)}" placeholder="Vendor / Item"></td>
+                <td><input type="text" class="cell-input dp-item" value="${escapeHtml(item.item || '')}" placeholder="Vendor / Item"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input dp-amt" value="${item.amount || 0}"></td>
             `;
             tr.querySelector('.dp-item').oninput = (e) => {
-                if (!data.dispPurchases[i]) data.dispPurchases[i] = { item: '', amount: 0 };
-                data.dispPurchases[i].item = e.target.value;
+                item.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.dp-amt').oninput = (e) => {
-                if (!data.dispPurchases[i]) data.dispPurchases[i] = { item: '', amount: 0 };
-                data.dispPurchases[i].amount = parseFloat(e.target.value) || 0;
+                item.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyDispPurch.appendChild(tr);
-        }
+        });
     }
 
     // --- PANEL 3B: STORE PURCHASES ---
     function renderStorePurchasesTable(data) {
         elements.tbodyStorePurch.innerHTML = '';
         const list = data.storePurchases || [];
-        const count = Math.max(list.length, 5);
-
-        for (let i = 0; i < count; i++) {
-            const p = list[i] || { vendor: '', tp: 0, retail: 0 };
+        list.forEach((p, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input sp-vendor" value="${escapeHtml(p.vendor)}" placeholder="Distributor"></td>
+                <td><input type="text" class="cell-input sp-vendor" value="${escapeHtml(p.vendor || '')}" placeholder="Distributor"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input sp-tp" value="${p.tp || 0}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input sp-retail" value="${p.retail || 0}"></td>
             `;
             tr.querySelector('.sp-vendor').oninput = (e) => {
-                if (!data.storePurchases[i]) data.storePurchases[i] = { vendor: '', tp: 0, retail: 0 };
-                data.storePurchases[i].vendor = e.target.value;
+                p.vendor = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.sp-tp').oninput = (e) => {
-                if (!data.storePurchases[i]) data.storePurchases[i] = { vendor: '', tp: 0, retail: 0 };
-                data.storePurchases[i].tp = parseFloat(e.target.value) || 0;
+                p.tp = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             tr.querySelector('.sp-retail').oninput = (e) => {
-                if (!data.storePurchases[i]) data.storePurchases[i] = { vendor: '', tp: 0, retail: 0 };
-                data.storePurchases[i].retail = parseFloat(e.target.value) || 0;
+                p.retail = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyStorePurch.appendChild(tr);
-        }
+        });
     }
 
     // --- PANEL 3C: CLINIC EXPENSES DETAILS ---
     function renderClinicExpDetailsTable(data) {
         elements.tbodyClinicExp.innerHTML = '';
         const list = data.clinicExpenseDetails || [];
-        const count = Math.max(list.length, 5);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: '', amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input ce-item" value="${escapeHtml(it.item)}" placeholder="chae, pani, baraf..."></td>
+                <td><input type="text" class="cell-input ce-item" value="${escapeHtml(it.item || '')}" placeholder="chae, pani, baraf..."></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input ce-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.ce-item').oninput = (e) => {
-                if (!data.clinicExpenseDetails[i]) data.clinicExpenseDetails[i] = { item: '', amount: 0 };
-                data.clinicExpenseDetails[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.ce-amt').oninput = (e) => {
-                if (!data.clinicExpenseDetails[i]) data.clinicExpenseDetails[i] = { item: '', amount: 0 };
-                data.clinicExpenseDetails[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyClinicExp.appendChild(tr);
-        }
+        });
     }
 
-    // --- PANEL 4A: US TOTAL (DESCRIPTION + AMOUNT FULLY EDITABLE) ---
+    // --- PANEL 4A: US TOTAL (SINGLE AMOUNT COLUMN) ---
     function renderUSTotalTable(data) {
         elements.tbodyUSDetails.innerHTML = '';
         const list = data.usDetails || [];
-        const count = Math.max(list.length, 2);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: `Receipt #${i+1}`, amount: 0 };
+        list.forEach((it, i) => {
+            const amt = typeof it === 'number' ? it : (it?.amount || 0);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input us-item" value="${escapeHtml(it.item)}" placeholder="Patient / OPD..."></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input us-amt" value="${it.amount || 0}"></td>
+                <td class="num-cell"><input type="number" step="any" class="cell-input num-input us-amt" value="${amt}" placeholder="Amount (Rs.)"></td>
             `;
-            tr.querySelector('.us-item').oninput = (e) => {
-                if (!data.usDetails[i]) data.usDetails[i] = { item: '', amount: 0 };
-                data.usDetails[i].item = e.target.value;
-            };
             tr.querySelector('.us-amt').oninput = (e) => {
-                if (!data.usDetails[i]) data.usDetails[i] = { item: '', amount: 0 };
-                data.usDetails[i].amount = parseFloat(e.target.value) || 0;
+                const val = parseFloat(e.target.value) || 0;
+                if (typeof it === 'object' && it !== null) {
+                    it.amount = val;
+                } else {
+                    list[i] = { amount: val };
+                }
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyUSDetails.appendChild(tr);
-        }
+        });
     }
 
-    // --- PANEL 4B: CASH BREAKDOWN (DESCRIPTION + AMOUNT FULLY EDITABLE) ---
+    // --- PANEL 4B: CASH BREAKDOWN (NOTE + AMOUNT) ---
     function renderCashBreakdownTable(data) {
         elements.tbodyCashItems.innerHTML = '';
         const list = data.cashItems || [];
-        const count = Math.max(list.length, 2);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: `Entry #${i+1}`, amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input cash-item-note" value="${escapeHtml(it.item)}" placeholder="Safe / Morning..."></td>
+                <td><input type="text" class="cell-input cash-item-note" value="${escapeHtml(it.item || '')}" placeholder="Safe / Morning..."></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input cash-item-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.cash-item-note').oninput = (e) => {
-                if (!data.cashItems[i]) data.cashItems[i] = { item: '', amount: 0 };
-                data.cashItems[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.cash-item-amt').oninput = (e) => {
-                if (!data.cashItems[i]) data.cashItems[i] = { item: '', amount: 0 };
-                data.cashItems[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyCashItems.appendChild(tr);
-        }
+        });
     }
 
-    // --- PANEL 4C: HOME X DETAILS (DESCRIPTION + AMOUNT FULLY EDITABLE) ---
+    // --- PANEL 4C: HOME X DETAILS ---
     function renderHomeXTable(data) {
         elements.tbodyHomeX.innerHTML = '';
         const list = data.homeExpenseDetails || [];
-        const count = Math.max(list.length, 6);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: `Home Item #${i+1}`, amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item)}" placeholder="sabzi, bill..."></td>
+                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}" placeholder="sabzi, bill..."></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input home-x-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.home-x-item').oninput = (e) => {
-                if (!data.homeExpenseDetails[i]) data.homeExpenseDetails[i] = { item: '', amount: 0 };
-                data.homeExpenseDetails[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.home-x-amt').oninput = (e) => {
-                if (!data.homeExpenseDetails[i]) data.homeExpenseDetails[i] = { item: '', amount: 0 };
-                data.homeExpenseDetails[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyHomeX.appendChild(tr);
-        }
+        });
     }
 
     // --- PANEL 5A: STAFF & VENDORS (NAME + REASON / DETAIL + AMOUNT) ---
@@ -1007,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.querySelector('.staff-reason-input').oninput = (e) => {
                 if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
                 data.staffPayments[s.name].reason = e.target.value;
+                scheduleAutoSave();
             };
 
             tr.querySelector('.staff-pay-amt').oninput = (e) => {
@@ -1014,6 +1054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
                 data.staffPayments[s.name].amount = val;
                 recalculateAll();
+                scheduleAutoSave();
             };
 
             elements.tbodyStaffVendors.appendChild(tr);
@@ -1024,10 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderReceivablesTable(data) {
         elements.tbodyReceivables.innerHTML = '';
         const list = data.receivables || [];
-        const count = Math.max(list.length, 3);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: '', detail: '', amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="text" class="cell-input rec-item" value="${escapeHtml(it.item || it.party || '')}" placeholder="Party name"></td>
@@ -1035,120 +1073,113 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input rec-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.rec-item').oninput = (e) => {
-                if (!data.receivables[i]) data.receivables[i] = { item: '', detail: '', amount: 0 };
-                data.receivables[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.rec-detail').oninput = (e) => {
-                if (!data.receivables[i]) data.receivables[i] = { item: '', detail: '', amount: 0 };
-                data.receivables[i].detail = e.target.value;
+                it.detail = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.rec-amt').oninput = (e) => {
-                if (!data.receivables[i]) data.receivables[i] = { item: '', detail: '', amount: 0 };
-                data.receivables[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyReceivables.appendChild(tr);
-        }
+        });
     }
 
     // --- PANEL 6A: DENTAL EXP DETAILS ---
     function renderDentalDetailsTable(data) {
         elements.tbodyDental.innerHTML = '';
         const list = data.dentalDetails || [];
-        const count = Math.max(list.length, 2);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: '', amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input de-item" value="${escapeHtml(it.item)}" placeholder="Dental item"></td>
+                <td><input type="text" class="cell-input de-item" value="${escapeHtml(it.item || '')}" placeholder="Dental item"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input de-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.de-item').oninput = (e) => {
-                if (!data.dentalDetails[i]) data.dentalDetails[i] = { item: '', amount: 0 };
-                data.dentalDetails[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.de-amt').oninput = (e) => {
-                if (!data.dentalDetails[i]) data.dentalDetails[i] = { item: '', amount: 0 };
-                data.dentalDetails[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyDental.appendChild(tr);
-        }
+        });
     }
 
     // --- PANEL 6B: STORE EXP DETAILS ---
     function renderStoreExpDetailsTable(data) {
         elements.tbodyStoreExp.innerHTML = '';
         const list = data.storeExpenseDetails || [];
-        const count = Math.max(list.length, 2);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: '', amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input se-item" value="${escapeHtml(it.item)}" placeholder="Store exp item"></td>
+                <td><input type="text" class="cell-input se-item" value="${escapeHtml(it.item || '')}" placeholder="Store exp item"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input se-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.se-item').oninput = (e) => {
-                if (!data.storeExpenseDetails[i]) data.storeExpenseDetails[i] = { item: '', amount: 0 };
-                data.storeExpenseDetails[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.se-amt').oninput = (e) => {
-                if (!data.storeExpenseDetails[i]) data.storeExpenseDetails[i] = { item: '', amount: 0 };
-                data.storeExpenseDetails[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyStoreExp.appendChild(tr);
-        }
+        });
     }
 
     // --- PANEL 6C: US EXP DETAILS ---
     function renderUSExpDetailsTable(data) {
         elements.tbodyUSExp.innerHTML = '';
         const list = data.usExpenseDetails || [];
-        const count = Math.max(list.length, 2);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: '', amount: 0 };
+        list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input ue-item" value="${escapeHtml(it.item)}" placeholder="US exp / Doctor"></td>
+                <td><input type="text" class="cell-input ue-item" value="${escapeHtml(it.item || '')}" placeholder="US exp / Doctor"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input ue-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.ue-item').oninput = (e) => {
-                if (!data.usExpenseDetails[i]) data.usExpenseDetails[i] = { item: '', amount: 0 };
-                data.usExpenseDetails[i].item = e.target.value;
+                it.item = e.target.value;
+                scheduleAutoSave();
             };
             tr.querySelector('.ue-amt').oninput = (e) => {
-                if (!data.usExpenseDetails[i]) data.usExpenseDetails[i] = { item: '', amount: 0 };
-                data.usExpenseDetails[i].amount = parseFloat(e.target.value) || 0;
+                it.amount = parseFloat(e.target.value) || 0;
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyUSExp.appendChild(tr);
-        }
+        });
     }
 
-    // --- PANEL 7: CLINIC BILLS (ROW # + AMOUNT DIRECT ENTRY) ---
+    // --- PANEL 7: CLINIC BILLS (SINGLE AMOUNT ENTRY COLUMN) ---
     function renderClinicBillsTable(data) {
         elements.tbodyClinicBills.innerHTML = '';
         const list = data.clinicBills || [];
-        const count = Math.max(list.length, 8);
-
-        for (let i = 0; i < count; i++) {
-            const it = list[i] || { item: `Bill #${i+1}`, amount: 0 };
+        list.forEach((it, i) => {
+            const amt = typeof it === 'number' ? it : (it?.amount || 0);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="text-align: center; color: var(--text-muted); font-size: 0.72rem; font-weight: 600; background: #f8fafc;">#${i+1}</td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input cb-amt" value="${it.amount || 0}"></td>
+                <td class="num-cell"><input type="number" step="any" class="cell-input num-input cb-amt" value="${amt}" placeholder="Amount (Rs.)"></td>
             `;
             tr.querySelector('.cb-amt').oninput = (e) => {
-                if (!data.clinicBills[i]) data.clinicBills[i] = { item: `Bill #${i+1}`, amount: 0 };
-                data.clinicBills[i].amount = parseFloat(e.target.value) || 0;
+                const val = parseFloat(e.target.value) || 0;
+                if (typeof it === 'object' && it !== null) {
+                    it.amount = val;
+                } else {
+                    list[i] = { amount: val };
+                }
                 recalculateAll();
+                scheduleAutoSave();
             };
             elements.tbodyClinicBills.appendChild(tr);
-        }
+        });
     }
 
     // ==========================================================
@@ -1437,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDispPurchasesTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Dispensary Purchases', 'info');
         });
 
         elements.btnAddStoreRow.addEventListener('click', () => {
@@ -1445,6 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStorePurchasesTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added distributor row to Store Purchases', 'info');
         });
 
         elements.btnAddClinicExpRow.addEventListener('click', () => {
@@ -1453,15 +1486,16 @@ document.addEventListener('DOMContentLoaded', () => {
             renderClinicExpDetailsTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Clinic Expenses', 'info');
         });
 
         elements.btnAddUSRow.addEventListener('click', () => {
             if (!state.currentDayData.usDetails) state.currentDayData.usDetails = [];
-            const count = state.currentDayData.usDetails.length + 1;
-            state.currentDayData.usDetails.push({ item: `Receipt #${count}`, amount: 0 });
+            state.currentDayData.usDetails.push({ amount: 0 });
             renderUSTotalTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to US Total', 'info');
         });
 
         elements.btnAddCashRow.addEventListener('click', () => {
@@ -1471,6 +1505,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCashBreakdownTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Cash Breakdown', 'info');
         });
 
         elements.btnAddHomeRow.addEventListener('click', () => {
@@ -1480,6 +1515,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderHomeXTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Home Expenses', 'info');
         });
 
         elements.btnAddRecRow.addEventListener('click', () => {
@@ -1488,6 +1524,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderReceivablesTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Receivables', 'info');
         });
 
         elements.btnAddDentalRow.addEventListener('click', () => {
@@ -1496,6 +1533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDentalDetailsTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Dental Expenses', 'info');
         });
 
         elements.btnAddStoreExpRow.addEventListener('click', () => {
@@ -1504,6 +1542,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStoreExpDetailsTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Store Expenses', 'info');
         });
 
         elements.btnAddUSExpRow.addEventListener('click', () => {
@@ -1512,15 +1551,16 @@ document.addEventListener('DOMContentLoaded', () => {
             renderUSExpDetailsTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to US Expenses', 'info');
         });
 
         elements.btnAddBillRow.addEventListener('click', () => {
             if (!state.currentDayData.clinicBills) state.currentDayData.clinicBills = [];
-            const count = state.currentDayData.clinicBills.length + 1;
-            state.currentDayData.clinicBills.push({ item: `Bill #${count}`, amount: 0 });
+            state.currentDayData.clinicBills.push({ amount: 0 });
             renderClinicBillsTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
+            showToast('Added row to Clinic Bills', 'info');
         });
     }
 

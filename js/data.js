@@ -153,18 +153,53 @@ class ClinicDataManager {
                 { name: 'St S', amount: 0, isAuto: false },
                 { name: 'ECG', amount: 0, isAuto: false }
             ],
-            dispPurchases: [],
-            storePurchases: [],
-            clinicExpenseDetails: [],
-            usDetails: [],
-            cashItems: [],
-            homeExpenseDetails: [],
+            dispPurchases: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
+            storePurchases: [
+                { vendor: '', tp: 0, retail: 0 },
+                { vendor: '', tp: 0, retail: 0 }
+            ],
+            clinicExpenseDetails: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
+            usDetails: [
+                { amount: 0 },
+                { amount: 0 }
+            ],
+            cashItems: [
+                { item: 'Entry #1', amount: 0 },
+                { item: 'Entry #2', amount: 0 }
+            ],
+            homeExpenseDetails: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
             staffPayments: {},
-            receivables: [],
-            dentalDetails: [],
-            storeExpenseDetails: [],
-            usExpenseDetails: [],
-            clinicBills: [],
+            receivables: [
+                { item: '', detail: '', amount: 0 }
+            ],
+            dentalDetails: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
+            storeExpenseDetails: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
+            usExpenseDetails: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
+            clinicBills: [
+                { amount: 0 },
+                { amount: 0 },
+                { amount: 0 },
+                { amount: 0 },
+                { amount: 0 }
+            ],
             summary: {
                 debitTotal: 0,
                 creditTotal: 0,
