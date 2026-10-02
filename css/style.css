@@ -1102,6 +1102,7 @@ input[type="number"] {
 }
 @media (max-width: 900px) {
   .settings-grid { grid-template-columns: 1fr; }
+  .settings-grid .settings-card[style*="span 2"] { grid-column: span 1 !important; }
 }
 
 .settings-card {

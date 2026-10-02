@@ -285,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupDateControls();
         setupCollapsibleSections();
         setupSectionReorderingAndVisibility();
+        applyCustomSectionTitles();
         setupAutoSaveListener();
         setupAddRowButtons();
         loadDay(state.currentDate);
@@ -370,6 +371,62 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         hidden: []
     };
+
+    const SECTION_TITLES_STORAGE_KEY = 'clinic_custom_section_titles';
+
+    const DEFAULT_SECTION_TITLES = {
+        'mod-disp-purch': 'Dispensary Purchases',
+        'mod-store-purch': 'Store Purchases',
+        'mod-clinic-exp': 'Clinic Expenses Details',
+        'mod-us-total': 'US Total',
+        'mod-cash-breakdown': 'Cash Breakdown',
+        'mod-home-x': 'Home X (Expenses)',
+        'mod-staff-vendors': 'Staff & Vendors (Name & Reason)',
+        'mod-receivables': 'Receivables (Pending / Due)',
+        'mod-dental-exp': 'Dental Exp',
+        'mod-store-exp': 'Store Exp',
+        'mod-us-exp': 'US Exp',
+        'mod-clinic-bills': 'Clinic Bills'
+    };
+
+    function getCustomSectionTitles() {
+        try {
+            const saved = localStorage.getItem(SECTION_TITLES_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed === 'object') {
+                    return { ...DEFAULT_SECTION_TITLES, ...parsed };
+                }
+            }
+        } catch (e) {
+            console.error('Error reading custom section titles:', e);
+        }
+        return { ...DEFAULT_SECTION_TITLES };
+    }
+
+    function saveCustomSectionTitles(titles) {
+        localStorage.setItem(SECTION_TITLES_STORAGE_KEY, JSON.stringify(titles));
+        if (clinicDB && clinicDB.settings) {
+            clinicDB.settings.customSectionTitles = titles;
+            clinicDB.saveAll();
+        }
+        applyCustomSectionTitles();
+    }
+
+    function applyCustomSectionTitles() {
+        const titles = getCustomSectionTitles();
+        Object.keys(DEFAULT_SECTION_TITLES).forEach(modId => {
+            const title = titles[modId] || DEFAULT_SECTION_TITLES[modId];
+            const mod = document.getElementById(modId);
+            if (mod) {
+                mod.dataset.title = title;
+                const titleSpan = mod.querySelector('.section-title-text');
+                if (titleSpan) {
+                    titleSpan.textContent = title;
+                }
+            }
+        });
+    }
 
     const SECTION_METADATA = [
         { id: 'mod-disp-purch', title: 'Dispensary Purchases', code: 'DP' },
@@ -652,9 +709,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 'col-6': 'Col 7 (Store/Bills)'
             };
 
+            const customTitles = getCustomSectionTitles();
             let html = '';
             SECTION_METADATA.forEach(sec => {
                 const isHidden = (layout.hidden || []).includes(sec.id);
+                const displayTitle = customTitles[sec.id] || sec.title;
                 // Find current column
                 let currentCol = 'col-2';
                 Object.keys(layout.columns).forEach(cId => {
@@ -663,10 +722,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 html += `
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); gap: 0.75rem;">
-                        <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; flex: 1; margin: 0; user-select: none;">
+                        <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; flex-1; margin: 0; user-select: none;">
                             <input type="checkbox" class="organize-vis-chk" data-mod-id="${sec.id}" ${!isHidden ? 'checked' : ''} style="width: 17px; height: 17px; accent-color: var(--accent-color); cursor: pointer;">
                             <div>
-                                <span style="font-weight: 600; font-size: 0.88rem; color: ${isHidden ? 'var(--text-muted)' : 'var(--text-main)'};">${escapeHtml(sec.title)}</span>
+                                <span style="font-weight: 600; font-size: 0.88rem; color: ${isHidden ? 'var(--text-muted)' : 'var(--text-main)'};">${escapeHtml(displayTitle)}</span>
                                 <div style="font-size: 0.72rem; color: var(--text-muted);">${escapeHtml(colTitles[currentCol] || currentCol)}</div>
                             </div>
                         </label>
@@ -945,6 +1004,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function confirmDeletion(itemName, onConfirm) {
+        const label = itemName ? `"${itemName}"` : 'this entry';
+        const msg = `⚠️ Are you sure you want to delete ${label}?\n\nThis will remove the item from today's record. Click OK to confirm or Cancel to keep it.`;
+        if (window.confirm(msg)) {
+            onConfirm();
+        }
+    }
+
     // --- PANEL 1: DEBIT TABLE ---
     function renderDebitTable(data) {
         ensureDebitRowOrder(data);
@@ -981,14 +1048,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const delBtn = tr.querySelector('.del-debit-row-btn');
                 if (delBtn) {
                     delBtn.addEventListener('click', () => {
-                        const rowName = item.name || 'Category';
-                        data.debits.splice(idx, 1);
-                        clinicDB.syncStaffPaymentsWithDebits(data);
-                        renderDebitTable(data);
-                        renderStaffVendorsTable(data);
-                        recalculateAll();
-                        scheduleAutoSave();
-                        showToast(`Deleted "${rowName}"`, 'info');
+                        const rowName = item.name || 'Expense Category';
+                        confirmDeletion(rowName, () => {
+                            data.debits.splice(idx, 1);
+                            clinicDB.syncStaffPaymentsWithDebits(data);
+                            renderDebitTable(data);
+                            renderStaffVendorsTable(data);
+                            recalculateAll();
+                            scheduleAutoSave();
+                            showToast(`Deleted "${rowName}"`, 'info');
+                        });
                     });
                 }
             }
@@ -1042,11 +1111,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (delBtn) {
                     delBtn.addEventListener('click', () => {
                         const rowName = item.name || 'Income Category';
-                        data.credits.splice(idx, 1);
-                        renderCreditTable(data);
-                        recalculateAll();
-                        scheduleAutoSave();
-                        showToast(`Deleted "${rowName}"`, 'info');
+                        confirmDeletion(rowName, () => {
+                            data.credits.splice(idx, 1);
+                            renderCreditTable(data);
+                            recalculateAll();
+                            scheduleAutoSave();
+                            showToast(`Deleted "${rowName}"`, 'info');
+                        });
                     });
                 }
             }
@@ -1088,10 +1159,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderDispPurchasesTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = item.item || 'Dispensary Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderDispPurchasesTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyDispPurch.appendChild(tr);
         });
@@ -1128,10 +1203,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderStorePurchasesTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = p.vendor || 'Store Distributor';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderStorePurchasesTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyStorePurch.appendChild(tr);
         });
@@ -1162,10 +1241,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderClinicExpDetailsTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || 'Expense Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderClinicExpDetailsTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyClinicExp.appendChild(tr);
         });
@@ -1197,10 +1280,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderUSTotalTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const val = typeof it === 'object' && it ? it.amount : it;
+                confirmDeletion(`US Entry (${val || 0})`, () => {
+                    list.splice(i, 1);
+                    renderUSTotalTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast('Deleted US Entry', 'info');
+                });
             };
             elements.tbodyUSDetails.appendChild(tr);
         });
@@ -1231,10 +1318,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderCashBreakdownTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || 'Cash Entry';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderCashBreakdownTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyCashItems.appendChild(tr);
         });
@@ -1265,10 +1356,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderHomeXTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || 'Home Exp Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderHomeXTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyHomeX.appendChild(tr);
         });
@@ -1320,14 +1415,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const clearBtn = tr.querySelector('.btn-clear-staff-pay');
             if (clearBtn) {
                 clearBtn.addEventListener('click', () => {
-                    if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
-                    data.staffPayments[s.name].amount = 0;
-                    clinicDB.syncDebitFromStaffPayment(data, s.name, 0, '');
-                    renderDebitTable(data);
-                    renderStaffVendorsTable(data);
-                    recalculateAll();
-                    scheduleAutoSave();
-                    showToast(`Cleared payment for ${s.name}`, 'info');
+                    confirmDeletion(`Payment for ${s.name}`, () => {
+                        if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
+                        data.staffPayments[s.name].amount = 0;
+                        clinicDB.syncDebitFromStaffPayment(data, s.name, 0, '');
+                        renderDebitTable(data);
+                        renderStaffVendorsTable(data);
+                        recalculateAll();
+                        scheduleAutoSave();
+                        showToast(`Cleared payment for ${s.name}`, 'info');
+                    });
                 });
             }
 
@@ -1365,10 +1462,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderReceivablesTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || it.party || 'Receivable Entry';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderReceivablesTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyReceivables.appendChild(tr);
         });
@@ -1399,10 +1500,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderDentalDetailsTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || 'Dental Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderDentalDetailsTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyDental.appendChild(tr);
         });
@@ -1433,10 +1538,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderStoreExpDetailsTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || 'Store Exp Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderStoreExpDetailsTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyStoreExp.appendChild(tr);
         });
@@ -1467,10 +1576,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderUSExpDetailsTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const name = it.item || 'US Exp Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderUSExpDetailsTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
             };
             elements.tbodyUSExp.appendChild(tr);
         });
@@ -1502,10 +1615,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                list.splice(i, 1);
-                renderClinicBillsTable(data);
-                recalculateAll();
-                scheduleAutoSave();
+                const val = typeof it === 'object' && it ? it.amount : it;
+                confirmDeletion(`Clinic Bill (${val || 0})`, () => {
+                    list.splice(i, 1);
+                    renderClinicBillsTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast('Deleted Clinic Bill Entry', 'info');
+                });
             };
             elements.tbodyClinicBills.appendChild(tr);
         });
@@ -2801,6 +2918,53 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             staffListEl.appendChild(div);
         });
+
+        // Sub-Sections & Headings Customizer
+        const sectionTitlesContainer = document.getElementById('settings-section-titles-list');
+        if (sectionTitlesContainer) {
+            const currentTitles = getCustomSectionTitles();
+            sectionTitlesContainer.innerHTML = '';
+            Object.keys(DEFAULT_SECTION_TITLES).forEach(modId => {
+                const defTitle = DEFAULT_SECTION_TITLES[modId];
+                const curTitle = currentTitles[modId] || defTitle;
+                const itemDiv = document.createElement('div');
+                itemDiv.style.cssText = 'background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.65rem 0.85rem; display: flex; flex-direction: column; gap: 0.35rem;';
+                itemDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Sub-Section</span>
+                        <span style="font-size: 0.7rem; color: #38bdf8;">Default: ${escapeHtml(defTitle)}</span>
+                    </div>
+                    <input type="text" class="form-input section-title-input" data-mod-id="${modId}" value="${escapeHtml(curTitle)}" placeholder="${escapeHtml(defTitle)}" style="font-size: 0.85rem; font-weight: 600;">
+                `;
+                sectionTitlesContainer.appendChild(itemDiv);
+            });
+        }
+
+        const btnSaveSectionTitles = document.getElementById('btn-save-section-titles');
+        if (btnSaveSectionTitles) {
+            btnSaveSectionTitles.onclick = () => {
+                const inputs = document.querySelectorAll('.section-title-input');
+                const newTitles = {};
+                inputs.forEach(inp => {
+                    const modId = inp.dataset.modId;
+                    const val = (inp.value || '').trim();
+                    newTitles[modId] = val || DEFAULT_SECTION_TITLES[modId];
+                });
+                saveCustomSectionTitles(newTitles);
+                showToast('Section headings saved successfully!', 'success');
+            };
+        }
+
+        const btnResetSectionTitles = document.getElementById('btn-reset-section-titles');
+        if (btnResetSectionTitles) {
+            btnResetSectionTitles.onclick = () => {
+                if (confirm('Reset all section headings to their original default names?')) {
+                    saveCustomSectionTitles({ ...DEFAULT_SECTION_TITLES });
+                    renderSettings();
+                    showToast('Section headings reset to defaults', 'info');
+                }
+            };
+        }
 
         document.getElementById('add-expense-cat-btn').onclick = () => {
             const name = prompt('Enter new Expense Category Name:');
