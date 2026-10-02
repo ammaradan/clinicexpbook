@@ -397,6 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             window.cloudSync.onRemoteDataChange((type) => {
                 showToast('Cloud data synced in real-time!', 'info');
+                if (type === 'meta' || type === 'all' || type === 'days') {
+                    applySectionsLayout();
+                    applyCollapsedSections();
+                    applyCustomSectionTitles();
+                }
                 if (state.activeTab === 'daily') {
                     loadDay(state.currentDate);
                 } else if (state.activeTab === 'master') {
@@ -499,6 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 clinicDB.settings.collapsedSections = collapsedList;
                 clinicDB.saveAll();
             }
+            if (window.cloudSync && typeof window.cloudSync.saveMetaToCloud === 'function') {
+                window.cloudSync.saveMetaToCloud(clinicDB?.categories, clinicDB?.staffList, clinicDB?.settings);
+            }
         } catch (e) {
             console.error('Error saving collapsed sections:', e);
         }
@@ -542,23 +550,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyCollapsedSections() {
         const collapsedList = getCollapsedSections();
-        if (!collapsedList || collapsedList.length === 0) return;
-        const set = new Set(collapsedList);
+        const set = new Set(collapsedList || []);
         const headers = document.querySelectorAll('.collapsible-header');
         headers.forEach(h => {
             const targetId = h.dataset.collapse;
             const mod = h.closest('.sub-section-module');
             const secId = targetId || (mod ? mod.id : null);
-            if (secId && set.has(secId)) {
-                let body = targetId ? document.getElementById(targetId) : null;
-                if (!body) body = h.nextElementSibling;
-                if (body) {
-                    body.classList.add('is-collapsed');
-                    h.classList.add('is-collapsed');
-                    if (mod) mod.classList.add('is-collapsed');
-                    const icon = h.querySelector('.collapse-icon');
-                    if (icon) icon.textContent = '▸';
-                }
+            let body = targetId ? document.getElementById(targetId) : null;
+            if (!body) body = h.nextElementSibling;
+            if (body && secId) {
+                const shouldBeCollapsed = set.has(secId);
+                body.classList.toggle('is-collapsed', shouldBeCollapsed);
+                h.classList.toggle('is-collapsed', shouldBeCollapsed);
+                if (mod) mod.classList.toggle('is-collapsed', shouldBeCollapsed);
+                const icon = h.querySelector('.collapse-icon');
+                if (icon) icon.textContent = shouldBeCollapsed ? '▸' : '▾';
             }
         });
     }
@@ -699,6 +705,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (clinicDB && clinicDB.settings) {
                 clinicDB.settings.sectionsLayout = layout;
                 clinicDB.saveAll();
+            }
+            if (window.cloudSync && typeof window.cloudSync.saveMetaToCloud === 'function') {
+                window.cloudSync.saveMetaToCloud(clinicDB?.categories, clinicDB?.staffList, clinicDB?.settings);
             }
         } catch (e) {
             console.error('Error saving sections layout:', e);

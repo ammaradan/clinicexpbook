@@ -113,7 +113,7 @@ class FirebaseSyncManager {
             this.updateStatus('error', msg);
         });
 
-        // 2. Listen for Metadata (Categories, Staff, Settings)
+        // 2. Listen for Metadata (Categories, Staff, Settings, Layout, Collapse State)
         this.db.collection('meta').doc('appMeta').onSnapshot((doc) => {
             if (doc.exists && clinicDB) {
                 const meta = doc.data();
@@ -128,9 +128,18 @@ class FirebaseSyncManager {
                     localStorage.setItem('clinic_exp_staff_v6', JSON.stringify(meta.staffList));
                     updated = true;
                 }
-                if (meta.settings && JSON.stringify(meta.settings) !== JSON.stringify(clinicDB.settings)) {
+                if (meta.settings) {
                     clinicDB.settings = meta.settings;
                     localStorage.setItem('clinic_exp_settings_v6', JSON.stringify(meta.settings));
+                    if (Array.isArray(meta.settings.collapsedSections)) {
+                        localStorage.setItem('clinic_collapsed_sections_v1', JSON.stringify(meta.settings.collapsedSections));
+                    }
+                    if (meta.settings.sectionsLayout) {
+                        localStorage.setItem('clinic_sections_layout_v2', JSON.stringify(meta.settings.sectionsLayout));
+                    }
+                    if (meta.settings.customSectionTitles) {
+                        localStorage.setItem('clinic_custom_section_titles', JSON.stringify(meta.settings.customSectionTitles));
+                    }
                     updated = true;
                 }
                 if (updated && typeof this.dataChangeCallback === 'function') {
@@ -163,10 +172,30 @@ class FirebaseSyncManager {
         if (!this.db) return;
         this.updateStatus('syncing');
         try {
+            // Gather section layout, collapsed state, and custom titles
+            let collapsed = [];
+            let layout = null;
+            let titles = null;
+            try {
+                const sCollapsed = localStorage.getItem('clinic_collapsed_sections_v1');
+                if (sCollapsed) collapsed = JSON.parse(sCollapsed);
+                const sLayout = localStorage.getItem('clinic_sections_layout_v2');
+                if (sLayout) layout = JSON.parse(sLayout);
+                const sTitles = localStorage.getItem('clinic_custom_section_titles');
+                if (sTitles) titles = JSON.parse(sTitles);
+            } catch (_) {}
+
+            const mergedSettings = {
+                ...(settings || {}),
+                collapsedSections: collapsed,
+                sectionsLayout: layout,
+                customSectionTitles: titles
+            };
+
             const payload = {
                 categories: JSON.parse(JSON.stringify(categories || {})),
                 staffList: JSON.parse(JSON.stringify(staffList || [])),
-                settings: JSON.parse(JSON.stringify(settings || {})),
+                settings: JSON.parse(JSON.stringify(mergedSettings)),
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
             };
             await this.db.collection('meta').doc('appMeta').set(payload, { merge: true });
