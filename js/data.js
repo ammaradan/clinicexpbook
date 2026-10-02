@@ -112,19 +112,141 @@ class ClinicDataManager {
 
     cleanDayItemNames(dayData) {
         if (!dayData) return dayData;
+        const standardDebits = [
+            'store med purchases', 'dispensary purchases', 'clinic expenses',
+            'lb expenses', 'home expenses', 'us exp', 'dental exp', 'store exp',
+            'receivables', 'zk', 'kh', 'bp', 'total cash available'
+        ];
         if (dayData.debits) {
             dayData.debits = dayData.debits.filter(d => {
                 const n = (d.name || '').trim().toLowerCase();
                 return n !== 'kam hisab' && n !== 'kam_hisab';
             });
+            dayData.debits.forEach(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                if (!standardDebits.includes(n)) {
+                    d.isCustom = true;
+                }
+            });
         }
+        const standardCredits = [
+            'daraz cash', 'clinic pt + dispensary inc', 'lb', 'us', 'st s', 'ecg'
+        ];
         if (dayData.credits) {
             dayData.credits = dayData.credits.filter(c => {
                 const n = (c.name || '').trim().toLowerCase();
                 return n !== 'darex credit' && n !== 'darex_credit';
             });
+            dayData.credits.forEach(c => {
+                const n = (c.name || '').trim().toLowerCase();
+                if (!standardCredits.includes(n)) {
+                    c.isCustom = true;
+                }
+            });
         }
+        this.syncStaffPaymentsWithDebits(dayData);
         return dayData;
+    }
+
+    syncStaffPaymentsWithDebits(dayData) {
+        if (!dayData) return dayData;
+        if (!dayData.staffPayments) dayData.staffPayments = {};
+
+        const staffList = this.getStaffList();
+        staffList.forEach(staff => {
+            const sName = staff.name.trim();
+            const sNameLower = sName.toLowerCase();
+
+            // Find all matching debit rows
+            const matchingDebits = (dayData.debits || []).filter(d => {
+                if (d.staffRef && d.staffRef.trim().toLowerCase() === sNameLower) return true;
+                const dName = (d.name || '').trim().toLowerCase();
+                if (dName === sNameLower) return true;
+                if (dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-') || dName.startsWith(sNameLower + ':')) return true;
+                return false;
+            });
+
+            if (matchingDebits.length > 0) {
+                const totalAmt = matchingDebits.reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+                const reasons = matchingDebits.map(d => {
+                    if (d.reason) return d.reason;
+                    const m = (d.name || '').match(/\(([^)]+)\)/);
+                    return m ? m[1] : '';
+                }).filter(Boolean).join(', ');
+
+                const currentP = dayData.staffPayments[sName];
+                const oldReason = typeof currentP === 'object' && currentP?.reason ? currentP.reason : '';
+
+                dayData.staffPayments[sName] = {
+                    amount: totalAmt,
+                    reason: reasons || oldReason || 'Staff payment'
+                };
+            } else {
+                // If there are no matching debit rows, any previous payment is reset to 0
+                if (dayData.staffPayments[sName] !== undefined) {
+                    const currentAmt = typeof dayData.staffPayments[sName] === 'number'
+                        ? dayData.staffPayments[sName]
+                        : (dayData.staffPayments[sName]?.amount || 0);
+                    if (currentAmt > 0) {
+                        dayData.staffPayments[sName] = {
+                            amount: 0,
+                            reason: typeof dayData.staffPayments[sName] === 'object' && dayData.staffPayments[sName]?.reason
+                                ? dayData.staffPayments[sName].reason
+                                : ''
+                        };
+                    }
+                }
+            }
+        });
+
+        return dayData;
+    }
+
+    syncDebitFromStaffPayment(dayData, staffName, newAmt, reason = '') {
+        if (!dayData) return;
+        if (!dayData.debits) dayData.debits = [];
+        const sName = staffName.trim();
+        const sNameLower = sName.toLowerCase();
+
+        let deb = dayData.debits.find(d => {
+            if (d.staffRef && d.staffRef.trim().toLowerCase() === sNameLower) return true;
+            const dName = (d.name || '').trim().toLowerCase();
+            return dName === sNameLower || dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-');
+        });
+
+        if (newAmt > 0) {
+            const displayName = reason ? `${sName} (${reason})` : `${sName} (Payment)`;
+            if (deb) {
+                deb.amount = newAmt;
+                deb.name = displayName;
+                deb.staffRef = sName;
+                deb.isCustom = true;
+            } else {
+                let targetIdx = dayData.debits.findIndex(d => {
+                    const n = (d.name || '').trim().toLowerCase();
+                    return n === 'zk' || n.startsWith('zk ') || n.includes('zk');
+                });
+                if (targetIdx === -1) {
+                    targetIdx = dayData.debits.findIndex(d => {
+                        const n = (d.name || '').trim().toLowerCase();
+                        return n === 'kh' || n === 'bp' || n.includes('total cash available');
+                    });
+                }
+                if (targetIdx === -1) targetIdx = dayData.debits.length;
+                dayData.debits.splice(targetIdx, 0, {
+                    name: displayName,
+                    amount: newAmt,
+                    isCustom: true,
+                    staffRef: sName,
+                    reason: reason || 'Payment'
+                });
+            }
+        } else {
+            // Amount is 0 or removed
+            if (deb) {
+                deb.amount = 0;
+            }
+        }
     }
 
     createBlankDay(dateKey) {
@@ -266,7 +388,25 @@ class ClinicDataManager {
 
     deleteCategory(type, id) {
         if (!this.categories[type]) return false;
+        const catObj = this.categories[type].find(c => c.id === id);
         this.categories[type] = this.categories[type].filter(c => c.id !== id);
+        if (catObj && catObj.name) {
+            const cNameLower = catObj.name.trim().toLowerCase();
+            Object.values(this.days).forEach(day => {
+                if (!day) return;
+                if (type === 'expense' && day.debits) {
+                    day.debits = day.debits.filter(d => {
+                        const dName = (d.name || '').trim().toLowerCase();
+                        return !(d.isCustom && dName === cNameLower);
+                    });
+                } else if (type === 'income' && day.credits) {
+                    day.credits = day.credits.filter(c => {
+                        const cName = (c.name || '').trim().toLowerCase();
+                        return !(c.isCustom && cName === cNameLower);
+                    });
+                }
+            });
+        }
         this.saveAll();
         return true;
     }
@@ -288,7 +428,28 @@ class ClinicDataManager {
     }
 
     deleteStaff(id) {
+        const staffObj = this.staffList.find(s => s.id === id);
         this.staffList = this.staffList.filter(s => s.id !== id);
+        if (staffObj && staffObj.name) {
+            const sName = staffObj.name.trim();
+            const sNameLower = sName.toLowerCase();
+            Object.values(this.days).forEach(day => {
+                if (!day) return;
+                if (day.staffPayments && day.staffPayments[sName] !== undefined) {
+                    delete day.staffPayments[sName];
+                }
+                if (day.debits) {
+                    day.debits = day.debits.filter(d => {
+                        if (d.staffRef && d.staffRef.trim().toLowerCase() === sNameLower) return false;
+                        const dName = (d.name || '').trim().toLowerCase();
+                        if (d.isCustom && (dName === sNameLower || dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-'))) {
+                            return false;
+                        }
+                        return true;
+                    });
+                }
+            });
+        }
         this.saveAll();
         return true;
     }
@@ -310,7 +471,7 @@ class ClinicDataManager {
             if (!dayData) {
                 dayData = this.createBlankDay(dateKey);
             }
-            results.push({ dayNum: i, dateKey, data: dayData });
+            results.push({ dayNum: i, dateKey, data: this.cleanDayItemNames(dayData) });
         }
         return results;
     }
@@ -341,7 +502,7 @@ class ClinicDataManager {
                 dayNum: parseInt(d, 10),
                 monthStr: `${y}-${m}`,
                 dateKey,
-                data: dayData
+                data: this.cleanDayItemNames(dayData)
             });
             cur.setDate(cur.getDate() + 1);
         }

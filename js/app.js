@@ -880,6 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadDay(dateKey) {
         state.currentDayData = clinicDB.getDay(dateKey);
         normalizeDayData(state.currentDayData);
+        clinicDB.syncStaffPaymentsWithDebits(state.currentDayData);
         renderAllPanels();
         recalculateAll();
     }
@@ -953,7 +954,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const isAuto = item.isAuto;
             tr.innerHTML = `
                 <td>
-                    ${item.isCustom ? `<input type="text" class="cell-input debit-name-input" value="${escapeHtml(item.name)}">` : `<span>${escapeHtml(item.name)}</span>`}
+                    ${item.isCustom ? `
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%;">
+                            <input type="text" class="cell-input debit-name-input" value="${escapeHtml(item.name)}" style="flex: 1;" placeholder="Expense Category / Payee">
+                            <button type="button" class="btn-icon btn-sm del-debit-row-btn no-print" data-index="${idx}" title="Delete Category / Row" style="color: #ef4444; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">🗑️</button>
+                        </div>
+                    ` : `<span>${escapeHtml(item.name)}</span>`}
                     ${isAuto ? `<span class="auto-tag">⚡ Auto</span>` : ''}
                 </td>
                 <td class="num-cell">
@@ -963,16 +969,36 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             if (item.isCustom) {
-                tr.querySelector('.debit-name-input').addEventListener('input', (e) => {
-                    item.name = e.target.value;
-                    scheduleAutoSave();
-                });
+                const nameInp = tr.querySelector('.debit-name-input');
+                if (nameInp) {
+                    nameInp.addEventListener('input', (e) => {
+                        item.name = e.target.value;
+                        clinicDB.syncStaffPaymentsWithDebits(data);
+                        scheduleAutoSave();
+                    });
+                }
+
+                const delBtn = tr.querySelector('.del-debit-row-btn');
+                if (delBtn) {
+                    delBtn.addEventListener('click', () => {
+                        const rowName = item.name || 'Category';
+                        data.debits.splice(idx, 1);
+                        clinicDB.syncStaffPaymentsWithDebits(data);
+                        renderDebitTable(data);
+                        renderStaffVendorsTable(data);
+                        recalculateAll();
+                        scheduleAutoSave();
+                        showToast(`Deleted "${rowName}"`, 'info');
+                    });
+                }
             }
 
             const amtInput = tr.querySelector('.debit-amt-input');
             if (!isAuto) {
                 amtInput.addEventListener('input', (e) => {
                     item.amount = parseFloat(e.target.value) || 0;
+                    clinicDB.syncStaffPaymentsWithDebits(data);
+                    renderStaffVendorsTable(data);
                     recalculateAll();
                     scheduleAutoSave();
                 });
@@ -989,7 +1015,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const isAuto = item.isAuto;
             tr.innerHTML = `
                 <td>
-                    ${item.isCustom ? `<input type="text" class="cell-input credit-name-input" value="${escapeHtml(item.name)}">` : `<span>${escapeHtml(item.name)}</span>`}
+                    ${item.isCustom ? `
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%;">
+                            <input type="text" class="cell-input credit-name-input" value="${escapeHtml(item.name)}" style="flex: 1;" placeholder="Income Category">
+                            <button type="button" class="btn-icon btn-sm del-credit-row-btn no-print" data-index="${idx}" title="Delete Income Category / Row" style="color: #ef4444; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">🗑️</button>
+                        </div>
+                    ` : `<span>${escapeHtml(item.name)}</span>`}
                     ${isAuto ? `<span class="auto-tag">⚡ Auto</span>` : ''}
                 </td>
                 <td class="num-cell">
@@ -999,9 +1030,25 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             if (item.isCustom) {
-                tr.querySelector('.credit-name-input').addEventListener('input', (e) => {
-                    item.name = e.target.value;
-                });
+                const nameInp = tr.querySelector('.credit-name-input');
+                if (nameInp) {
+                    nameInp.addEventListener('input', (e) => {
+                        item.name = e.target.value;
+                        scheduleAutoSave();
+                    });
+                }
+
+                const delBtn = tr.querySelector('.del-credit-row-btn');
+                if (delBtn) {
+                    delBtn.addEventListener('click', () => {
+                        const rowName = item.name || 'Income Category';
+                        data.credits.splice(idx, 1);
+                        renderCreditTable(data);
+                        recalculateAll();
+                        scheduleAutoSave();
+                        showToast(`Deleted "${rowName}"`, 'info');
+                    });
+                }
             }
 
             const amtInput = tr.querySelector('.credit-amt-input');
@@ -1009,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 amtInput.addEventListener('input', (e) => {
                     item.amount = parseFloat(e.target.value) || 0;
                     recalculateAll();
+                    scheduleAutoSave();
                 });
             }
             elements.tbodyCredit.appendChild(tr);
@@ -1022,8 +1070,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((item, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input dp-item" value="${escapeHtml(item.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input dp-amt" value="${item.amount || 0}"></td>
+                <td><input type="text" class="cell-input dp-item" value="${escapeHtml(item.item || '')}" placeholder="Item description"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input dp-amt" value="${item.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.dp-item').oninput = (e) => {
                 item.item = e.target.value;
@@ -1031,6 +1084,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.dp-amt').oninput = (e) => {
                 item.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderDispPurchasesTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1045,9 +1104,14 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((p, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input sp-vendor" value="${escapeHtml(p.vendor || '')}"></td>
+                <td><input type="text" class="cell-input sp-vendor" value="${escapeHtml(p.vendor || '')}" placeholder="Company / Distributor"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input sp-tp" value="${p.tp || 0}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input sp-retail" value="${p.retail || 0}"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input sp-retail" value="${p.retail || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.sp-vendor').oninput = (e) => {
                 p.vendor = e.target.value;
@@ -1063,6 +1127,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 recalculateAll();
                 scheduleAutoSave();
             };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderStorePurchasesTable(data);
+                recalculateAll();
+                scheduleAutoSave();
+            };
             elements.tbodyStorePurch.appendChild(tr);
         });
     }
@@ -1074,8 +1144,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input ce-item" value="${escapeHtml(it.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input ce-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input ce-item" value="${escapeHtml(it.item || '')}" placeholder="Expense Description"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input ce-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.ce-item').oninput = (e) => {
                 it.item = e.target.value;
@@ -1083,6 +1158,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.ce-amt').oninput = (e) => {
                 it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderClinicExpDetailsTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1098,7 +1179,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const amt = typeof it === 'number' ? it : (it?.amount || 0);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input us-amt" value="${amt}"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input us-amt" value="${amt}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.us-amt').oninput = (e) => {
                 const val = parseFloat(e.target.value) || 0;
@@ -1107,6 +1193,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     list[i] = { amount: val };
                 }
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderUSTotalTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1121,8 +1213,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input cash-item-note" value="${escapeHtml(it.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input cash-item-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input cash-item-note" value="${escapeHtml(it.item || '')}" placeholder="Cash description / Note"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input cash-item-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.cash-item-note').oninput = (e) => {
                 it.item = e.target.value;
@@ -1130,6 +1227,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.cash-item-amt').oninput = (e) => {
                 it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderCashBreakdownTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1144,8 +1247,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input home-x-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}" placeholder="Home expense item"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input home-x-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.home-x-item').oninput = (e) => {
                 it.item = e.target.value;
@@ -1153,6 +1261,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.home-x-amt').oninput = (e) => {
                 it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderHomeXTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1174,23 +1288,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${escapeHtml(s.name)}</strong></td>
-                <td><input type="text" class="cell-input staff-reason-input" value="${escapeHtml(reason)}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input staff-pay-amt" value="${amt}"></td>
+                <td><input type="text" class="cell-input staff-reason-input" value="${escapeHtml(reason)}" placeholder="Reason"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input staff-pay-amt" value="${amt}">
+                        ${amt > 0 ? `<button type="button" class="btn-icon btn-sm btn-clear-staff-pay no-print" title="Clear / Zero Payment" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.1); border: none; cursor: pointer; flex-shrink: 0;">✕</button>` : ''}
+                    </div>
+                </td>
             `;
 
-            tr.querySelector('.staff-reason-input').oninput = (e) => {
+            const reasonInp = tr.querySelector('.staff-reason-input');
+            reasonInp.oninput = (e) => {
                 if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
                 data.staffPayments[s.name].reason = e.target.value;
+                clinicDB.syncDebitFromStaffPayment(data, s.name, data.staffPayments[s.name].amount, e.target.value);
+                renderDebitTable(data);
                 scheduleAutoSave();
             };
 
-            tr.querySelector('.staff-pay-amt').oninput = (e) => {
+            const amtInp = tr.querySelector('.staff-pay-amt');
+            amtInp.oninput = (e) => {
                 const val = parseFloat(e.target.value) || 0;
                 if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
                 data.staffPayments[s.name].amount = val;
+                clinicDB.syncDebitFromStaffPayment(data, s.name, val, data.staffPayments[s.name].reason);
+                renderDebitTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
+
+            const clearBtn = tr.querySelector('.btn-clear-staff-pay');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    if (!data.staffPayments[s.name]) data.staffPayments[s.name] = { amount: 0, reason: '' };
+                    data.staffPayments[s.name].amount = 0;
+                    clinicDB.syncDebitFromStaffPayment(data, s.name, 0, '');
+                    renderDebitTable(data);
+                    renderStaffVendorsTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Cleared payment for ${s.name}`, 'info');
+                });
+            }
 
             elements.tbodyStaffVendors.appendChild(tr);
         });
@@ -1203,9 +1342,14 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input rec-item" value="${escapeHtml(it.item || it.party || '')}"></td>
-                <td><input type="text" class="cell-input rec-detail" value="${escapeHtml(it.detail || it.reason || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input rec-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input rec-item" value="${escapeHtml(it.item || it.party || '')}" placeholder="Party name"></td>
+                <td><input type="text" class="cell-input rec-detail" value="${escapeHtml(it.detail || it.reason || '')}" placeholder="Reason / detail"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input rec-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.rec-item').oninput = (e) => {
                 it.item = e.target.value;
@@ -1220,6 +1364,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 recalculateAll();
                 scheduleAutoSave();
             };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderReceivablesTable(data);
+                recalculateAll();
+                scheduleAutoSave();
+            };
             elements.tbodyReceivables.appendChild(tr);
         });
     }
@@ -1231,8 +1381,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input de-item" value="${escapeHtml(it.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input de-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input de-item" value="${escapeHtml(it.item || '')}" placeholder="Dental expense item"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input de-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.de-item').oninput = (e) => {
                 it.item = e.target.value;
@@ -1240,6 +1395,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.de-amt').oninput = (e) => {
                 it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderDentalDetailsTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1254,8 +1415,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input se-item" value="${escapeHtml(it.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input se-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input se-item" value="${escapeHtml(it.item || '')}" placeholder="Store expense item"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input se-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.se-item').oninput = (e) => {
                 it.item = e.target.value;
@@ -1263,6 +1429,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.se-amt').oninput = (e) => {
                 it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderStoreExpDetailsTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1277,8 +1449,13 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input ue-item" value="${escapeHtml(it.item || '')}"></td>
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input ue-amt" value="${it.amount || 0}"></td>
+                <td><input type="text" class="cell-input ue-item" value="${escapeHtml(it.item || '')}" placeholder="US expense item"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input ue-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.ue-item').oninput = (e) => {
                 it.item = e.target.value;
@@ -1286,6 +1463,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             tr.querySelector('.ue-amt').oninput = (e) => {
                 it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderUSExpDetailsTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
@@ -1301,7 +1484,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const amt = typeof it === 'number' ? it : (it?.amount || 0);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input cb-amt" value="${amt}"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input cb-amt" value="${amt}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
             `;
             tr.querySelector('.cb-amt').oninput = (e) => {
                 const val = parseFloat(e.target.value) || 0;
@@ -1310,6 +1498,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     list[i] = { amount: val };
                 }
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                list.splice(i, 1);
+                renderClinicBillsTable(data);
                 recalculateAll();
                 scheduleAutoSave();
             };
