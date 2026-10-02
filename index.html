@@ -687,6 +687,45 @@
                 </div>
               </div>
 
+              <!-- 7B: SN Expenses (Special Tracked Expense Category) -->
+              <div class="sub-section-module" id="mod-sn-exp" data-sec-id="sec-sn-exp" data-title="SN Expenses" draggable="true">
+                <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-sn-exp" title="Click to collapse / expand">
+                  <div class="header-title-box">
+                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
+                    <span class="collapse-icon">▾</span>
+                    <span class="section-title-text">SN Expenses</span>
+                  </div>
+                  <div class="header-actions-box">
+                    <span class="panel-header-badge" id="badge-sn-exp-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
+                    <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
+                    <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-sn-exp">👁️</button>
+                  </div>
+                </div>
+                <div class="collapsible-body" id="sec-sn-exp">
+                  <table class="excel-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 55%;">SN Item / Description</th>
+                        <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-sn-exp-details"></tbody>
+                    <tfoot>
+                      <tr class="excel-subtotal-row">
+                        <td>Total SN Expenses</td>
+                        <td class="num-cell" id="subtotal-sn-exp">0</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                  <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-sn-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                      + Add SN Item
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
           </div>

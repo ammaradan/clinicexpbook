@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTab: 'daily',
         currentDayData: null,
         masterFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
+        masterSubTab: 'grid', // 'grid' or 'sn_ledger'
         staffFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
         pnlFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr }
     };
@@ -165,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbodyStoreExp: document.getElementById('tbody-store-exp-details'),
         tbodyUSExp: document.getElementById('tbody-us-exp-details'),
         tbodyClinicBills: document.getElementById('tbody-clinic-bills'),
+        tbodySNExp: document.getElementById('tbody-sn-exp-details'),
 
         // Header and Footer Badges
         badgeDebitTotal: document.getElementById('badge-debit-total'),
@@ -198,6 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeUSExpTotal: document.getElementById('badge-us-exp-total'),
         subtotalClinicBills: document.getElementById('subtotal-clinic-bills'),
         badgeClinicBillsTotal: document.getElementById('badge-clinic-bills-total'),
+        subtotalSNExp: document.getElementById('subtotal-sn-exp'),
+        badgeSNExpTotal: document.getElementById('badge-sn-exp-total'),
 
         // Bottom Reconciliation Inputs
         inputCashTaken: document.getElementById('input-cash-taken'),
@@ -221,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnAddStoreExpRow: document.getElementById('btn-add-store-exp-row'),
         btnAddUSExpRow: document.getElementById('btn-add-us-exp-row'),
         btnAddBillRow: document.getElementById('btn-add-bill-row'),
+        btnAddSNExpRow: document.getElementById('btn-add-sn-exp-row'),
 
         // Toast
         toastContainer: document.getElementById('toast-container')
@@ -367,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'col-3': ['mod-us-total', 'mod-cash-breakdown'],
             'col-4': ['mod-home-x', 'mod-staff-vendors'],
             'col-5': ['mod-receivables', 'mod-dental-exp'],
-            'col-6': ['mod-store-exp', 'mod-us-exp', 'mod-clinic-bills']
+            'col-6': ['mod-store-exp', 'mod-us-exp', 'mod-clinic-bills', 'mod-sn-exp']
         },
         hidden: []
     };
@@ -386,7 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'mod-dental-exp': 'Dental Exp',
         'mod-store-exp': 'Store Exp',
         'mod-us-exp': 'US Exp',
-        'mod-clinic-bills': 'Clinic Bills'
+        'mod-clinic-bills': 'Clinic Bills',
+        'mod-sn-exp': 'SN Expenses'
     };
 
     function getCustomSectionTitles() {
@@ -440,7 +446,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'mod-dental-exp', title: 'Dental Exp Details', code: 'DE' },
         { id: 'mod-store-exp', title: 'Store Exp Details', code: 'SE' },
         { id: 'mod-us-exp', title: 'US Exp Details', code: 'UE' },
-        { id: 'mod-clinic-bills', title: 'Clinic Bills (Dispensary/PT)', code: 'CB' }
+        { id: 'mod-clinic-bills', title: 'Clinic Bills (Dispensary/PT)', code: 'CB' },
+        { id: 'mod-sn-exp', title: 'SN Expenses', code: 'SN' }
     ];
 
     function getSectionsLayout() {
@@ -449,6 +456,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (parsed && parsed.columns && Array.isArray(parsed.hidden)) {
+                    // Ensure mod-sn-exp is accounted for
+                    const allPlaced = Object.values(parsed.columns).flat();
+                    if (!allPlaced.includes('mod-sn-exp')) {
+                        if (!parsed.columns['col-6']) parsed.columns['col-6'] = [];
+                        parsed.columns['col-6'].push('mod-sn-exp');
+                    }
                     return parsed;
                 }
             }
@@ -934,6 +947,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(data.clinicBills) || data.clinicBills.length === 0) {
             data.clinicBills = [{ amount: 0 }, { amount: 0 }, { amount: 0 }, { amount: 0 }, { amount: 0 }];
         }
+        if (!Array.isArray(data.snExpenseDetails) || data.snExpenseDetails.length === 0) {
+            data.snExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
     }
 
     function loadDay(dateKey) {
@@ -989,7 +1005,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // 14. Clinic Bills
         renderClinicBillsTable(data);
 
-        // 15. Reconciliation Inputs
+        // 15. SN Expenses (Independent tracked category)
+        renderSNExpensesTable(data);
+
+        // 16. Reconciliation Inputs
         elements.inputCashTaken.value = data.summary?.cashTakenAway || 0;
         elements.inputDaraz.value = data.summary?.darazCash || 0;
 
@@ -1628,6 +1647,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- PANEL 7B: SN EXPENSES (SPECIAL INDEPENDENT TRACKED EXPENSES) ---
+    function renderSNExpensesTable(data) {
+        if (!elements.tbodySNExp) return;
+        elements.tbodySNExp.innerHTML = '';
+        const list = data.snExpenseDetails || [];
+        list.forEach((it, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="text" class="cell-input sn-item" value="${escapeHtml(it.item || '')}" placeholder="SN expense item / description"></td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <input type="number" step="any" class="cell-input num-input sn-amt" value="${it.amount || 0}">
+                        <button type="button" class="btn-icon btn-sm del-detail-row-btn no-print" title="Delete Row" style="color: #ef4444; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">✕</button>
+                    </div>
+                </td>
+            `;
+            tr.querySelector('.sn-item').oninput = (e) => {
+                it.item = e.target.value;
+                scheduleAutoSave();
+            };
+            tr.querySelector('.sn-amt').oninput = (e) => {
+                it.amount = parseFloat(e.target.value) || 0;
+                recalculateAll();
+                scheduleAutoSave();
+            };
+            tr.querySelector('.del-detail-row-btn').onclick = () => {
+                const name = it.item || 'SN Exp Item';
+                confirmDeletion(name, () => {
+                    list.splice(i, 1);
+                    renderSNExpensesTable(data);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Deleted "${name}"`, 'info');
+                });
+            };
+            elements.tbodySNExp.appendChild(tr);
+        });
+    }
+
     // ==========================================================
     // RECALCULATE ALL EXCEL FORMULAS & SYNC WITH LIVE INPUTS
     // ==========================================================
@@ -1725,6 +1783,11 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.subtotalClinicBills.textContent = formatNumber(sumClinicBills);
         elements.badgeClinicBillsTotal.textContent = formatNumber(sumClinicBills);
         setCreditAutoAmount('Clinic Pt + Dispensary Inc', sumClinicBills);
+
+        // 12b. SN Expenses (Independent tracked category - does NOT add to debit total)
+        let sumSNExp = (data.snExpenseDetails || []).reduce((acc, a) => acc + (parseFloat(a.amount) || 0), 0);
+        if (elements.subtotalSNExp) elements.subtotalSNExp.textContent = formatNumber(sumSNExp);
+        if (elements.badgeSNExpTotal) elements.badgeSNExpTotal.textContent = formatNumber(sumSNExp);
 
         // 13. Debit Column Grand Total (SUM C6:C34)
         let totalDebit = (data.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
@@ -2010,6 +2073,17 @@ document.addEventListener('DOMContentLoaded', () => {
             scheduleAutoSave();
             showToast('Added row to Clinic Bills', 'info');
         });
+
+        if (elements.btnAddSNExpRow) {
+            elements.btnAddSNExpRow.addEventListener('click', () => {
+                if (!state.currentDayData.snExpenseDetails) state.currentDayData.snExpenseDetails = [];
+                state.currentDayData.snExpenseDetails.push({ item: '', amount: 0 });
+                renderSNExpensesTable(state.currentDayData);
+                recalculateAll();
+                scheduleAutoSave();
+                showToast('Added row to SN Expenses', 'info');
+            });
+        }
     }
 
     function formatMonthDisplay(ymStr) {
@@ -2196,10 +2270,161 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('master-grid-container');
         const { days, summary, label, fileLabel } = resolvePeriodData(state.masterFilter);
 
+        // Sub-Tab: Dedicated SN Expenses Ledger View
+        if (state.masterSubTab === 'sn_ledger') {
+            const snRows = [];
+            let snTotal = 0;
+            days.forEach(({ dayNum, dateKey, data }) => {
+                const list = data.snExpenseDetails || [];
+                list.forEach(item => {
+                    const amt = parseFloat(item.amount) || 0;
+                    if (amt > 0 || (item.item && item.item.trim())) {
+                        snRows.push({
+                            dateKey,
+                            item: item.item || 'SN Expense',
+                            amount: amt
+                        });
+                        snTotal += amt;
+                    }
+                });
+            });
+
+            let html = `
+                <div class="table-card">
+                    <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255, 255, 255, 0.08); padding: 3px; border-radius: 6px; border: 1px solid var(--border-color);">
+                                <button type="button" class="btn btn-sm btn-secondary" id="btn-switch-master-grid" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+                                    📊 Master Grid
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary" id="btn-switch-sn-ledger" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+                                    📑 SN Expenses Ledger
+                                </button>
+                            </div>
+                            <div class="table-title">
+                                📑 SN Expenses Ledger - ${label}
+                            </div>
+                            ${getPeriodFilterBarHtml('master', state.masterFilter)}
+                        </div>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="export-sn-ledger-csv-btn">
+                                📥 Export CSV
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
+                                🖨️ Print Ledger
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="kpi-card" style="border-left: 4px solid #a855f7;">
+                            <span class="kpi-title">Total SN Expenses</span>
+                            <span class="kpi-value" style="color: #a855f7;">Rs. ${formatNumber(snTotal)}</span>
+                            <span class="kpi-subtext">${snRows.length} entries recorded (${label})</span>
+                        </div>
+                        <div class="kpi-card" style="border-left: 4px solid #38bdf8;">
+                            <span class="kpi-title">Average Per Entry</span>
+                            <span class="kpi-value" style="color: #38bdf8;">Rs. ${formatNumber(snRows.length > 0 ? snTotal / snRows.length : 0)}</span>
+                            <span class="kpi-subtext">Across active entries</span>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="custom-table" id="sn-ledger-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 55px;">#</th>
+                                    <th style="width: 140px;">Date</th>
+                                    <th>SN Item / Description</th>
+                                    <th class="num-cell" style="width: 160px;">Amount (Rs.)</th>
+                                    <th class="no-print" style="width: 110px; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            if (snRows.length === 0) {
+                html += `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                            No SN Expense entries recorded for ${label}. Add entries in Daily Entry via "+ Add SN Item".
+                        </td>
+                    </tr>
+                `;
+            } else {
+                snRows.forEach((r, idx) => {
+                    html += `
+                        <tr class="master-row" data-date="${r.dateKey}" style="cursor: pointer;" title="Click to view day sheet">
+                            <td>${idx + 1}</td>
+                            <td><strong>${formatDateKeyDisplay(r.dateKey)}</strong></td>
+                            <td>${escapeHtml(r.item)}</td>
+                            <td class="num-cell" style="font-weight: 700; color: #a855f7;">Rs. ${formatNumber(r.amount)}</td>
+                            <td class="no-print" style="text-align: center;">
+                                <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.72rem; padding: 0.15rem 0.45rem;">View Day</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" style="font-weight: 700; text-align: right;">TOTAL SN EXPENSES (${label})</td>
+                                    <td class="num-cell" style="font-weight: 800; color: #a855f7; font-size: 1rem;">Rs. ${formatNumber(snTotal)}</td>
+                                    <td class="no-print"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+            document.getElementById('btn-switch-master-grid').onclick = () => {
+                state.masterSubTab = 'grid';
+                renderMasterGrid();
+            };
+
+            container.querySelectorAll('.master-row').forEach(r => {
+                r.addEventListener('click', () => {
+                    const dt = r.dataset.date;
+                    saveCurrentDay(false);
+                    state.currentDate = dt;
+                    elements.dateInput.value = dt;
+                    updateDateBadge(dt);
+                    loadDay(dt);
+                    switchTab('view-daily');
+                });
+            });
+
+            bindPeriodFilterEvents('master', state.masterFilter, renderMasterGrid);
+
+            const exportBtn = document.getElementById('export-sn-ledger-csv-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    exportTableToCSV('sn-ledger-table', `${fileLabel}_SN_Expenses_Ledger.csv`);
+                });
+            }
+            return;
+        }
+
+        // Default: Master Grid Table
         let html = `
             <div class="table-card">
                 <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255, 255, 255, 0.08); padding: 3px; border-radius: 6px; border: 1px solid var(--border-color);">
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-switch-master-grid" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+                                📊 Master Grid
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" id="btn-switch-sn-ledger" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+                                📑 SN Expenses Ledger
+                            </button>
+                        </div>
                         <div class="table-title">
                             📊 Master Grid (Data Sheet) - ${label}
                         </div>
@@ -2239,6 +2464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th class="num-cell">US Exp</th>
                                 <th class="num-cell">Dental Exp</th>
                                 <th class="num-cell">Store Exp</th>
+                                <th class="num-cell" style="color: #a855f7; background: rgba(168,85,247,0.06);">SN Exp</th>
                                 <th class="num-cell" style="color: #f43f5e; background: rgba(244,63,94,0.06);">Others Exp</th>
                                 <th class="num-cell" style="color: #10b981; background: rgba(16,185,129,0.06);">Others Inc</th>
                             </tr>
@@ -2281,6 +2507,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return !standardCredits.some(sc => n.includes(sc) || n === sc);
             }).reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
+            const snDailyTotal = (data.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+
             html += `
                 <tr class="master-row" data-date="${dateKey}" style="cursor: pointer;" title="Click to view and edit day sheet">
                     <td><strong>${formatDateKeyDisplay(dateKey)}</strong></td>
@@ -2304,6 +2532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="num-cell">${formatNumber(getDeb('us exp'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('dental exp'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('store exp'))}</td>
+                    <td class="num-cell" style="color: #a855f7; font-weight: 600;">${snDailyTotal > 0 ? formatNumber(snDailyTotal) : '-'}</td>
                     <td class="num-cell" style="color: #f43f5e; font-weight: 600;">${othersDeb > 0 ? formatNumber(othersDeb) : '-'}</td>
                     <td class="num-cell" style="color: #10b981; font-weight: 600;">${othersCred > 0 ? formatNumber(othersCred) : '-'}</td>
                 </tr>
@@ -2335,6 +2564,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="num-cell">${formatNumber(summary.sumUSExp)}</td>
                                 <td class="num-cell">${formatNumber(summary.sumDentalExp)}</td>
                                 <td class="num-cell">${formatNumber(summary.sumStoreExp)}</td>
+                                <td class="num-cell" style="color: #a855f7; font-weight: 700;">Rs. ${formatNumber(summary.sumSNExp || 0)}</td>
                                 <td class="num-cell" style="color: #f43f5e; font-weight: 700;">Rs. ${formatNumber(summary.sumOthersDebit || 0)}</td>
                                 <td class="num-cell" style="color: #10b981; font-weight: 700;">Rs. ${formatNumber(summary.sumOthersCredit || 0)}</td>
                             </tr>
@@ -2345,6 +2575,14 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         container.innerHTML = html;
+
+        const btnSwitchSN = document.getElementById('btn-switch-sn-ledger');
+        if (btnSwitchSN) {
+            btnSwitchSN.onclick = () => {
+                state.masterSubTab = 'sn_ledger';
+                renderMasterGrid();
+            };
+        }
 
         container.querySelectorAll('.master-row').forEach(r => {
             r.addEventListener('click', () => {
@@ -2702,6 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="us_inc">US (Ultrasound) Income</option>
                     <option value="dental_expenses">Dental Expense</option>
                     <option value="store_exp">Store Exp</option>
+                    <option value="sn_expenses">SN Expenses</option>
                     <option value="cash_breakdown">Cash Breakdown</option>
                     <option value="home_expenses">Home Expenses (Home X)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>

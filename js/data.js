@@ -144,6 +144,7 @@ class ClinicDataManager {
                 }
             });
         }
+        if (!dayData.snExpenseDetails) dayData.snExpenseDetails = [];
         this.syncStaffPaymentsWithDebits(dayData);
         return dayData;
     }
@@ -315,6 +316,10 @@ class ClinicDataManager {
                 { item: '', amount: 0 },
                 { item: '', amount: 0 }
             ],
+            snExpenseDetails: [
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
+            ],
             clinicBills: [
                 { amount: 0 },
                 { amount: 0 },
@@ -343,6 +348,10 @@ class ClinicDataManager {
     saveDay(dateKey, dayData) {
         dayData = this.cleanDayItemNames(dayData);
         this.days[dateKey] = dayData;
+        const m = String(dateKey).match(/\d{4}-\d{2}-(\d{2})/);
+        if (m) {
+            this.days[m[1]] = dayData;
+        }
         localStorage.setItem(STORAGE_KEYS.DAYS, JSON.stringify(this.days));
     }
 
@@ -519,6 +528,7 @@ class ClinicDataManager {
         let sumECG = 0, sumCash = 0, sumDispPurchases = 0;
         let sumReceivables = 0, sumUSExp = 0, sumDentalExp = 0, sumStoreExp = 0;
         let sumOthersDebit = 0, sumOthersCredit = 0;
+        let sumSNExp = 0;
 
         const staffTotals = {};
         this.staffList.forEach(s => { staffTotals[s.name] = 0; });
@@ -562,6 +572,12 @@ class ClinicDataManager {
                     sumOthersCredit += amt;
                 }
             });
+
+            if (data.snExpenseDetails) {
+                data.snExpenseDetails.forEach(sn => {
+                    sumSNExp += (parseFloat(sn.amount) || 0);
+                });
+            }
 
             if (data.storePurchases) {
                 data.storePurchases.forEach(sp => {
@@ -615,6 +631,7 @@ class ClinicDataManager {
             sumStoreExp,
             sumOthersDebit,
             sumOthersCredit,
+            sumSNExp,
             staffTotals,
             totalSalaries,
             storeProfit,
@@ -931,7 +948,26 @@ class ClinicDataManager {
                     });
                 }
             }
-            // 11. Partner Withdrawals
+            // 11. SN Expenses (Independent tracked category)
+            else if (catKeyLower === 'sn_expenses' || catKeyLower === 'sn_exp' || catKeyLower === 'sn') {
+                if (dayData.snExpenseDetails && dayData.snExpenseDetails.length > 0) {
+                    dayData.snExpenseDetails.forEach(sn => {
+                        const amt = parseFloat(sn.amount) || 0;
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'SN Expenses',
+                                item: sn.item || 'SN Expense Item',
+                                description: sn.item || 'SN Expense Entry',
+                                type: 'SN Expense',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    });
+                }
+            }
+            // 12. Partner Withdrawals
             else if (catKeyLower === 'partners') {
                 (dayData.debits || []).forEach(d => {
                     const dName = (d.name || '').trim().toUpperCase();
