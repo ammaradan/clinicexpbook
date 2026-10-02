@@ -282,6 +282,83 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================================
+    // AUTO-ZERO ON BACKSPACE / DELETE / CLEAR FOR ALL AMOUNT INPUTS
+    // ==========================================================
+    function setupAutoZeroNumberInputs() {
+        let isSelfUpdating = false;
+
+        function handleAutoZero(target, shouldSelect = false) {
+            if (!target || target.readOnly || target.disabled) return;
+            if (!target.matches('input[type="number"], .num-input, .recon-excel-input')) return;
+
+            if (target.value === '' || target.value === null || isNaN(parseFloat(target.value))) {
+                isSelfUpdating = true;
+                target.value = '0';
+                if (shouldSelect) {
+                    try {
+                        target.select();
+                    } catch (_) {}
+                }
+                // Dispatch input event to trigger calculations and save
+                target.dispatchEvent(new Event('input', { bubbles: false }));
+                isSelfUpdating = false;
+            }
+        }
+
+        // 1. When user backspaces or deletes content (input event)
+        document.addEventListener('input', (e) => {
+            if (isSelfUpdating) return;
+            const target = e.target;
+            if (!target || target.readOnly || target.disabled) return;
+            if (!target.matches('input[type="number"], .num-input, .recon-excel-input')) return;
+
+            if (target.value === '' || target.value === null) {
+                handleAutoZero(target, true);
+            }
+        }, true);
+
+        // 2. Also listen on keyup for Backspace / Delete
+        document.addEventListener('keyup', (e) => {
+            if (isSelfUpdating) return;
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                const target = e.target;
+                if (!target || target.readOnly || target.disabled) return;
+                if (!target.matches('input[type="number"], .num-input, .recon-excel-input')) return;
+
+                if (target.value === '' || target.value === null) {
+                    handleAutoZero(target, true);
+                }
+            }
+        }, true);
+
+        // 3. On focus: auto-select 0 so typing a new number replaces it immediately without needing to delete first
+        document.addEventListener('focus', (e) => {
+            const target = e.target;
+            if (!target || target.readOnly || target.disabled) return;
+            if (!target.matches('input[type="number"], .num-input, .recon-excel-input')) return;
+
+            if (target.value === '0' || target.value === '0.00' || parseFloat(target.value) === 0) {
+                setTimeout(() => {
+                    try {
+                        target.select();
+                    } catch (_) {}
+                }, 10);
+            }
+        }, true);
+
+        // 4. On blur: ensure cell is never left blank
+        document.addEventListener('blur', (e) => {
+            const target = e.target;
+            if (!target || target.readOnly || target.disabled) return;
+            if (!target.matches('input[type="number"], .num-input, .recon-excel-input')) return;
+
+            if (target.value.trim() === '' || isNaN(parseFloat(target.value))) {
+                handleAutoZero(target, false);
+            }
+        }, true);
+    }
+
     // Boot App
     function init() {
         localStorage.removeItem('clinic_col_widths');
@@ -293,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCustomSectionTitles();
         setupAutoSaveListener();
         setupAddRowButtons();
+        setupAutoZeroNumberInputs();
         loadDay(state.currentDate);
         renderSettings();
     }
