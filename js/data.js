@@ -170,8 +170,8 @@ class ClinicDataManager {
                 { amount: 0 }
             ],
             cashItems: [
-                { item: 'Entry #1', amount: 0 },
-                { item: 'Entry #2', amount: 0 }
+                { item: '', amount: 0 },
+                { item: '', amount: 0 }
             ],
             homeExpenseDetails: [
                 { item: '', amount: 0 },

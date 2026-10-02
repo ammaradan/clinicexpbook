@@ -733,7 +733,29 @@ document.addEventListener('DOMContentLoaded', () => {
             data.usDetails = [{ amount: 0 }, { amount: 0 }];
         }
         if (!Array.isArray(data.cashItems) || data.cashItems.length === 0) {
-            data.cashItems = [{ item: 'Entry #1', amount: 0 }, { item: 'Entry #2', amount: 0 }];
+            data.cashItems = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
+        }
+        // Clean any legacy placeholder strings in saved data
+        if (Array.isArray(data.cashItems)) {
+            data.cashItems.forEach(ci => {
+                if (ci && typeof ci === 'object' && ci.item && /^Entry\s*#\d+$/i.test(ci.item.trim())) {
+                    ci.item = '';
+                }
+            });
+        }
+        if (Array.isArray(data.homeExpenseDetails)) {
+            data.homeExpenseDetails.forEach(hi => {
+                if (hi && typeof hi === 'object' && hi.item && /^Home Item\s*#\d+$/i.test(hi.item.trim())) {
+                    hi.item = '';
+                }
+            });
+        }
+        if (Array.isArray(data.usDetails)) {
+            data.usDetails.forEach(ud => {
+                if (ud && typeof ud === 'object' && ud.item && /^Receipt\s*#\d+$/i.test(ud.item.trim())) {
+                    ud.item = '';
+                }
+            });
         }
         if (!Array.isArray(data.homeExpenseDetails) || data.homeExpenseDetails.length === 0) {
             data.homeExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
@@ -900,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((item, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input dp-item" value="${escapeHtml(item.item || '')}" placeholder="Vendor / Item"></td>
+                <td><input type="text" class="cell-input dp-item" value="${escapeHtml(item.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input dp-amt" value="${item.amount || 0}"></td>
             `;
             tr.querySelector('.dp-item').oninput = (e) => {
@@ -923,7 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((p, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input sp-vendor" value="${escapeHtml(p.vendor || '')}" placeholder="Distributor"></td>
+                <td><input type="text" class="cell-input sp-vendor" value="${escapeHtml(p.vendor || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input sp-tp" value="${p.tp || 0}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input sp-retail" value="${p.retail || 0}"></td>
             `;
@@ -952,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input ce-item" value="${escapeHtml(it.item || '')}" placeholder="chae, pani, baraf..."></td>
+                <td><input type="text" class="cell-input ce-item" value="${escapeHtml(it.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input ce-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.ce-item').oninput = (e) => {
@@ -976,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const amt = typeof it === 'number' ? it : (it?.amount || 0);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input us-amt" value="${amt}" placeholder="Amount (Rs.)"></td>
+                <td class="num-cell"><input type="number" step="any" class="cell-input num-input us-amt" value="${amt}"></td>
             `;
             tr.querySelector('.us-amt').oninput = (e) => {
                 const val = parseFloat(e.target.value) || 0;
@@ -999,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input cash-item-note" value="${escapeHtml(it.item || '')}" placeholder="Safe / Morning..."></td>
+                <td><input type="text" class="cell-input cash-item-note" value="${escapeHtml(it.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input cash-item-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.cash-item-note').oninput = (e) => {
@@ -1022,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}" placeholder="sabzi, bill..."></td>
+                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input home-x-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.home-x-item').oninput = (e) => {
@@ -1052,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${escapeHtml(s.name)}</strong></td>
-                <td><input type="text" class="cell-input staff-reason-input" value="${escapeHtml(reason)}" placeholder="Adv, Salary..."></td>
+                <td><input type="text" class="cell-input staff-reason-input" value="${escapeHtml(reason)}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input staff-pay-amt" value="${amt}"></td>
             `;
 
@@ -1081,8 +1103,8 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input rec-item" value="${escapeHtml(it.item || it.party || '')}" placeholder="Party name"></td>
-                <td><input type="text" class="cell-input rec-detail" value="${escapeHtml(it.detail || it.reason || '')}" placeholder="Reason / Note"></td>
+                <td><input type="text" class="cell-input rec-item" value="${escapeHtml(it.item || it.party || '')}"></td>
+                <td><input type="text" class="cell-input rec-detail" value="${escapeHtml(it.detail || it.reason || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input rec-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.rec-item').oninput = (e) => {
@@ -1109,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input de-item" value="${escapeHtml(it.item || '')}" placeholder="Dental item"></td>
+                <td><input type="text" class="cell-input de-item" value="${escapeHtml(it.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input de-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.de-item').oninput = (e) => {
@@ -1132,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input se-item" value="${escapeHtml(it.item || '')}" placeholder="Store exp item"></td>
+                <td><input type="text" class="cell-input se-item" value="${escapeHtml(it.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input se-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.se-item').oninput = (e) => {
@@ -1155,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach((it, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" class="cell-input ue-item" value="${escapeHtml(it.item || '')}" placeholder="US exp / Doctor"></td>
+                <td><input type="text" class="cell-input ue-item" value="${escapeHtml(it.item || '')}"></td>
                 <td class="num-cell"><input type="number" step="any" class="cell-input num-input ue-amt" value="${it.amount || 0}"></td>
             `;
             tr.querySelector('.ue-item').oninput = (e) => {
@@ -1179,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const amt = typeof it === 'number' ? it : (it?.amount || 0);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="num-cell"><input type="number" step="any" class="cell-input num-input cb-amt" value="${amt}" placeholder="Amount (Rs.)"></td>
+                <td class="num-cell"><input type="number" step="any" class="cell-input num-input cb-amt" value="${amt}"></td>
             `;
             tr.querySelector('.cb-amt').oninput = (e) => {
                 const val = parseFloat(e.target.value) || 0;
@@ -1513,8 +1535,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.btnAddCashRow.addEventListener('click', () => {
             if (!state.currentDayData.cashItems) state.currentDayData.cashItems = [];
-            const count = state.currentDayData.cashItems.length + 1;
-            state.currentDayData.cashItems.push({ item: `Entry #${count}`, amount: 0 });
+            state.currentDayData.cashItems.push({ item: '', amount: 0 });
             renderCashBreakdownTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
@@ -1523,8 +1544,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.btnAddHomeRow.addEventListener('click', () => {
             if (!state.currentDayData.homeExpenseDetails) state.currentDayData.homeExpenseDetails = [];
-            const count = state.currentDayData.homeExpenseDetails.length + 1;
-            state.currentDayData.homeExpenseDetails.push({ item: `Home Item #${count}`, amount: 0 });
+            state.currentDayData.homeExpenseDetails.push({ item: '', amount: 0 });
             renderHomeXTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();

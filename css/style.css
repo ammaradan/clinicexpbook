@@ -5,19 +5,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Authentic Light Excel Spreadsheet Theme */
-  --bg-main: #f1f5f9;
-  --bg-surface: #ffffff;
+  /* Eye-Soothing Modern Accounting Theme (Comfortable Contrast, Neither Too Dark Nor Too Light) */
+  --bg-main: #e8ecf2;
+  --bg-surface: #f4f7fb;
   --bg-card: #ffffff;
   --bg-input: #ffffff;
-  --border-color: #cbd5e1;
+  --border-color: #c8d3df;
   --border-cell: #cbd5e1;
 
   /* Excel Specific Theme Colors */
-  --excel-header-lavender: #ccc1da;
-  --excel-header-lavender-light: #e9e4f0;
-  --excel-header-text: #2a1b40;
-  --excel-cell-iceblue: #dce6f2;
+  --excel-header-lavender: #cfc5de;
+  --excel-header-lavender-light: #ece7f2;
+  --excel-header-text: #241838;
+  --excel-cell-iceblue: #d7e2ee;
 
   /* Accent Colors */
   --color-primary: #2563eb;
@@ -88,9 +88,9 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 1.5rem;
-  background: #ffffff;
+  background: #f7f9fc;
   border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -129,7 +129,7 @@ body {
 
 .nav-tabs {
   display: flex;
-  background: #f1f5f9;
+  background: #e5ebf3;
   padding: 0.25rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
@@ -288,7 +288,7 @@ body {
   gap: 0.5rem;
   margin-bottom: 0.45rem;
   padding: 0.35rem 0.65rem;
-  background: #ffffff;
+  background: #f7f9fc;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
@@ -681,7 +681,7 @@ body {
 }
 
 .excel-table th {
-  background: #f8fafc;
+  background: #eef3f8;
   color: #334155;
   font-family: var(--font-heading);
   font-size: 0.63rem;
@@ -796,7 +796,7 @@ input[type="number"] {
   gap: 1.25rem;
   margin-top: 0.75rem;
   padding: 0.75rem 1.15rem;
-  background: #ffffff;
+  background: #f7f9fc;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
