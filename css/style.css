@@ -1202,7 +1202,12 @@ input[type="number"] {
     overflow: visible !important;
   }
 
-  #view-daily {
+  /* In print, hide all views EXCEPT the active one */
+  .app-view:not(.active) {
+    display: none !important;
+  }
+
+  .app-view.active {
     display: block !important;
     width: 100% !important;
     height: auto !important;
@@ -1294,12 +1299,24 @@ input[type="number"] {
     font-weight: 800 !important;
   }
 
-  .collapsible-body,
-  .collapsible-body.is-collapsed {
+  .collapsible-body {
     display: block !important;
     height: auto !important;
     max-height: none !important;
-    visibility: visible !important;
+  }
+
+  .collapsible-body.is-collapsed,
+  .sub-section-module.is-collapsed .collapsible-body {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+  }
+
+  .sub-section-module.is-collapsed {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .sub-section-module.is-user-hidden {
@@ -1477,6 +1494,158 @@ input[type="number"] {
     font-size: 7.5pt !important;
     letter-spacing: -0.05em !important;
     font-weight: 600 !important;
+  }
+
+  /* 5. Print Layout for Reports, Ledgers, Master Grid & Statements */
+  .table-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .table-toolbar {
+    background: transparent !important;
+    border-bottom: 1.5px solid #000000 !important;
+    padding: 0 0 2mm 0 !important;
+    margin-bottom: 2mm !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .table-toolbar button,
+  .table-toolbar .btn,
+  .table-toolbar .period-filter-bar,
+  .period-filter-wrapper,
+  .report-filter-bar,
+  #report-filters-container,
+  #btn-switch-master-grid,
+  #btn-switch-sn-ledger {
+    display: none !important;
+  }
+
+  .table-title {
+    font-size: 11pt !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .table-responsive {
+    overflow: visible !important;
+    max-height: none !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .custom-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    font-size: 6.8pt !important;
+    line-height: 1.15 !important;
+  }
+
+  .custom-table th {
+    position: static !important;
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+    border: 0.5px solid #475569 !important;
+    padding: 2px 3.5px !important;
+    font-size: 6.5pt !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+  }
+
+  .custom-table td {
+    position: static !important;
+    color: #000000 !important;
+    border: 0.5px solid #64748b !important;
+    padding: 1.5px 3.5px !important;
+    background: #ffffff !important;
+    font-size: 6.6pt !important;
+    white-space: nowrap !important;
+  }
+
+  .custom-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .custom-table tfoot td {
+    position: static !important;
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    border: 0.5px solid #475569 !important;
+    border-top: 1.5px solid #000000 !important;
+    padding: 2px 3.5px !important;
+    font-size: 7pt !important;
+  }
+
+  #master-grid-table {
+    font-size: 5.6pt !important;
+    width: 100% !important;
+  }
+
+  #master-grid-table th {
+    font-size: 5.4pt !important;
+    padding: 1px 1.5px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  #master-grid-table td {
+    font-size: 5.6pt !important;
+    padding: 1px 1.5px !important;
+  }
+
+  /* P&L Statement Print adjustments */
+  .grand-statement {
+    border: 1.5px solid #000000 !important;
+    background: #f8fafc !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    margin-bottom: 2mm !important;
+    padding: 2mm 3mm !important;
+  }
+  .grand-statement h2 {
+    color: #000000 !important;
+    font-size: 12pt !important;
+  }
+  .grand-statement p {
+    color: #333333 !important;
+    font-size: 7.5pt !important;
+  }
+  .grand-metrics {
+    border-top: 1px solid #333333 !important;
+    padding-top: 2mm !important;
+    gap: 4mm !important;
+  }
+  .grand-metric-val {
+    color: #000000 !important;
+    font-size: 10pt !important;
+    font-weight: 800 !important;
+  }
+  .pnl-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 3mm !important;
+  }
+  .pnl-card {
+    border: 1px solid #333333 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 

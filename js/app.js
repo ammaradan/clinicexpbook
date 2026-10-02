@@ -330,7 +330,98 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Collapsible Sub-sections (Click header to toggle collapse, expands 100% on print)
+    // ==========================================================
+    // COLLAPSIBLE SUB-SECTIONS (Saves collapse state across refresh & print)
+    // ==========================================================
+    const COLLAPSED_STORAGE_KEY = 'clinic_collapsed_sections_v1';
+
+    function getCollapsedSections() {
+        try {
+            const saved = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) return parsed;
+            }
+            if (clinicDB?.settings?.collapsedSections && Array.isArray(clinicDB.settings.collapsedSections)) {
+                return clinicDB.settings.collapsedSections;
+            }
+        } catch (e) {
+            console.error('Error reading collapsed sections:', e);
+        }
+        return [];
+    }
+
+    function saveCollapsedSections(collapsedList) {
+        try {
+            localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(collapsedList));
+            if (clinicDB && clinicDB.settings) {
+                clinicDB.settings.collapsedSections = collapsedList;
+                clinicDB.saveAll();
+            }
+        } catch (e) {
+            console.error('Error saving collapsed sections:', e);
+        }
+    }
+
+    function toggleSectionCollapse(h, targetState) {
+        const targetId = h.dataset.collapse;
+        let body = targetId ? document.getElementById(targetId) : null;
+        if (!body) body = h.nextElementSibling;
+        if (!body) return;
+
+        const mod = h.closest('.sub-section-module');
+        const isCurrentlyCollapsed = body.classList.contains('is-collapsed');
+        const willBeCollapsed = (typeof targetState === 'boolean') ? targetState : !isCurrentlyCollapsed;
+
+        if (willBeCollapsed) {
+            body.classList.add('is-collapsed');
+            h.classList.add('is-collapsed');
+            if (mod) mod.classList.add('is-collapsed');
+            const icon = h.querySelector('.collapse-icon');
+            if (icon) icon.textContent = '▸';
+        } else {
+            body.classList.remove('is-collapsed');
+            h.classList.remove('is-collapsed');
+            if (mod) mod.classList.remove('is-collapsed');
+            const icon = h.querySelector('.collapse-icon');
+            if (icon) icon.textContent = '▾';
+        }
+
+        const secId = targetId || (mod ? mod.id : null);
+        if (secId) {
+            const currentList = new Set(getCollapsedSections());
+            if (willBeCollapsed) {
+                currentList.add(secId);
+            } else {
+                currentList.delete(secId);
+            }
+            saveCollapsedSections(Array.from(currentList));
+        }
+    }
+
+    function applyCollapsedSections() {
+        const collapsedList = getCollapsedSections();
+        if (!collapsedList || collapsedList.length === 0) return;
+        const set = new Set(collapsedList);
+        const headers = document.querySelectorAll('.collapsible-header');
+        headers.forEach(h => {
+            const targetId = h.dataset.collapse;
+            const mod = h.closest('.sub-section-module');
+            const secId = targetId || (mod ? mod.id : null);
+            if (secId && set.has(secId)) {
+                let body = targetId ? document.getElementById(targetId) : null;
+                if (!body) body = h.nextElementSibling;
+                if (body) {
+                    body.classList.add('is-collapsed');
+                    h.classList.add('is-collapsed');
+                    if (mod) mod.classList.add('is-collapsed');
+                    const icon = h.querySelector('.collapse-icon');
+                    if (icon) icon.textContent = '▸';
+                }
+            }
+        });
+    }
+
     function setupCollapsibleSections() {
         const headers = document.querySelectorAll('.collapsible-header');
         headers.forEach(h => {
@@ -339,25 +430,12 @@ document.addEventListener('DOMContentLoaded', () => {
             h.style.cursor = 'pointer';
             h.addEventListener('click', (e) => {
                 if (e.target.closest('button, input, select, .drag-handle')) return;
-                const targetId = h.dataset.collapse;
-                let body = targetId ? document.getElementById(targetId) : null;
-                if (!body) body = h.nextElementSibling;
-                if (body) {
-                    const isCurrentlyCollapsed = body.classList.contains('is-collapsed');
-                    if (isCurrentlyCollapsed) {
-                        body.classList.remove('is-collapsed');
-                        h.classList.remove('is-collapsed');
-                        const icon = h.querySelector('.collapse-icon');
-                        if (icon) icon.textContent = '▾';
-                    } else {
-                        body.classList.add('is-collapsed');
-                        h.classList.add('is-collapsed');
-                        const icon = h.querySelector('.collapse-icon');
-                        if (icon) icon.textContent = '▸';
-                    }
-                }
+                toggleSectionCollapse(h);
             });
         });
+
+        // Apply saved collapse states on initial load
+        applyCollapsedSections();
     }
 
     // ==========================================================
@@ -452,18 +530,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getSectionsLayout() {
         try {
+            let parsed = null;
             const saved = localStorage.getItem(SECTIONS_STORAGE_KEY);
             if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed && parsed.columns && Array.isArray(parsed.hidden)) {
-                    // Ensure mod-sn-exp is accounted for
-                    const allPlaced = Object.values(parsed.columns).flat();
-                    if (!allPlaced.includes('mod-sn-exp')) {
-                        if (!parsed.columns['col-6']) parsed.columns['col-6'] = [];
-                        parsed.columns['col-6'].push('mod-sn-exp');
-                    }
-                    return parsed;
+                parsed = JSON.parse(saved);
+            } else if (clinicDB?.settings?.sectionsLayout) {
+                parsed = clinicDB.settings.sectionsLayout;
+            }
+            if (parsed && parsed.columns && Array.isArray(parsed.hidden)) {
+                // Ensure mod-sn-exp is accounted for
+                const allPlaced = Object.values(parsed.columns).flat();
+                if (!allPlaced.includes('mod-sn-exp')) {
+                    if (!parsed.columns['col-6']) parsed.columns['col-6'] = [];
+                    parsed.columns['col-6'].push('mod-sn-exp');
                 }
+                return parsed;
             }
         } catch (e) {
             console.error('Error reading sections layout:', e);
@@ -472,7 +553,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveSectionsLayout(layout) {
-        localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(layout));
+        try {
+            localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(layout));
+            if (clinicDB && clinicDB.settings) {
+                clinicDB.settings.sectionsLayout = layout;
+                clinicDB.saveAll();
+            }
+        } catch (e) {
+            console.error('Error saving sections layout:', e);
+        }
         updateHiddenSectionsBadge();
     }
 
@@ -817,7 +906,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetBtn.addEventListener('click', () => {
                     if (confirm('Reset all sub-sections to their original layout and make all visible?')) {
                         saveSectionsLayout(JSON.parse(JSON.stringify(DEFAULT_SECTIONS_LAYOUT)));
+                        saveCollapsedSections([]);
                         applySectionsLayout();
+                        document.querySelectorAll('.collapsible-header').forEach(h => {
+                            toggleSectionCollapse(h, false);
+                        });
                         renderOrganizeModalList();
                         showToast('Sections reset to default layout!', 'success');
                     }
