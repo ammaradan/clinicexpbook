@@ -359,6 +359,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }, true);
     }
 
+    // ==========================================================
+    // CLOUD SYNC UI & REALTIME REMOTE REFRESH
+    // ==========================================================
+    function setupCloudSyncUI() {
+        const pill = document.getElementById('cloud-sync-pill');
+        if (!pill) return;
+
+        if (window.cloudSync) {
+            window.cloudSync.onStatusChange((status) => {
+                if (status === 'connected') {
+                    pill.textContent = '🟢 Cloud Synced';
+                    pill.style.background = 'rgba(16, 185, 129, 0.12)';
+                    pill.style.color = '#059669';
+                    pill.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                } else if (status === 'syncing') {
+                    pill.textContent = '🔄 Syncing...';
+                    pill.style.background = 'rgba(56, 189, 248, 0.12)';
+                    pill.style.color = '#0284c7';
+                    pill.style.borderColor = 'rgba(56, 189, 248, 0.25)';
+                } else if (status === 'offline') {
+                    pill.textContent = '🟡 Offline Mode';
+                    pill.style.background = 'rgba(245, 158, 11, 0.12)';
+                    pill.style.color = '#d97706';
+                    pill.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+                } else {
+                    pill.textContent = '🔴 Sync Error';
+                    pill.style.background = 'rgba(239, 68, 68, 0.12)';
+                    pill.style.color = '#dc2626';
+                    pill.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                }
+            });
+
+            window.cloudSync.onRemoteDataChange((type) => {
+                showToast('Cloud data synced in real-time!', 'info');
+                if (state.activeTab === 'daily') {
+                    loadDay(state.currentDate);
+                } else if (state.activeTab === 'master') {
+                    renderMasterGrid();
+                } else if (state.activeTab === 'staff') {
+                    renderStaffMatrix();
+                } else if (state.activeTab === 'pnl') {
+                    renderPnL();
+                } else if (state.activeTab === 'reports') {
+                    renderCategoryReports();
+                } else if (state.activeTab === 'settings') {
+                    renderSettings();
+                }
+            });
+
+            // Perform initial seed upload if cloud is clean
+            setTimeout(() => {
+                if (window.cloudSync) window.cloudSync.initialCloudUpload();
+            }, 1200);
+        } else {
+            pill.textContent = '☁️ Local Storage';
+        }
+    }
+
     // Boot App
     function init() {
         localStorage.removeItem('clinic_col_widths');
@@ -371,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupAutoSaveListener();
         setupAddRowButtons();
         setupAutoZeroNumberInputs();
+        setupCloudSyncUI();
         loadDay(state.currentDate);
         renderSettings();
     }

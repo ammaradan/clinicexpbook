@@ -343,6 +343,9 @@ class ClinicDataManager {
         localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
         localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(this.staffList));
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+        if (window.cloudSync && typeof window.cloudSync.saveMetaToCloud === 'function') {
+            window.cloudSync.saveMetaToCloud(this.categories, this.staffList, this.settings);
+        }
     }
 
     saveDay(dateKey, dayData) {
@@ -353,6 +356,9 @@ class ClinicDataManager {
             this.days[m[1]] = dayData;
         }
         localStorage.setItem(STORAGE_KEYS.DAYS, JSON.stringify(this.days));
+        if (window.cloudSync && typeof window.cloudSync.saveDayToCloud === 'function') {
+            window.cloudSync.saveDayToCloud(dateKey, dayData);
+        }
     }
 
     getDay(dateKey) {
