@@ -429,6 +429,10 @@ body {
   align-items: center;
   gap: 0.35rem;
 }
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+}
 .collapse-icon {
   display: inline-block;
   font-size: 0.75rem;
@@ -557,10 +561,13 @@ body {
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(3px);
   z-index: 10000;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+}
+.modal-overlay.active {
+  display: flex !important;
 }
 .modal-card {
   background: #ffffff;

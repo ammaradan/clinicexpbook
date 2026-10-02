@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clinic Finance & Expense Management System</title>
+  <title>Daily Expense Book - Clinic & Store Accounting</title>
   <meta name="description" content="Excel-accurate daily accounting, bookkeeping, and multi-category financial reporting for Clinic and Medical Store.">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -14,8 +14,7 @@
       <div class="nav-brand">
         <div class="brand-icon">🏥</div>
         <div class="brand-details">
-          <h1>CLINIC EXPENSE BOOK</h1>
-          <p>Spreadsheet Accounting & Multi-Category Management System</p>
+          <h1>DAILY EXPENSE BOOK</h1>
         </div>
       </div>
 
@@ -74,7 +73,7 @@
           </div>
         </div>
 
-        <!-- Day Selector & Quick Stats Bar (Hidden on print) -->
+        <!-- Day Selector & Action Bar (Hidden on print) -->
         <div class="daily-header no-print">
           <div class="date-selector-wrapper">
             <button type="button" class="btn-icon" id="prev-day-btn" title="Previous Day">◀</button>
@@ -83,24 +82,8 @@
             <button type="button" class="btn-icon" id="next-day-btn" title="Next Day">▶</button>
           </div>
 
-          <!-- Quick KPIs -->
-          <div class="kpi-summary-strip">
-            <div class="kpi-card">
-              <span class="kpi-label">Credit (Income) Total</span>
-              <span class="kpi-val credit" id="kpi-credit-total">Rs. 0</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-label">Debit (Expense) Total</span>
-              <span class="kpi-val debit" id="kpi-debit-total">Rs. 0</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-label">Difference (Cr - Dr)</span>
-              <span class="kpi-val diff-pos" id="kpi-diff-total">Rs. 0</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-label">Total Cash</span>
-              <span class="kpi-val cash" id="kpi-cash-total">Rs. 0</span>
-            </div>
+          <!-- Action Buttons Bar -->
+          <div class="kpi-summary-strip" style="gap: 0.5rem;">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-organize-sections" title="Rearrange or Show/Hide Sub-Sections">
               <span>🗂️</span> Organize Sections <span id="hidden-sections-badge" style="display: none; background: #ef4444; color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 0.65rem; margin-left: 4px; font-weight: 800;">0</span>
             </button>
@@ -111,7 +94,7 @@
         </div>
 
         <!-- Organize Sections Modal -->
-        <div id="organize-sections-modal" class="modal-overlay no-print" style="display: none;">
+        <div id="organize-sections-modal" class="modal-overlay no-print">
           <div class="modal-card">
             <div class="modal-header">
               <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -905,9 +888,6 @@
               <hr style="border-color: var(--border-color); margin: 0.5rem 0;">
               <button type="button" class="btn btn-warning" id="clear-all-zero-btn">
                 🧹 Clear All Data to 0 (Start Fresh Daily Entry)
-              </button>
-              <button type="button" class="btn btn-danger" id="reset-seed-btn">
-                🔄 Reload Original Reference Excel (Sept 2026) Data
               </button>
             </div>
           </div>

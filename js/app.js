@@ -39,10 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btnOrganizeSections: document.getElementById('btn-organize-sections'),
         hiddenSectionsBadge: document.getElementById('hidden-sections-badge'),
         organizeModal: document.getElementById('organize-sections-modal'),
-        closeOrganizeModal: document.getElementById('close-organize-modal'),
+        closeOrganizeModal: document.getElementById('btn-close-organize-modal') || document.getElementById('close-organize-modal'),
         organizeSectionsList: document.getElementById('organize-sections-list'),
-        btnResetSectionsLayout: document.getElementById('btn-reset-sections-layout'),
-        doneOrganizeModal: document.getElementById('done-organize-modal'),
+        btnResetSectionsLayout: document.getElementById('btn-reset-layout') || document.getElementById('btn-reset-sections-layout'),
+        doneOrganizeModal: document.getElementById('btn-save-organize-modal') || document.getElementById('done-organize-modal'),
 
         // Top KPIs
         kpiDebit: document.getElementById('kpi-debit-total'),
@@ -230,8 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
         headers.forEach(h => {
             if (h.dataset.collapsibleBound) return;
             h.dataset.collapsibleBound = 'true';
+            h.style.cursor = 'pointer';
             h.addEventListener('click', (e) => {
-                if (e.target.closest('button, input, select')) return;
+                if (e.target.closest('button, input, select, .drag-handle')) return;
                 const targetId = h.dataset.collapse;
                 let body = targetId ? document.getElementById(targetId) : null;
                 if (!body) body = h.nextElementSibling;
@@ -242,6 +243,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         h.classList.remove('is-collapsed');
                         const icon = h.querySelector('.collapse-icon');
                         if (icon) icon.textContent = '▾';
+                    } else {
+                        body.classList.add('is-collapsed');
+                        h.classList.add('is-collapsed');
+                        const icon = h.querySelector('.collapse-icon');
+                        if (icon) icon.textContent = '▸';
                     }
                 }
             });
@@ -612,24 +618,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (elements.btnOrganizeSections && elements.organizeModal) {
-            elements.btnOrganizeSections.addEventListener('click', () => {
+            const openModal = () => {
                 renderOrganizeModalList();
                 elements.organizeModal.classList.add('active');
-            });
-
+                elements.organizeModal.style.setProperty('display', 'flex', 'important');
+            };
             const closeModal = () => {
                 elements.organizeModal.classList.remove('active');
+                elements.organizeModal.style.setProperty('display', 'none', 'important');
             };
 
-            if (elements.closeOrganizeModal) elements.closeOrganizeModal.addEventListener('click', closeModal);
-            if (elements.doneOrganizeModal) elements.doneOrganizeModal.addEventListener('click', closeModal);
+            elements.btnOrganizeSections.addEventListener('click', openModal);
+
+            const closeBtn = document.getElementById('btn-close-organize-modal') || elements.closeOrganizeModal;
+            if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+            const doneBtn = document.getElementById('btn-save-organize-modal') || elements.doneOrganizeModal;
+            if (doneBtn) doneBtn.addEventListener('click', closeModal);
 
             elements.organizeModal.addEventListener('click', (e) => {
                 if (e.target === elements.organizeModal) closeModal();
             });
 
-            if (elements.btnResetSectionsLayout) {
-                elements.btnResetSectionsLayout.addEventListener('click', () => {
+            const resetBtn = document.getElementById('btn-reset-layout') || elements.btnResetSectionsLayout;
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
                     if (confirm('Reset all sub-sections to their original layout and make all visible?')) {
                         saveSectionsLayout(JSON.parse(JSON.stringify(DEFAULT_SECTIONS_LAYOUT)));
                         applySectionsLayout();
@@ -2412,13 +2425,16 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        document.getElementById('reset-seed-btn').onclick = () => {
-            if (confirm('Reload reference September 2026 data from Excel?')) {
-                clinicDB.resetToSeed();
-                showToast('Reloaded original reference Excel data!', 'success');
-                setTimeout(() => location.reload(), 800);
-            }
-        };
+        const btnResetSeed = document.getElementById('reset-seed-btn');
+        if (btnResetSeed) {
+            btnResetSeed.onclick = () => {
+                if (confirm('Reload reference September 2026 data from Excel?')) {
+                    clinicDB.resetToSeed();
+                    showToast('Reloaded original reference Excel data!', 'success');
+                    setTimeout(() => location.reload(), 800);
+                }
+            };
+        }
     }
 
     // Utilities
