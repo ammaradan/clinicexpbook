@@ -59,16 +59,17 @@ class FirebaseSyncManager {
         }
     }
 
-    updateStatus(status) {
+    updateStatus(status, detail = '') {
         this.status = status;
+        this.statusDetail = detail;
         if (typeof this.statusCallback === 'function') {
-            this.statusCallback(status);
+            this.statusCallback(status, detail);
         }
     }
 
     onStatusChange(cb) {
         this.statusCallback = cb;
-        if (this.status) cb(this.status);
+        if (this.status) cb(this.status, this.statusDetail || '');
     }
 
     onRemoteDataChange(cb) {
@@ -80,25 +81,36 @@ class FirebaseSyncManager {
 
         // 1. Listen for Days Collection in real-time
         this.db.collection('days').onSnapshot({ includeMetadataChanges: false }, (snapshot) => {
-            let changesCount = 0;
-            snapshot.docChanges().forEach((change) => {
-                // If the change did not come from local write or we want to reflect remote sync
-                const dateKey = change.doc.id;
-                const data = change.doc.data();
-                if (data && clinicDB) {
-                    clinicDB.days[dateKey] = data;
-                    localStorage.setItem('clinic_exp_days_v6_clean', JSON.stringify(clinicDB.days));
-                    changesCount++;
-                }
-            });
+            if (!snapshot.empty) {
+                // Populate all days from Firestore into clinicDB
+                let hasChanges = false;
+                snapshot.docs.forEach((doc) => {
+                    const dateKey = doc.id;
+                    const data = doc.data();
+                    if (data && clinicDB) {
+                        clinicDB.days[dateKey] = data;
+                        hasChanges = true;
+                    }
+                });
 
-            if (changesCount > 0 && typeof this.dataChangeCallback === 'function') {
-                this.dataChangeCallback('days');
+                if (hasChanges && clinicDB) {
+                    localStorage.setItem('clinic_exp_days_v6_clean', JSON.stringify(clinicDB.days));
+                    if (typeof this.dataChangeCallback === 'function') {
+                        this.dataChangeCallback('days');
+                    }
+                }
+            } else if (clinicDB && Object.keys(clinicDB.days || {}).length > 0) {
+                // Cloud is empty but local has data: seed to cloud!
+                console.log('[Firebase] Cloud empty, seeding from local data...');
+                this.initialCloudUpload();
             }
             this.updateStatus('connected');
         }, (error) => {
-            console.warn('[Firebase] Snapshot error on days:', error.message);
-            this.updateStatus('offline');
+            console.error('[Firebase] Snapshot error on days:', error);
+            const msg = error.code === 'permission-denied' 
+                ? 'Permission Denied: Start Firestore in Test Mode' 
+                : (error.message || 'Connection error');
+            this.updateStatus('error', msg);
         });
 
         // 2. Listen for Metadata (Categories, Staff, Settings)
@@ -106,17 +118,17 @@ class FirebaseSyncManager {
             if (doc.exists && clinicDB) {
                 const meta = doc.data();
                 let updated = false;
-                if (meta.categories) {
+                if (meta.categories && JSON.stringify(meta.categories) !== JSON.stringify(clinicDB.categories)) {
                     clinicDB.categories = meta.categories;
                     localStorage.setItem('clinic_exp_categories_v6', JSON.stringify(meta.categories));
                     updated = true;
                 }
-                if (meta.staffList) {
+                if (meta.staffList && JSON.stringify(meta.staffList) !== JSON.stringify(clinicDB.staffList)) {
                     clinicDB.staffList = meta.staffList;
                     localStorage.setItem('clinic_exp_staff_v6', JSON.stringify(meta.staffList));
                     updated = true;
                 }
-                if (meta.settings) {
+                if (meta.settings && JSON.stringify(meta.settings) !== JSON.stringify(clinicDB.settings)) {
                     clinicDB.settings = meta.settings;
                     localStorage.setItem('clinic_exp_settings_v6', JSON.stringify(meta.settings));
                     updated = true;
@@ -140,7 +152,10 @@ class FirebaseSyncManager {
             this.updateStatus('connected');
         } catch (e) {
             console.error(`[Firebase] Error saving day ${dateKey} to cloud:`, e);
-            this.updateStatus('offline');
+            const msg = e.code === 'permission-denied' 
+                ? 'Permission Denied: Start Firestore in Test Mode' 
+                : (e.message || 'Save error');
+            this.updateStatus('error', msg);
         }
     }
 

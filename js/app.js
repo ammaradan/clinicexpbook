@@ -367,24 +367,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pill) return;
 
         if (window.cloudSync) {
-            window.cloudSync.onStatusChange((status) => {
+            window.cloudSync.onStatusChange((status, detail) => {
                 if (status === 'connected') {
                     pill.textContent = '🟢 Cloud Synced';
+                    pill.title = 'Realtime Multi-Device Cloud Sync Active';
                     pill.style.background = 'rgba(16, 185, 129, 0.12)';
                     pill.style.color = '#059669';
                     pill.style.borderColor = 'rgba(16, 185, 129, 0.25)';
                 } else if (status === 'syncing') {
                     pill.textContent = '🔄 Syncing...';
+                    pill.title = 'Saving updates to cloud...';
                     pill.style.background = 'rgba(56, 189, 248, 0.12)';
                     pill.style.color = '#0284c7';
                     pill.style.borderColor = 'rgba(56, 189, 248, 0.25)';
                 } else if (status === 'offline') {
                     pill.textContent = '🟡 Offline Mode';
+                    pill.title = 'Working offline. Changes will sync when online.';
                     pill.style.background = 'rgba(245, 158, 11, 0.12)';
                     pill.style.color = '#d97706';
                     pill.style.borderColor = 'rgba(245, 158, 11, 0.25)';
                 } else {
-                    pill.textContent = '🔴 Sync Error';
+                    pill.textContent = detail && detail.includes('Permission') ? '🔴 Permission Error' : '🔴 Cloud Error';
+                    pill.title = detail || 'Firestore Database not enabled or permission denied in Firebase Console.';
                     pill.style.background = 'rgba(239, 68, 68, 0.12)';
                     pill.style.color = '#dc2626';
                     pill.style.borderColor = 'rgba(239, 68, 68, 0.25)';
