@@ -4,10 +4,20 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    function getTodayDateString() {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    const todayDateStr = getTodayDateString();
+
     // Current Active State
     const state = {
-        currentDate: '2026-09-01',
-        currentMonth: '2026-09',
+        currentDate: todayDateStr,
+        currentMonth: todayDateStr.substring(0, 7),
         activeTab: 'daily',
         currentDayData: null
     };
@@ -23,6 +33,16 @@ document.addEventListener('DOMContentLoaded', () => {
         todayBtn: document.getElementById('today-btn'),
         saveDayBtn: document.getElementById('save-day-btn'),
         printDayBtn: document.getElementById('print-day-btn'),
+
+        // Auto Save & Organize Sections Elements
+        autoSaveIndicator: document.getElementById('auto-save-indicator'),
+        btnOrganizeSections: document.getElementById('btn-organize-sections'),
+        hiddenSectionsBadge: document.getElementById('hidden-sections-badge'),
+        organizeModal: document.getElementById('organize-sections-modal'),
+        closeOrganizeModal: document.getElementById('close-organize-modal'),
+        organizeSectionsList: document.getElementById('organize-sections-list'),
+        btnResetSectionsLayout: document.getElementById('btn-reset-sections-layout'),
+        doneOrganizeModal: document.getElementById('done-organize-modal'),
 
         // Top KPIs
         kpiDebit: document.getElementById('kpi-debit-total'),
@@ -107,12 +127,65 @@ document.addEventListener('DOMContentLoaded', () => {
         toastContainer: document.getElementById('toast-container')
     };
 
+    // Auto-Save Management (Debounced 1.5s + Immediate on navigation)
+    let autoSaveTimeout = null;
+
+    function updateAutoSaveIndicator(status) {
+        if (!elements.autoSaveIndicator) return;
+        if (status === 'saving') {
+            elements.autoSaveIndicator.textContent = 'Saving...';
+            elements.autoSaveIndicator.className = 'auto-save-pill saving';
+        } else if (status === 'saved') {
+            elements.autoSaveIndicator.textContent = '✓ Saved';
+            elements.autoSaveIndicator.className = 'auto-save-pill saved';
+        } else {
+            elements.autoSaveIndicator.textContent = '✓ Saved';
+            elements.autoSaveIndicator.className = 'auto-save-pill';
+        }
+    }
+
+    function saveCurrentDay(showToastMsg = true) {
+        if (autoSaveTimeout) {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = null;
+        }
+        if (state.currentDayData) {
+            clinicDB.saveDay(state.currentDate, state.currentDayData);
+            updateAutoSaveIndicator('saved');
+            if (showToastMsg) {
+                showToast('Day sheet saved successfully!', 'success');
+            }
+        }
+    }
+
+    function scheduleAutoSave() {
+        updateAutoSaveIndicator('saving');
+        if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => {
+            saveCurrentDay(false);
+        }, 1500);
+    }
+
+    function setupAutoSaveListener() {
+        const viewport = document.getElementById('excel-sheet-viewport');
+        if (viewport) {
+            viewport.addEventListener('input', () => {
+                scheduleAutoSave();
+            });
+            viewport.addEventListener('change', () => {
+                scheduleAutoSave();
+            });
+        }
+    }
+
     // Boot App
     function init() {
         localStorage.removeItem('clinic_col_widths');
         setupNavigation();
         setupDateControls();
         setupCollapsibleSections();
+        setupSectionReorderingAndVisibility();
+        setupAutoSaveListener();
         setupAddRowButtons();
         loadDay(state.currentDate);
         renderSettings();
@@ -129,6 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchTab(viewId) {
+        if (state.activeTab === 'daily') {
+            saveCurrentDay(false);
+        }
         state.activeTab = viewId.replace('view-', '');
         elements.tabs.forEach(t => t.classList.toggle('active', t.dataset.view === viewId));
         elements.views.forEach(v => v.classList.toggle('active', v.id === viewId));
@@ -166,15 +242,385 @@ document.addEventListener('DOMContentLoaded', () => {
                         h.classList.remove('is-collapsed');
                         const icon = h.querySelector('.collapse-icon');
                         if (icon) icon.textContent = '▾';
-                    } else {
-                        body.classList.add('is-collapsed');
-                        h.classList.add('is-collapsed');
-                        const icon = h.querySelector('.collapse-icon');
-                        if (icon) icon.textContent = '▸';
                     }
                 }
             });
         });
+    }
+
+    // ==========================================================
+    // RE-ARRANGEABLE & HIDE/UNHIDE SUB-SECTIONS SYSTEM
+    // ==========================================================
+    const SECTIONS_STORAGE_KEY = 'clinic_sections_layout_v2';
+    const COLUMN_ORDER = ['col-2', 'col-3', 'col-4', 'col-5', 'col-6'];
+
+    const DEFAULT_SECTIONS_LAYOUT = {
+        columns: {
+            'col-2': ['mod-disp-purch', 'mod-store-purch', 'mod-clinic-exp'],
+            'col-3': ['mod-us-total', 'mod-cash-breakdown'],
+            'col-4': ['mod-home-x', 'mod-staff-vendors'],
+            'col-5': ['mod-receivables', 'mod-dental-exp'],
+            'col-6': ['mod-store-exp', 'mod-us-exp', 'mod-clinic-bills']
+        },
+        hidden: []
+    };
+
+    const SECTION_METADATA = [
+        { id: 'mod-disp-purch', title: 'Dispensary Purchases', code: 'DP' },
+        { id: 'mod-store-purch', title: 'Store Purchases (Med)', code: 'SP' },
+        { id: 'mod-clinic-exp', title: 'Clinic Petty Exp Details', code: 'CE' },
+        { id: 'mod-us-total', title: 'US Total (Ultrasound)', code: 'US' },
+        { id: 'mod-cash-breakdown', title: 'Cash Breakdown', code: 'CB' },
+        { id: 'mod-home-x', title: 'Home X (Personal/House)', code: 'HX' },
+        { id: 'mod-staff-vendors', title: 'Staff & Vendors Payments', code: 'SV' },
+        { id: 'mod-receivables', title: 'Receivables & Advances', code: 'RC' },
+        { id: 'mod-dental-exp', title: 'Dental Exp Details', code: 'DE' },
+        { id: 'mod-store-exp', title: 'Store Exp Details', code: 'SE' },
+        { id: 'mod-us-exp', title: 'US Exp Details', code: 'UE' },
+        { id: 'mod-clinic-bills', title: 'Clinic Bills (Dispensary/PT)', code: 'CB' }
+    ];
+
+    function getSectionsLayout() {
+        try {
+            const saved = localStorage.getItem(SECTIONS_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && parsed.columns && Array.isArray(parsed.hidden)) {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            console.error('Error reading sections layout:', e);
+        }
+        return JSON.parse(JSON.stringify(DEFAULT_SECTIONS_LAYOUT));
+    }
+
+    function saveSectionsLayout(layout) {
+        localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(layout));
+        updateHiddenSectionsBadge();
+    }
+
+    function updateHiddenSectionsBadge() {
+        const layout = getSectionsLayout();
+        const count = layout.hidden ? layout.hidden.length : 0;
+        if (elements.hiddenSectionsBadge) {
+            if (count > 0) {
+                elements.hiddenSectionsBadge.style.display = 'inline-block';
+                elements.hiddenSectionsBadge.textContent = count;
+            } else {
+                elements.hiddenSectionsBadge.style.display = 'none';
+            }
+        }
+    }
+
+    function applySectionsLayout() {
+        const layout = getSectionsLayout();
+
+        // 1. Move modules to their stored columns & positions
+        Object.keys(layout.columns).forEach(colId => {
+            const container = document.querySelector(`.col-subsections-container[data-col-id="${colId}"]`);
+            if (container) {
+                const modIds = layout.columns[colId] || [];
+                modIds.forEach(modId => {
+                    const el = document.getElementById(modId);
+                    if (el) {
+                        container.appendChild(el);
+                    }
+                });
+            }
+        });
+
+        // 2. Apply hidden state to modules
+        SECTION_METADATA.forEach(sec => {
+            const el = document.getElementById(sec.id);
+            if (el) {
+                const isHidden = (layout.hidden || []).includes(sec.id);
+                if (isHidden) {
+                    el.classList.add('is-user-hidden');
+                } else {
+                    el.classList.remove('is-user-hidden');
+                }
+            }
+        });
+
+        updateHiddenSectionsBadge();
+    }
+
+    function recordCurrentDomLayout() {
+        const columns = {};
+        const colContainers = document.querySelectorAll('.col-subsections-container[data-col-id]');
+        colContainers.forEach(col => {
+            const colId = col.dataset.colId;
+            columns[colId] = [];
+            const mods = col.querySelectorAll('.sub-section-module');
+            mods.forEach(m => {
+                if (m.id) columns[colId].push(m.id);
+            });
+        });
+
+        const currentLayout = getSectionsLayout();
+        const newLayout = {
+            columns: columns,
+            hidden: currentLayout.hidden || []
+        };
+        saveSectionsLayout(newLayout);
+        return newLayout;
+    }
+
+    function setupSectionReorderingAndVisibility() {
+        // Initial layout application
+        applySectionsLayout();
+
+        // 1. Module Move Left / Right buttons
+        document.querySelectorAll('.btn-move-left').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mod = btn.closest('.sub-section-module');
+                if (!mod) return;
+                const parentCol = mod.closest('.col-subsections-container');
+                if (!parentCol) return;
+                const currentColId = parentCol.dataset.colId;
+                const currentIndex = COLUMN_ORDER.indexOf(currentColId);
+                if (currentIndex > 0) {
+                    const prevColId = COLUMN_ORDER[currentIndex - 1];
+                    const prevCol = document.querySelector(`.col-subsections-container[data-col-id="${prevColId}"]`);
+                    if (prevCol) {
+                        prevCol.appendChild(mod);
+                        recordCurrentDomLayout();
+                        showToast(`Moved to previous column!`, 'info');
+                    }
+                } else {
+                    showToast('Already in first column!', 'info');
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-move-right').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mod = btn.closest('.sub-section-module');
+                if (!mod) return;
+                const parentCol = mod.closest('.col-subsections-container');
+                if (!parentCol) return;
+                const currentColId = parentCol.dataset.colId;
+                const currentIndex = COLUMN_ORDER.indexOf(currentColId);
+                if (currentIndex !== -1 && currentIndex < COLUMN_ORDER.length - 1) {
+                    const nextColId = COLUMN_ORDER[currentIndex + 1];
+                    const nextCol = document.querySelector(`.col-subsections-container[data-col-id="${nextColId}"]`);
+                    if (nextCol) {
+                        nextCol.appendChild(mod);
+                        recordCurrentDomLayout();
+                        showToast(`Moved to next column!`, 'info');
+                    }
+                } else {
+                    showToast('Already in last column!', 'info');
+                }
+            });
+        });
+
+        // 2. Module Hide Button (Eye icon)
+        document.querySelectorAll('.btn-hide-sec').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mod = btn.closest('.sub-section-module');
+                if (!mod) return;
+                const secTitle = mod.dataset.title || 'Section';
+                const layout = getSectionsLayout();
+                if (!layout.hidden) layout.hidden = [];
+                if (!layout.hidden.includes(mod.id)) {
+                    layout.hidden.push(mod.id);
+                }
+                mod.classList.add('is-user-hidden');
+                saveSectionsLayout(layout);
+                showToast(`Hidden "${secTitle}". Restore anytime from "🗂️ Organize Sections".`, 'info');
+            });
+        });
+
+        // 3. Drag and Drop between and within columns
+        const modules = document.querySelectorAll('.sub-section-module');
+        const containers = document.querySelectorAll('.col-subsections-container');
+
+        modules.forEach(mod => {
+            mod.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', mod.id);
+                e.dataTransfer.effectAllowed = 'move';
+                mod.classList.add('is-dragging');
+            });
+
+            mod.addEventListener('dragend', () => {
+                mod.classList.remove('is-dragging');
+                document.querySelectorAll('.drag-over-top, .drag-over-bottom, .col-drag-over').forEach(el => {
+                    el.classList.remove('drag-over-top', 'drag-over-bottom', 'col-drag-over');
+                });
+            });
+
+            mod.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = mod.getBoundingClientRect();
+                const isTop = (e.clientY - rect.top) < (rect.height / 2);
+                if (isTop) {
+                    mod.classList.add('drag-over-top');
+                    mod.classList.remove('drag-over-bottom');
+                } else {
+                    mod.classList.add('drag-over-bottom');
+                    mod.classList.remove('drag-over-top');
+                }
+            });
+
+            mod.addEventListener('dragleave', () => {
+                mod.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+
+            mod.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                mod.classList.remove('drag-over-top', 'drag-over-bottom');
+                const draggedId = e.dataTransfer.getData('text/plain');
+                const draggedEl = document.getElementById(draggedId);
+                if (!draggedEl || draggedEl === mod) return;
+
+                const rect = mod.getBoundingClientRect();
+                const isTop = (e.clientY - rect.top) < (rect.height / 2);
+                if (isTop) {
+                    mod.parentNode.insertBefore(draggedEl, mod);
+                } else {
+                    mod.parentNode.insertBefore(draggedEl, mod.nextSibling);
+                }
+                recordCurrentDomLayout();
+                showToast(`Section reordered!`, 'info');
+            });
+        });
+
+        containers.forEach(col => {
+            col.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                col.classList.add('col-drag-over');
+            });
+
+            col.addEventListener('dragleave', (e) => {
+                if (e.relatedTarget && col.contains(e.relatedTarget)) return;
+                col.classList.remove('col-drag-over');
+            });
+
+            col.addEventListener('drop', (e) => {
+                col.classList.remove('col-drag-over');
+                const draggedId = e.dataTransfer.getData('text/plain');
+                const draggedEl = document.getElementById(draggedId);
+                if (!draggedEl) return;
+                if (e.target === col || !e.target.closest('.sub-section-module')) {
+                    col.appendChild(draggedEl);
+                    recordCurrentDomLayout();
+                    showToast(`Moved section to column!`, 'info');
+                }
+            });
+        });
+
+        // 4. Organize Sections Modal
+        function renderOrganizeModalList() {
+            if (!elements.organizeSectionsList) return;
+            const layout = getSectionsLayout();
+            const colTitles = {
+                'col-2': 'Col 3 (Purchases/Exp)',
+                'col-3': 'Col 4 (US/Cash)',
+                'col-4': 'Col 5 (Home/Staff)',
+                'col-5': 'Col 6 (Rec/Dental)',
+                'col-6': 'Col 7 (Store/Bills)'
+            };
+
+            let html = '';
+            SECTION_METADATA.forEach(sec => {
+                const isHidden = (layout.hidden || []).includes(sec.id);
+                // Find current column
+                let currentCol = 'col-2';
+                Object.keys(layout.columns).forEach(cId => {
+                    if ((layout.columns[cId] || []).includes(sec.id)) currentCol = cId;
+                });
+
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); gap: 0.75rem;">
+                        <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; flex: 1; margin: 0; user-select: none;">
+                            <input type="checkbox" class="organize-vis-chk" data-mod-id="${sec.id}" ${!isHidden ? 'checked' : ''} style="width: 17px; height: 17px; accent-color: var(--accent-color); cursor: pointer;">
+                            <div>
+                                <span style="font-weight: 600; font-size: 0.88rem; color: ${isHidden ? 'var(--text-muted)' : 'var(--text-main)'};">${escapeHtml(sec.title)}</span>
+                                <div style="font-size: 0.72rem; color: var(--text-muted);">${escapeHtml(colTitles[currentCol] || currentCol)}</div>
+                            </div>
+                        </label>
+                        <select class="organize-col-select form-input" data-mod-id="${sec.id}" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.78rem;">
+                            <option value="col-2" ${currentCol === 'col-2' ? 'selected' : ''}>Col 3 (Purchases/CE)</option>
+                            <option value="col-3" ${currentCol === 'col-3' ? 'selected' : ''}>Col 4 (US/Cash)</option>
+                            <option value="col-4" ${currentCol === 'col-4' ? 'selected' : ''}>Col 5 (Home/Staff)</option>
+                            <option value="col-5" ${currentCol === 'col-5' ? 'selected' : ''}>Col 6 (Rec/Dental)</option>
+                            <option value="col-6" ${currentCol === 'col-6' ? 'selected' : ''}>Col 7 (Store/Bills)</option>
+                        </select>
+                    </div>
+                `;
+            });
+
+            elements.organizeSectionsList.innerHTML = html;
+
+            // Visibility checkboxes
+            elements.organizeSectionsList.querySelectorAll('.organize-vis-chk').forEach(chk => {
+                chk.addEventListener('change', () => {
+                    const modId = chk.dataset.modId;
+                    const curLayout = getSectionsLayout();
+                    if (!curLayout.hidden) curLayout.hidden = [];
+                    if (chk.checked) {
+                        curLayout.hidden = curLayout.hidden.filter(id => id !== modId);
+                    } else {
+                        if (!curLayout.hidden.includes(modId)) curLayout.hidden.push(modId);
+                    }
+                    saveSectionsLayout(curLayout);
+                    applySectionsLayout();
+                    renderOrganizeModalList();
+                });
+            });
+
+            // Column selects
+            elements.organizeSectionsList.querySelectorAll('.organize-col-select').forEach(sel => {
+                sel.addEventListener('change', (e) => {
+                    const modId = sel.dataset.modId;
+                    const targetColId = e.target.value;
+                    const modEl = document.getElementById(modId);
+                    const targetCol = document.querySelector(`.col-subsections-container[data-col-id="${targetColId}"]`);
+                    if (modEl && targetCol) {
+                        targetCol.appendChild(modEl);
+                        recordCurrentDomLayout();
+                        renderOrganizeModalList();
+                        showToast(`Moved to ${targetColId}!`, 'info');
+                    }
+                });
+            });
+        }
+
+        if (elements.btnOrganizeSections && elements.organizeModal) {
+            elements.btnOrganizeSections.addEventListener('click', () => {
+                renderOrganizeModalList();
+                elements.organizeModal.classList.add('active');
+            });
+
+            const closeModal = () => {
+                elements.organizeModal.classList.remove('active');
+            };
+
+            if (elements.closeOrganizeModal) elements.closeOrganizeModal.addEventListener('click', closeModal);
+            if (elements.doneOrganizeModal) elements.doneOrganizeModal.addEventListener('click', closeModal);
+
+            elements.organizeModal.addEventListener('click', (e) => {
+                if (e.target === elements.organizeModal) closeModal();
+            });
+
+            if (elements.btnResetSectionsLayout) {
+                elements.btnResetSectionsLayout.addEventListener('click', () => {
+                    if (confirm('Reset all sub-sections to their original layout and make all visible?')) {
+                        saveSectionsLayout(JSON.parse(JSON.stringify(DEFAULT_SECTIONS_LAYOUT)));
+                        applySectionsLayout();
+                        renderOrganizeModalList();
+                        showToast('Sections reset to default layout!', 'success');
+                    }
+                });
+            }
+        }
     }
 
     // Date Controls
@@ -184,6 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.dateInput.addEventListener('change', (e) => {
             if (e.target.value) {
+                saveCurrentDay(false);
                 state.currentDate = e.target.value;
                 updateDateBadge(state.currentDate);
                 loadDay(state.currentDate);
@@ -193,15 +640,16 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.prevDayBtn.addEventListener('click', () => changeDay(-1));
         elements.nextDayBtn.addEventListener('click', () => changeDay(1));
         elements.todayBtn.addEventListener('click', () => {
-            state.currentDate = '2026-09-01';
+            saveCurrentDay(false);
+            const today = getTodayDateString();
+            state.currentDate = today;
             elements.dateInput.value = state.currentDate;
             updateDateBadge(state.currentDate);
             loadDay(state.currentDate);
         });
 
         elements.saveDayBtn.addEventListener('click', () => {
-            saveCurrentDay();
-            showToast('Day sheet saved successfully!', 'success');
+            saveCurrentDay(true);
         });
 
         elements.printDayBtn.addEventListener('click', () => {
@@ -210,9 +658,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function changeDay(offset) {
-        const d = new Date(state.currentDate);
+        saveCurrentDay(false);
+        const parts = state.currentDate.split('-');
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
         d.setDate(d.getDate() + offset);
-        state.currentDate = d.toISOString().split('T')[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        state.currentDate = `${year}-${month}-${day}`;
         elements.dateInput.value = state.currentDate;
         updateDateBadge(state.currentDate);
         loadDay(state.currentDate);
@@ -302,6 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- PANEL 1: DEBIT TABLE ---
     function renderDebitTable(data) {
+        ensureDebitRowOrder(data);
         elements.tbodyDebit.innerHTML = '';
         (data.debits || []).forEach((item, idx) => {
             const tr = document.createElement('tr');
@@ -320,6 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.isCustom) {
                 tr.querySelector('.debit-name-input').addEventListener('input', (e) => {
                     item.name = e.target.value;
+                    scheduleAutoSave();
                 });
             }
 
@@ -328,6 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 amtInput.addEventListener('input', (e) => {
                     item.amount = parseFloat(e.target.value) || 0;
                     recalculateAll();
+                    scheduleAutoSave();
                 });
             }
             elements.tbodyDebit.appendChild(tr);
@@ -733,13 +1189,15 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.badgeUSTotal.textContent = formatNumber(sumUSReceipts);
         setCreditAutoAmount('US', sumUSReceipts);
 
-        // 5. Cash Breakdown
+        // 5. Cash Breakdown -> Auto-syncs to Debit 'Total Cash Available' (fixed at bottom of Debit)
         let sumCashItems = (data.cashItems || []).reduce((acc, a) => {
             const val = typeof a === 'number' ? a : (a?.amount || 0);
             return acc + (parseFloat(val) || 0);
         }, 0);
         elements.subtotalCashTotal.textContent = formatNumber(sumCashItems);
         elements.badgeCashBreakdownTotal.textContent = formatNumber(sumCashItems);
+        ensureDebitRowOrder(data);
+        setDebitAutoAmount('Total Cash Available', sumCashItems);
 
         // 6. Home X Details -> Auto updates Debit C10
         let sumHomeX = (data.homeExpenseDetails || []).reduce((acc, a) => {
@@ -833,12 +1291,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Debit Ordering Helpers: Keeps Total Cash Available at bottom, inserts lines above ZK
+    function ensureDebitRowOrder(data) {
+        if (!data || !data.debits) return;
+        const cashIdx = data.debits.findIndex(d => (d.name || '').toLowerCase().includes('total cash available'));
+        let cashItem = null;
+        if (cashIdx !== -1) {
+            cashItem = data.debits.splice(cashIdx, 1)[0];
+        } else {
+            cashItem = { name: 'Total Cash Available', amount: 0, isAuto: true, isCash: true };
+        }
+        cashItem.isAuto = true;
+        cashItem.isCash = true;
+        data.debits.push(cashItem);
+    }
+
+    function insertDebitRowAboveZK(data, newItem) {
+        if (!data.debits) data.debits = [];
+        ensureDebitRowOrder(data);
+
+        // Find index of ZK
+        let targetIdx = data.debits.findIndex(d => {
+            const n = (d.name || '').trim().toLowerCase();
+            return n === 'zk' || n.startsWith('zk ') || n.includes('zk');
+        });
+
+        // Fallback: find KH, BP, or Total Cash Available
+        if (targetIdx === -1) {
+            targetIdx = data.debits.findIndex(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n === 'kh' || n === 'bp' || n.includes('total cash available');
+            });
+        }
+
+        if (targetIdx === -1) {
+            targetIdx = Math.max(0, data.debits.length - 1);
+        }
+
+        data.debits.splice(targetIdx, 0, newItem);
+        ensureDebitRowOrder(data);
+    }
+
     function setDebitAutoAmount(namePart, newAmt) {
         if (!state.currentDayData.debits) state.currentDayData.debits = [];
         let d = state.currentDayData.debits.find(it => (it.name || '').toLowerCase().includes(namePart.toLowerCase()));
         if (!d) {
             d = { name: namePart, amount: newAmt, isAuto: true };
-            state.currentDayData.debits.push(d);
+            if (namePart.toLowerCase().includes('total cash available')) {
+                d.isCash = true;
+                state.currentDayData.debits.push(d);
+            } else {
+                insertDebitRowAboveZK(state.currentDayData, d);
+            }
             renderDebitTable(state.currentDayData);
             return;
         }
@@ -868,15 +1372,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add Row Buttons
     function setupAddRowButtons() {
-        // 1. Add Custom Expense Line in Debit
+        // 1. Add Custom Expense Line in Debit (Inserted ABOVE ZK)
         elements.btnAddDebitRow.addEventListener('click', () => {
             const name = prompt('Enter description for new Debit (Expense) item:') || 'Other Expense';
-            state.currentDayData.debits.push({ name, amount: 0, isCustom: true });
+            insertDebitRowAboveZK(state.currentDayData, { name, amount: 0, isCustom: true });
             renderDebitTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
-        // 2. Add Staff Payment directly into Debit with Selection + Reason
+        // 2. Add Staff Payment directly into Debit with Selection + Reason (Inserted ABOVE ZK)
         elements.btnAddStaffDebitBtn.addEventListener('click', () => {
             const staffList = clinicDB.getStaffList();
             const staffOptions = staffList.map((s, i) => `${i + 1}. ${s.name} (${s.role})`).join('\n');
@@ -896,9 +1401,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const amtStr = prompt(`Enter payment amount (Rs.) for "${chosenStaff}":`) || '0';
             const amount = parseFloat(amtStr) || 0;
 
-            // 1. Add to Debit list
+            // 1. Add to Debit list above ZK
             const lineName = `${chosenStaff} (${reason})`;
-            state.currentDayData.debits.push({ name: lineName, amount, isCustom: true, staffRef: chosenStaff });
+            insertDebitRowAboveZK(state.currentDayData, { name: lineName, amount, isCustom: true, staffRef: chosenStaff });
 
             // 2. Link to Staff & Vendors Table
             if (!state.currentDayData.staffPayments) state.currentDayData.staffPayments = {};
@@ -912,6 +1417,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDebitTable(state.currentDayData);
             renderStaffVendorsTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
             showToast(`Added Rs. ${amount} for ${chosenStaff}!`, 'success');
         });
 
@@ -921,6 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.credits.push({ name, amount: 0, isCustom: true });
             renderCreditTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         // 4. Detail Panel Add Buttons
@@ -929,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.dispPurchases.push({ item: '', amount: 0 });
             renderDispPurchasesTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddStoreRow.addEventListener('click', () => {
@@ -936,6 +1444,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.storePurchases.push({ vendor: '', tp: 0, retail: 0 });
             renderStorePurchasesTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddClinicExpRow.addEventListener('click', () => {
@@ -943,6 +1452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.clinicExpenseDetails.push({ item: '', amount: 0 });
             renderClinicExpDetailsTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddUSRow.addEventListener('click', () => {
@@ -951,6 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.usDetails.push({ item: `Receipt #${count}`, amount: 0 });
             renderUSTotalTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddCashRow.addEventListener('click', () => {
@@ -959,6 +1470,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.cashItems.push({ item: `Entry #${count}`, amount: 0 });
             renderCashBreakdownTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddHomeRow.addEventListener('click', () => {
@@ -967,6 +1479,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.homeExpenseDetails.push({ item: `Home Item #${count}`, amount: 0 });
             renderHomeXTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddRecRow.addEventListener('click', () => {
@@ -974,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.receivables.push({ item: '', detail: '', amount: 0 });
             renderReceivablesTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddDentalRow.addEventListener('click', () => {
@@ -981,6 +1495,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.dentalDetails.push({ item: '', amount: 0 });
             renderDentalDetailsTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddStoreExpRow.addEventListener('click', () => {
@@ -988,6 +1503,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.storeExpenseDetails.push({ item: '', amount: 0 });
             renderStoreExpDetailsTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddUSExpRow.addEventListener('click', () => {
@@ -995,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.usExpenseDetails.push({ item: '', amount: 0 });
             renderUSExpDetailsTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
 
         elements.btnAddBillRow.addEventListener('click', () => {
@@ -1003,11 +1520,8 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentDayData.clinicBills.push({ item: `Bill #${count}`, amount: 0 });
             renderClinicBillsTable(state.currentDayData);
             recalculateAll();
+            scheduleAutoSave();
         });
-    }
-
-    function saveCurrentDay() {
-        clinicDB.saveDay(state.currentDate, state.currentDayData);
     }
 
     function formatMonthDisplay(ymStr) {
@@ -1051,6 +1565,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('master-grid-container');
         const monthSummary = clinicDB.getMonthlySummary(state.currentMonth);
         const days = clinicDB.getDaysForMonth(state.currentMonth);
+
+        const monthShort = (() => {
+            const parts = (state.currentMonth || '').split('-');
+            const m = parseInt(parts[1], 10);
+            const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return names[m - 1] || 'Sep';
+        })();
 
         let html = `
             <div class="table-card">
@@ -1117,8 +1638,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const storeRetail = (data.storePurchases || []).reduce((acc, p) => acc + (p.retail || 0), 0);
 
             html += `
-                <tr class="master-row" data-date="${dateKey}">
-                    <td><strong>${String(dayNum).padStart(2, '0')}-Sep</strong></td>
+                <tr class="master-row" data-date="${dateKey}" style="cursor: pointer;" title="Click to view and edit day sheet">
+                    <td><strong>${String(dayNum).padStart(2, '0')}-${monthShort}</strong></td>
                     <td class="num-cell" style="color: #fb7185;">${formatNumber(summary.debitTotal || 0)}</td>
                     <td class="num-cell" style="color: #34d399;">${formatNumber(summary.creditTotal || 0)}</td>
                     <td class="num-cell">${formatNumber(getDeb('store med purchase'))}</td>
@@ -1180,9 +1701,11 @@ document.addEventListener('DOMContentLoaded', () => {
         container.querySelectorAll('.master-row').forEach(r => {
             r.addEventListener('click', () => {
                 const dt = r.dataset.date;
+                saveCurrentDay(false);
                 state.currentDate = dt;
                 elements.dateInput.value = dt;
                 updateDateBadge(dt);
+                loadDay(dt);
                 switchTab('view-daily');
             });
         });
@@ -1211,6 +1734,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const staffList = clinicDB.getStaffList();
         const days = clinicDB.getDaysForMonth(state.currentMonth);
         const monthSummary = clinicDB.getMonthlySummary(state.currentMonth);
+
+        const monthShort = (() => {
+            const parts = (state.currentMonth || '').split('-');
+            const m = parseInt(parts[1], 10);
+            const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return names[m - 1] || 'Sep';
+        })();
 
         let html = `
             <div class="table-card">
@@ -1252,7 +1782,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const payments = data.staffPayments || {};
             let dayTotal = 0;
 
-            html += `<tr><td><strong>${String(dayNum).padStart(2, '0')}-Sep</strong></td>`;
+            html += `<tr><td><strong>${String(dayNum).padStart(2, '0')}-${monthShort}</strong></td>`;
 
             staffList.forEach(s => {
                 const pObj = payments[s.name];
