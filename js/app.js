@@ -3018,8 +3018,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h2>Clinic & Medical Center P&L Statement</h2>
                         <p>Consolidated Accounts & Departmental Gross Profit (${label})</p>
                     </div>
-                    <div style="background: rgba(255, 255, 255, 0.15); padding: 0.35rem 0.6rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
-                        ${getPeriodFilterBarHtml('pnl', state.pnlFilter)}
+                    <div class="no-print" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <div style="background: rgba(255, 255, 255, 0.15); padding: 0.35rem 0.6rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
+                            ${getPeriodFilterBarHtml('pnl', state.pnlFilter)}
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="print-pnl-btn" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.8rem; font-weight: 600; cursor: pointer; border-radius: 6px; font-size: 0.82rem; background: #2563eb; color: #fff; border: 1px solid #1d4ed8; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                            🖨️ Print Report
+                        </button>
                     </div>
                 </div>
                 <div class="grand-metrics">
@@ -3173,6 +3178,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         container.innerHTML = html;
         bindPeriodFilterEvents('pnl', state.pnlFilter, renderPnL);
+        const printBtn = document.getElementById('print-pnl-btn');
+        if (printBtn) printBtn.onclick = () => window.print();
     }
 
     // ==========================================================
