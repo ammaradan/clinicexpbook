@@ -250,7 +250,105 @@ class ClinicDataManager {
         }
     }
 
+    getPrevDateKey(dateKey) {
+        if (!dateKey) return null;
+        const str = String(dateKey).trim();
+        if (str.includes('-')) {
+            const parts = str.split('-');
+            if (parts.length === 3) {
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                const d = parseInt(parts[2], 10);
+                const dateObj = new Date(y, m, d);
+                dateObj.setDate(dateObj.getDate() - 1);
+                const ny = dateObj.getFullYear();
+                const nm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const nd = String(dateObj.getDate()).padStart(2, '0');
+                return `${ny}-${nm}-${nd}`;
+            }
+        }
+        const num = parseInt(str, 10);
+        if (!isNaN(num) && num > 1) {
+            return String(num - 1).padStart(2, '0');
+        }
+        return null;
+    }
+
+    getNextDateKey(dateKey) {
+        if (!dateKey) return null;
+        const str = String(dateKey).trim();
+        if (str.includes('-')) {
+            const parts = str.split('-');
+            if (parts.length === 3) {
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                const d = parseInt(parts[2], 10);
+                const dateObj = new Date(y, m, d);
+                dateObj.setDate(dateObj.getDate() + 1);
+                const ny = dateObj.getFullYear();
+                const nm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const nd = String(dateObj.getDate()).padStart(2, '0');
+                return `${ny}-${nm}-${nd}`;
+            }
+        }
+        const num = parseInt(str, 10);
+        if (!isNaN(num) && num >= 1 && num < 31) {
+            return String(num + 1).padStart(2, '0');
+        }
+        return null;
+    }
+
+    getExistingDay(dateKey) {
+        if (!dateKey) return null;
+        if (this.days[dateKey]) {
+            return this.days[dateKey];
+        }
+        if (String(dateKey).startsWith('2026-09-')) {
+            const dayNum = String(dateKey).split('-')[2];
+            if (this.days[dayNum]) {
+                return this.days[dayNum];
+            }
+        }
+        return null;
+    }
+
+    syncNextDayDarazCash(currentDateKey, darazCashAmount) {
+        const nextDateKey = this.getNextDateKey(currentDateKey);
+        if (!nextDateKey) return;
+
+        let nextDay = this.getExistingDay(nextDateKey);
+        if (!nextDay) {
+            nextDay = this.createBlankDay(nextDateKey);
+            this.days[nextDateKey] = nextDay;
+        } else {
+            if (!Array.isArray(nextDay.credits)) nextDay.credits = [];
+            let credItem = nextDay.credits.find(c => (c.name || '').toLowerCase().trim() === 'daraz cash');
+            if (credItem) {
+                credItem.amount = parseFloat(darazCashAmount) || 0;
+            } else {
+                nextDay.credits.unshift({ name: 'Daraz Cash', amount: parseFloat(darazCashAmount) || 0, isAuto: false });
+            }
+            const totalDebit = (nextDay.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+            const totalCredit = (nextDay.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+            if (!nextDay.summary) nextDay.summary = {};
+            nextDay.summary.debitTotal = totalDebit;
+            nextDay.summary.creditTotal = totalCredit;
+            nextDay.summary.difference = totalCredit - totalDebit;
+        }
+
+        this.saveDay(nextDateKey, nextDay);
+    }
+
     createBlankDay(dateKey) {
+        let initialDarazCash = 0;
+        const prevKey = this.getPrevDateKey(dateKey);
+        if (prevKey) {
+            const prevDay = this.getExistingDay(prevKey);
+            if (prevDay && prevDay.summary && prevDay.summary.darazCash !== undefined) {
+                initialDarazCash = parseFloat(prevDay.summary.darazCash) || 0;
+            }
+        }
+
         return {
             date: dateKey,
             debits: [
@@ -269,7 +367,7 @@ class ClinicDataManager {
                 { name: 'Total Cash Available', amount: 0, isCash: true }
             ],
             credits: [
-                { name: 'Daraz Cash', amount: 0, isAuto: false },
+                { name: 'Daraz Cash', amount: initialDarazCash, isAuto: false },
                 { name: 'Clinic Pt + Dispensary Inc', amount: 0, isAuto: true },
                 { name: 'LB', amount: 0, isAuto: false },
                 { name: 'US', amount: 0, isAuto: true },
@@ -329,8 +427,8 @@ class ClinicDataManager {
             ],
             summary: {
                 debitTotal: 0,
-                creditTotal: 0,
-                difference: 0,
+                creditTotal: initialDarazCash,
+                difference: initialDarazCash,
                 cashTakenAway: 0,
                 darazCash: 0,
                 totalCash: 0

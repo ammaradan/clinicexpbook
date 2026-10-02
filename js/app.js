@@ -255,6 +255,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (state.currentDayData) {
             clinicDB.saveDay(state.currentDate, state.currentDayData);
+            if (state.currentDayData.summary && state.currentDayData.summary.darazCash !== undefined) {
+                clinicDB.syncNextDayDarazCash(state.currentDate, state.currentDayData.summary.darazCash);
+            }
             updateAutoSaveIndicator('saved');
             if (showToastMsg) {
                 showToast('Day sheet saved successfully!', 'success');
@@ -1199,6 +1202,20 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentDayData = clinicDB.getDay(dateKey);
         normalizeDayData(state.currentDayData);
         clinicDB.syncStaffPaymentsWithDebits(state.currentDayData);
+
+        // Auto-reflect previous day's bottom Daraz Cash if current day's Credit Daraz Cash is 0
+        const prevKey = clinicDB.getPrevDateKey(dateKey);
+        if (prevKey) {
+            const prevDay = clinicDB.getExistingDay(prevKey);
+            if (prevDay && prevDay.summary && prevDay.summary.darazCash !== undefined) {
+                const prevDaraz = parseFloat(prevDay.summary.darazCash) || 0;
+                let credItem = (state.currentDayData.credits || []).find(c => (c.name || '').toLowerCase().trim() === 'daraz cash');
+                if (credItem && (credItem.amount === 0 || credItem.amount === undefined) && prevDaraz > 0) {
+                    credItem.amount = prevDaraz;
+                }
+            }
+        }
+
         renderAllPanels();
         recalculateAll();
     }
@@ -1261,8 +1278,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         elements.inputDaraz.oninput = (e) => {
-            data.summary.darazCash = parseFloat(e.target.value) || 0;
+            const val = parseFloat(e.target.value) || 0;
+            data.summary.darazCash = val;
             recalculateAll();
+            clinicDB.syncNextDayDarazCash(state.currentDate, val);
+            scheduleAutoSave();
         };
     }
 
@@ -1344,6 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (data.credits || []).forEach((item, idx) => {
             const tr = document.createElement('tr');
             const isAuto = item.isAuto;
+            const isDarazCash = (item.name || '').toLowerCase().trim() === 'daraz cash';
             tr.innerHTML = `
                 <td>
                     ${item.isCustom ? `
@@ -1352,11 +1373,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <button type="button" class="btn-icon btn-sm del-credit-row-btn no-print" data-index="${idx}" title="Delete Income Category / Row" style="color: #ef4444; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer; flex-shrink: 0;">🗑️</button>
                         </div>
                     ` : `<span>${escapeHtml(item.name)}</span>`}
-                    ${isAuto ? `<span class="auto-tag">⚡ Auto</span>` : ''}
+                    ${isAuto ? `<span class="auto-tag">⚡ Auto</span>` : (isDarazCash ? `<span class="auto-tag" style="background: rgba(217, 119, 6, 0.12); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.25); font-size: 0.68rem; padding: 1px 4px; border-radius: 3px; font-weight: 600; margin-left: 4px;" title="Auto-reflected from previous day's bottom Daraz Cash">🔄 Prev Day</span>` : '')}
                 </td>
                 <td class="num-cell">
                     <input type="number" step="any" class="cell-input num-input credit-amt-input ${isAuto ? 'auto-cell' : ''}" 
-                           value="${item.amount || 0}" data-index="${idx}" ${isAuto ? 'readonly' : ''}>
+                           value="${item.amount || 0}" data-index="${idx}" ${isAuto ? 'readonly' : ''} ${isDarazCash ? 'title="Reflected from previous day\'s bottom Daraz Cash"' : ''}>
                 </td>
             `;
 
