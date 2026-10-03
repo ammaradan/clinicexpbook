@@ -98,6 +98,8 @@ class ClinicDataManager {
         } else {
             try {
                 this.days = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAYS)) || {};
+                delete this.days['2026-09-31'];
+                delete this.days['31'];
                 Object.keys(this.days).forEach(k => {
                     this.days[k] = this.cleanDayItemNames(this.days[k]);
                 });
@@ -113,8 +115,8 @@ class ClinicDataManager {
 
     clearToZero() {
         this.days = {};
-        // Generate blank 0-days for 01 through 31
-        for (let i = 1; i <= 31; i++) {
+        // Generate blank 0-days for 01 through 30 (September has 30 days)
+        for (let i = 1; i <= 30; i++) {
             const strDay = String(i).padStart(2, '0');
             const dateKey = `2026-09-${strDay}`;
             const blankDay = this.createBlankDay(dateKey);
@@ -523,9 +525,11 @@ class ClinicDataManager {
     saveDay(dateKey, dayData) {
         dayData = this.cleanDayItemNames(dayData);
         this.days[dateKey] = dayData;
-        const m = String(dateKey).match(/\d{4}-\d{2}-(\d{2})/);
-        if (m) {
-            this.days[m[1]] = dayData;
+        if (String(dateKey).startsWith('2026-09-')) {
+            const m = String(dateKey).match(/2026-09-(\d{2})/);
+            if (m && parseInt(m[1], 10) <= 30) {
+                this.days[m[1]] = dayData;
+            }
         }
         localStorage.setItem(STORAGE_KEYS.DAYS, JSON.stringify(this.days));
         if (window.cloudSync && typeof window.cloudSync.saveDayToCloud === 'function') {
@@ -837,30 +841,30 @@ class ClinicDataManager {
         let grandTotal = 0;
         const catKeyLower = categoryKey.toLowerCase();
 
-        const start = startDate ? new Date(startDate) : new Date('2000-01-01');
-        const end = endDate ? new Date(endDate) : new Date('2099-12-31');
-        end.setHours(23, 59, 59, 999);
+        const sStr = startDate || '2000-01-01';
+        const eStr = endDate || '2099-12-31';
 
-        const processedDates = new Set();
-
-        Object.entries(this.days).forEach(([key, dayData]) => {
-            if (!dayData) return;
-
-            let dayDate;
-            if (dayData.date) {
-                dayDate = new Date(dayData.date);
-            } else if (/^\d+$/.test(key)) {
-                dayDate = new Date(`2026-09-${key.padStart(2, '0')}`);
-            } else {
-                dayDate = new Date(key);
+        // Gather all unique YYYY-MM-DD keys from this.days
+        const allDateKeys = new Set();
+        Object.keys(this.days).forEach(k => {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(k)) {
+                if (k === '2026-09-31') return;
+                allDateKeys.add(k);
+            } else if (/^\d{1,2}$/.test(k)) {
+                const dayNum = parseInt(k, 10);
+                if (dayNum >= 1 && dayNum <= 30) {
+                    allDateKeys.add(`2026-09-${String(dayNum).padStart(2, '0')}`);
+                }
             }
+        });
 
-            if (isNaN(dayDate.getTime())) return;
-            if (dayDate < start || dayDate > end) return;
+        const sortedDates = Array.from(allDateKeys).sort();
 
-            const formattedDate = dayDate.toISOString().split('T')[0];
-            if (processedDates.has(formattedDate)) return;
-            processedDates.add(formattedDate);
+        sortedDates.forEach(dateKey => {
+            if (dateKey < sStr || dateKey > eStr) return;
+            const dayData = this.getDay(dateKey);
+            if (!dayData) return;
+            const formattedDate = dateKey;
 
             // 1. Receivables (User explicitly requested!)
             if (catKeyLower === 'receivables' || catKeyLower === 'rec') {

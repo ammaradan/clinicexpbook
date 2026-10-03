@@ -3298,11 +3298,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const report = clinicDB.getCategoryReport(catKey, start, end);
         const resultsContainer = document.getElementById('report-results-container');
+        const catSelect = document.getElementById('report-category-select');
+        const selectedLabel = (catSelect && catSelect.selectedOptions && catSelect.selectedOptions[0]) 
+            ? catSelect.selectedOptions[0].textContent 
+            : catKey.replace('staff:', 'Doctor/Staff: ');
 
         let html = `
             <div class="category-summary-banner">
                 <div>
-                    <h3>Category: ${escapeHtml(catKey.replace('staff:', 'Doctor/Staff: '))}</h3>
+                    <h3>Category: ${escapeHtml(selectedLabel)}</h3>
                     <span style="color: var(--text-muted); font-size: 0.85rem;">Period: ${report.startDate} to ${report.endDate} &bull; Total Transactions: ${report.count}</span>
                 </div>
                 <div style="text-align: right;">
