@@ -1196,6 +1196,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(data.snExpenseDetails) || data.snExpenseDetails.length === 0) {
             data.snExpenseDetails = [{ item: '', amount: 0 }, { item: '', amount: 0 }];
         }
+        if (clinicDB && typeof clinicDB.ensureStandardDebits === 'function') {
+            clinicDB.ensureStandardDebits(data);
+        }
     }
 
     function loadDay(dateKey) {
@@ -2048,10 +2051,11 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.badgeClinicBillsTotal.textContent = formatNumber(sumClinicBills);
         setCreditAutoAmount('Clinic Pt + Dispensary Inc', sumClinicBills);
 
-        // 12b. SN Expenses (Independent tracked category - does NOT add to debit total)
+        // 12b. SN Expenses (Auto updates Debit "SN Expenses")
         let sumSNExp = (data.snExpenseDetails || []).reduce((acc, a) => acc + (parseFloat(a.amount) || 0), 0);
         if (elements.subtotalSNExp) elements.subtotalSNExp.textContent = formatNumber(sumSNExp);
         if (elements.badgeSNExpTotal) elements.badgeSNExpTotal.textContent = formatNumber(sumSNExp);
+        setDebitAutoAmount('SN Expenses', sumSNExp);
 
         // 13. Debit Column Grand Total (SUM C6:C34)
         let totalDebit = (data.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
@@ -2729,6 +2733,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th class="num-cell">Dental Exp</th>
                                 <th class="num-cell">Store Exp</th>
                                 <th class="num-cell" style="color: #a855f7; background: rgba(168,85,247,0.06);">SN Exp</th>
+                                <th class="num-cell" style="color: #0284c7; background: rgba(2,132,199,0.06);">A/C</th>
                                 <th class="num-cell" style="color: #f43f5e; background: rgba(244,63,94,0.06);">Others Exp</th>
                                 <th class="num-cell" style="color: #10b981; background: rgba(16,185,129,0.06);">Others Inc</th>
                             </tr>
@@ -2755,6 +2760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const standardDebits = [
                 'store med purchase', 'dispensary purchase', 'clinic exp',
                 'lb exp', 'home exp', 'us exp', 'dental exp', 'store exp',
+                'sn exp', 'sn expenses', 'a/c', 'account', 'ac',
                 'receivable', 'zk', 'kh', 'bp', 'total cash available'
             ];
             const othersDeb = debits.filter(d => {
@@ -2772,6 +2778,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }).reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
             const snDailyTotal = (data.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+            const acDailyTotal = debits.filter(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c');
+            }).reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 
             html += `
                 <tr class="master-row" data-date="${dateKey}" style="cursor: pointer;" title="Click to view and edit day sheet">
@@ -2797,6 +2807,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="num-cell">${formatNumber(getDeb('dental exp'))}</td>
                     <td class="num-cell">${formatNumber(getDeb('store exp'))}</td>
                     <td class="num-cell" style="color: #a855f7; font-weight: 600;">${snDailyTotal > 0 ? formatNumber(snDailyTotal) : '-'}</td>
+                    <td class="num-cell" style="color: #0284c7; font-weight: 600;">${acDailyTotal > 0 ? formatNumber(acDailyTotal) : '-'}</td>
                     <td class="num-cell" style="color: #f43f5e; font-weight: 600;">${othersDeb > 0 ? formatNumber(othersDeb) : '-'}</td>
                     <td class="num-cell" style="color: #10b981; font-weight: 600;">${othersCred > 0 ? formatNumber(othersCred) : '-'}</td>
                 </tr>
@@ -2829,6 +2840,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="num-cell">${formatNumber(summary.sumDentalExp)}</td>
                                 <td class="num-cell">${formatNumber(summary.sumStoreExp)}</td>
                                 <td class="num-cell" style="color: #a855f7; font-weight: 700;">Rs. ${formatNumber(summary.sumSNExp || 0)}</td>
+                                <td class="num-cell" style="color: #0284c7; font-weight: 700;">Rs. ${formatNumber(summary.sumAC || 0)}</td>
                                 <td class="num-cell" style="color: #f43f5e; font-weight: 700;">Rs. ${formatNumber(summary.sumOthersDebit || 0)}</td>
                                 <td class="num-cell" style="color: #10b981; font-weight: 700;">Rs. ${formatNumber(summary.sumOthersCredit || 0)}</td>
                             </tr>
@@ -3165,6 +3177,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="num-cell">Rs. ${formatNumber(summary.sumDentalExp)}</span>
                     </div>
                     <div class="pnl-row">
+                        <span>A/C (Account):</span>
+                        <span class="num-cell" style="color: #0284c7;">Rs. ${formatNumber(summary.sumAC || 0)}</span>
+                    </div>
+                    <div class="pnl-row">
+                        <span>SN Expenses:</span>
+                        <span class="num-cell" style="color: #a855f7;">Rs. ${formatNumber(summary.sumSNExp || 0)}</span>
+                    </div>
+                    <div class="pnl-row">
                         <span>ECG Income:</span>
                         <span class="num-cell" style="color: #34d399;">Rs. ${formatNumber(summary.sumECG)}</span>
                     </div>
@@ -3211,7 +3231,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="us_inc">US (Ultrasound) Income</option>
                     <option value="dental_expenses">Dental Expense</option>
                     <option value="store_exp">Store Exp</option>
-                    <option value="sn_expenses">SN Expenses</option>
+                    <option value="sn_expenses">SN Expenses (Breakdown)</option>
+                    <option value="account_ac">A/C (Account Transfers / Deposits)</option>
                     <option value="cash_breakdown">Cash Breakdown</option>
                     <option value="home_expenses">Home Expenses (Home X)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
@@ -3538,16 +3559,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        const clearZeroBtn = document.getElementById('clear-all-zero-btn');
-        if (clearZeroBtn) {
-            clearZeroBtn.onclick = () => {
-                if (confirm('Are you sure you want to clear ALL 31 days to 0? This will give you a completely fresh, blank slate for day-to-day entries.')) {
-                    clinicDB.clearToZero();
-                    showToast('All days cleared to 0! Fresh start ready.', 'success');
-                    setTimeout(() => location.reload(), 800);
-                }
-            };
-        }
 
         const btnResetSeed = document.getElementById('reset-seed-btn');
         if (btnResetSeed) {

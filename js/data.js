@@ -40,6 +40,8 @@ const DEFAULT_CATEGORIES = {
         { id: 'us_expenses', name: 'US Exp', code: 'USE', system: true },
         { id: 'dental_expenses', name: 'Dental Exp', code: 'DE', system: true },
         { id: 'store_expenses', name: 'Store Exp', code: 'SE', system: true },
+        { id: 'sn_expenses', name: 'SN Expenses', code: 'SNE', system: true },
+        { id: 'account_ac', name: 'A/C', code: 'AC', system: true },
         { id: 'receivables', name: 'Receivables', code: 'REC', system: true },
         { id: 'staff_vendors', name: 'Staff & Vendors', code: 'SV', system: true }
     ],
@@ -75,8 +77,20 @@ class ClinicDataManager {
         const isInit = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
 
         if (!isInit) {
-            // Fresh clean start with zeroes as requested by user!
-            this.clearToZero();
+            // Check if there is already existing data saved in localStorage to avoid wiping
+            const savedDays = localStorage.getItem(STORAGE_KEYS.DAYS);
+            if (savedDays) {
+                try {
+                    this.days = JSON.parse(savedDays) || {};
+                    Object.keys(this.days).forEach(k => {
+                        this.days[k] = this.cleanDayItemNames(this.days[k]);
+                    });
+                } catch (e) {
+                    this.days = {};
+                }
+            } else {
+                this.clearToZero();
+            }
             this.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
             this.staffList = JSON.parse(JSON.stringify(DEFAULT_STAFF_LIST));
             this.saveAll();
@@ -90,9 +104,9 @@ class ClinicDataManager {
                 this.categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES)) || DEFAULT_CATEGORIES;
                 this.staffList = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF)) || DEFAULT_STAFF_LIST;
                 this.settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS)) || this.settings;
+                this.saveAll();
             } catch (e) {
                 console.error('Error loading localStorage:', e);
-                this.clearToZero();
             }
         }
     }
@@ -110,11 +124,60 @@ class ClinicDataManager {
         this.saveAll();
     }
 
+    ensureStandardDebits(dayData) {
+        if (!dayData || !dayData.debits) return dayData;
+
+        // 1. Ensure SN Expenses exists (Auto-calculated from collapsible SN Expenses)
+        let snItem = dayData.debits.find(d => {
+            const n = (d.name || '').trim().toLowerCase();
+            return n === 'sn expenses' || n === 'sn exp' || n === 'sn';
+        });
+        const currentSNAmt = (dayData.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+        if (!snItem) {
+            snItem = { name: 'SN Expenses', amount: currentSNAmt, isAuto: true };
+            let targetIdx = dayData.debits.findIndex(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n === 'a/c' || n.includes('receivable') || n === 'zk' || n === 'kh' || n === 'bp' || n.includes('total cash available');
+            });
+            if (targetIdx === -1) targetIdx = Math.max(0, dayData.debits.length - 1);
+            dayData.debits.splice(targetIdx, 0, snItem);
+        } else {
+            snItem.name = 'SN Expenses';
+            snItem.isAuto = true;
+            delete snItem.isCustom;
+            if (currentSNAmt > 0 || snItem.amount === undefined) {
+                snItem.amount = currentSNAmt;
+            }
+        }
+
+        // 2. Ensure A/C exists (Permanent entry for Account payment)
+        let acItem = dayData.debits.find(d => {
+            const n = (d.name || '').trim().toLowerCase();
+            return n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c');
+        });
+        if (!acItem) {
+            acItem = { name: 'A/C', amount: 0, isAuto: false };
+            let targetIdx = dayData.debits.findIndex(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n.includes('receivable') || n === 'zk' || n === 'kh' || n === 'bp' || n.includes('total cash available');
+            });
+            if (targetIdx === -1) targetIdx = Math.max(0, dayData.debits.length - 1);
+            dayData.debits.splice(targetIdx, 0, acItem);
+        } else {
+            acItem.name = 'A/C';
+            acItem.isAuto = false;
+            delete acItem.isCustom;
+        }
+
+        return dayData;
+    }
+
     cleanDayItemNames(dayData) {
         if (!dayData) return dayData;
         const standardDebits = [
             'store med purchases', 'dispensary purchases', 'clinic expenses',
             'lb expenses', 'home expenses', 'us exp', 'dental exp', 'store exp',
+            'sn expenses', 'sn exp', 'sn', 'a/c', 'ac', 'account',
             'receivables', 'zk', 'kh', 'bp', 'total cash available'
         ];
         if (dayData.debits) {
@@ -124,7 +187,15 @@ class ClinicDataManager {
             });
             dayData.debits.forEach(d => {
                 const n = (d.name || '').trim().toLowerCase();
-                if (!standardDebits.includes(n)) {
+                if (n === 'sn expenses' || n === 'sn exp' || n === 'sn') {
+                    d.name = 'SN Expenses';
+                    d.isAuto = true;
+                    delete d.isCustom;
+                } else if (n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c')) {
+                    d.name = 'A/C';
+                    d.isAuto = false;
+                    delete d.isCustom;
+                } else if (!standardDebits.includes(n)) {
                     d.isCustom = true;
                 }
             });
@@ -145,6 +216,7 @@ class ClinicDataManager {
             });
         }
         if (!dayData.snExpenseDetails) dayData.snExpenseDetails = [];
+        this.ensureStandardDebits(dayData);
         this.syncStaffPaymentsWithDebits(dayData);
         return dayData;
     }
@@ -360,6 +432,8 @@ class ClinicDataManager {
                 { name: 'US Exp', amount: 0, isAuto: true },
                 { name: 'Dental Exp', amount: 0, isAuto: true },
                 { name: 'Store Exp', amount: 0, isAuto: true },
+                { name: 'SN Expenses', amount: 0, isAuto: true },
+                { name: 'A/C', amount: 0, isAuto: false },
                 { name: 'Receivables', amount: 0, isAuto: true },
                 { name: 'ZK', amount: 0, isPartner: true },
                 { name: 'KH', amount: 0, isPartner: true },
@@ -633,6 +707,7 @@ class ClinicDataManager {
         let sumReceivables = 0, sumUSExp = 0, sumDentalExp = 0, sumStoreExp = 0;
         let sumOthersDebit = 0, sumOthersCredit = 0;
         let sumSNExp = 0;
+        let sumAC = 0;
 
         const staffTotals = {};
         this.staffList.forEach(s => { staffTotals[s.name] = 0; });
@@ -653,6 +728,8 @@ class ClinicDataManager {
                 else if (name.includes('us exp')) sumUSExp += amt;
                 else if (name.includes('dental exp')) sumDentalExp += amt;
                 else if (name.includes('store exp')) sumStoreExp += amt;
+                else if (name === 'sn expenses' || name === 'sn exp' || name === 'sn') { /* tracked in sumSNExp */ }
+                else if (name === 'a/c' || name === 'ac' || name === 'account' || name.startsWith('a/c')) sumAC += amt;
                 else if (name.includes('receivable')) sumReceivables += amt;
                 else if (name === 'kh') sumKH += amt;
                 else if (name === 'zk') sumZK += amt;
@@ -736,6 +813,7 @@ class ClinicDataManager {
             sumOthersDebit,
             sumOthersCredit,
             sumSNExp,
+            sumAC,
             staffTotals,
             totalSalaries,
             storeProfit,
@@ -1052,23 +1130,62 @@ class ClinicDataManager {
                     });
                 }
             }
-            // 11. SN Expenses (Independent tracked category)
+            // 11. SN Expenses (Collapsible category & breakdown)
             else if (catKeyLower === 'sn_expenses' || catKeyLower === 'sn_exp' || catKeyLower === 'sn') {
+                let hadDetails = false;
                 if (dayData.snExpenseDetails && dayData.snExpenseDetails.length > 0) {
                     dayData.snExpenseDetails.forEach(sn => {
                         const amt = parseFloat(sn.amount) || 0;
                         if (amt > 0) {
+                            hadDetails = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'SN Expenses',
                                 item: sn.item || 'SN Expense Item',
-                                description: sn.item || 'SN Expense Entry',
-                                type: 'SN Expense',
+                                description: sn.item ? `SN Item: ${sn.item}` : 'SN Expense Entry',
+                                type: 'Debit (SN Expense)',
                                 amount: amt
                             });
                             grandTotal += amt;
                         }
                     });
+                }
+                if (!hadDetails) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').trim().toLowerCase();
+                        return n === 'sn expenses' || n === 'sn exp' || n === 'sn';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
+                        rows.push({
+                            date: formattedDate,
+                            category: 'SN Expenses',
+                            item: 'SN Expenses Total',
+                            description: 'Daily SN Expenses Total',
+                            type: 'Debit (SN Expense)',
+                            amount: amt
+                        });
+                        grandTotal += amt;
+                    }
+                }
+            }
+            // 11b. A/C (Account Transfers / Deposits)
+            else if (catKeyLower === 'account_ac' || catKeyLower === 'ac' || catKeyLower === 'a/c' || catKeyLower === 'account') {
+                const match = (dayData.debits || []).find(d => {
+                    const n = (d.name || '').trim().toLowerCase();
+                    return n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c');
+                });
+                if (match && parseFloat(match.amount) > 0) {
+                    const amt = parseFloat(match.amount);
+                    rows.push({
+                        date: formattedDate,
+                        category: 'A/C',
+                        item: 'Account Deposit / Transfer',
+                        description: 'Payment / Transfer to Account (A/C)',
+                        type: 'Debit (Account)',
+                        amount: amt
+                    });
+                    grandTotal += amt;
                 }
             }
             // 12. Partner Withdrawals
