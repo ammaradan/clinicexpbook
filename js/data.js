@@ -724,17 +724,17 @@ class ClinicDataManager {
             (data.debits || []).forEach(d => {
                 const name = (d.name || '').toLowerCase().trim();
                 const amt = parseFloat(d.amount) || 0;
-                if (name.includes('store med purchase')) sumStoreMedPurchases += amt;
-                else if (name.includes('dispensary purchase')) sumDispPurchases += amt;
-                else if (name.includes('clinic exp')) sumClinicExp += amt;
-                else if (name.includes('lb exp')) sumLBExp += amt;
-                else if (name.includes('home exp')) sumHomeExp += amt;
-                else if (name.includes('us exp')) sumUSExp += amt;
-                else if (name.includes('dental exp')) sumDentalExp += amt;
-                else if (name.includes('store exp')) sumStoreExp += amt;
-                else if (name === 'sn expenses' || name === 'sn exp' || name === 'sn') { /* tracked in sumSNExp */ }
+                if (name.includes('store med purchase') || name === 'smp') sumStoreMedPurchases += amt;
+                else if (name.includes('dispensary purchase') || name === 'dp') sumDispPurchases += amt;
+                else if (name.includes('clinic exp') || name === 'ce') sumClinicExp += amt;
+                else if (name.includes('lb exp') || name === 'lbe') sumLBExp += amt;
+                else if (name.includes('home exp') || name === 'he') sumHomeExp += amt;
+                else if (name.includes('us exp') || name === 'use') sumUSExp += amt;
+                else if (name.includes('dental exp') || name === 'de') sumDentalExp += amt;
+                else if (name.includes('store exp') || name === 'se') sumStoreExp += amt;
+                else if (name === 'sn expenses' || name === 'sn exp' || name === 'sn' || name === 'sne') { /* tracked in sumSNExp */ }
                 else if (name === 'a/c' || name === 'ac' || name === 'account' || name.startsWith('a/c')) sumAC += amt;
-                else if (name.includes('receivable')) sumReceivables += amt;
+                else if (name.includes('receivable') || name === 'rec') sumReceivables += amt;
                 else if (name === 'kh') sumKH += amt;
                 else if (name === 'zk') sumZK += amt;
                 else if (name === 'bp') sumBP += amt;
@@ -747,22 +747,24 @@ class ClinicDataManager {
             (data.credits || []).forEach(c => {
                 const name = (c.name || '').toLowerCase().trim();
                 const amt = parseFloat(c.amount) || 0;
-                if (name.includes('clinic pt') || name.includes('dispensary inc')) sumDispInc += amt;
-                else if (name === 'lb' || name.includes('lb inc')) sumLBInc += amt;
-                else if (name === 'us' || name.includes('us inc')) sumUSInc += amt;
-                else if (name === 'st s' || name.includes('store sale')) sumStSaleThisMonth += amt;
-                else if (name === 'ecg') sumECG += amt;
-                else if (name.includes('daraz cash')) { /* Daraz cash */ }
+                if (name.includes('clinic pt') || name.includes('dispensary inc') || name === 'cpdi') sumDispInc += amt;
+                else if (name === 'lb' || name.includes('lb inc') || name === 'lbi') sumLBInc += amt;
+                else if (name === 'us' || name.includes('us inc') || name === 'usi') sumUSInc += amt;
+                else if (name === 'st s' || name.includes('store sale') || name === 'sts') sumStSaleThisMonth += amt;
+                else if (name === 'ecg' || name.includes('ecg')) sumECG += amt;
+                else if (name.includes('daraz cash') || name === 'dc') { /* Daraz cash */ }
                 else {
                     sumOthersCredit += amt;
                 }
             });
 
-            if (data.snExpenseDetails) {
-                data.snExpenseDetails.forEach(sn => {
-                    sumSNExp += (parseFloat(sn.amount) || 0);
-                });
-            }
+            const snDetailsSum = (data.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+            const snDebit = (data.debits || []).find(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n === 'sn expenses' || n === 'sn exp' || n === 'sn' || n === 'sne';
+            });
+            const snDebitAmt = snDebit ? (parseFloat(snDebit.amount) || 0) : 0;
+            sumSNExp += Math.max(snDetailsSum, snDebitAmt);
 
             if (data.storePurchases) {
                 data.storePurchases.forEach(sp => {
@@ -839,7 +841,7 @@ class ClinicDataManager {
     getCategoryReport(categoryKey, startDate, endDate) {
         const rows = [];
         let grandTotal = 0;
-        const catKeyLower = categoryKey.toLowerCase();
+        const catKeyLower = (categoryKey || 'all').toLowerCase().trim();
 
         const sStr = startDate || '2000-01-01';
         const eStr = endDate || '2099-12-31';
@@ -858,6 +860,11 @@ class ClinicDataManager {
             }
         });
 
+        // Ensure if a single date was requested and valid, it's checked
+        if (startDate && startDate === endDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+            allDateKeys.add(startDate);
+        }
+
         const sortedDates = Array.from(allDateKeys).sort();
 
         sortedDates.forEach(dateKey => {
@@ -866,11 +873,14 @@ class ClinicDataManager {
             if (!dayData) return;
             const formattedDate = dateKey;
 
-            // 1. Receivables (User explicitly requested!)
+            // 1. Receivables
             if (catKeyLower === 'receivables' || catKeyLower === 'rec') {
+                let hadRec = false;
                 if (dayData.receivables && dayData.receivables.length > 0) {
                     dayData.receivables.forEach(r => {
-                        if (r.amount > 0) {
+                        const amt = parseFloat(r.amount) || 0;
+                        if (amt > 0) {
+                            hadRec = true;
                             const partyName = r.item || r.party || 'Party';
                             const detailNote = r.detail || r.reason || '';
                             rows.push({
@@ -879,28 +889,30 @@ class ClinicDataManager {
                                 item: partyName,
                                 description: detailNote ? `${partyName}: ${detailNote}` : `Receivable: ${partyName}`,
                                 type: 'Debit (Pending / Due)',
-                                amount: r.amount
+                                amount: amt
                             });
-                            grandTotal += r.amount;
+                            grandTotal += amt;
                         }
                     });
-                } else {
+                }
+                if (!hadRec) {
                     const match = (dayData.debits || []).find(d => (d.name || '').toLowerCase().includes('receivable'));
-                    if (match && match.amount > 0) {
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
                             category: 'Receivables',
-                            item: 'Receivables',
+                            item: 'Receivables Total',
                             description: 'Total daily receivables',
                             type: 'Debit (Pending / Due)',
-                            amount: match.amount
+                            amount: amt
                         });
-                        grandTotal += match.amount;
+                        grandTotal += amt;
                     }
                 }
             }
             // 2. Staff & Vendors (All staff)
-            else if (catKeyLower === 'staff_vendors' || catKeyLower === 'staff') {
+            else if (catKeyLower === 'staff_vendors' || catKeyLower === 'staff' || catKeyLower === 'sv') {
                 if (dayData.staffPayments) {
                     Object.entries(dayData.staffPayments).forEach(([staffName, pObj]) => {
                         const amount = typeof pObj === 'number' ? pObj : (pObj?.amount || 0);
@@ -942,200 +954,300 @@ class ClinicDataManager {
                     });
                 }
             }
-            // 4. Store Purchases
-            else if (catKeyLower === 'store_purchases' || catKeyLower === 'store_med_purchases') {
+            // 4. Store Purchases (Medicines TP)
+            else if (catKeyLower === 'store_purchases' || catKeyLower === 'store_med_purchases' || catKeyLower === 'smp') {
+                let hadSp = false;
                 if (dayData.storePurchases && dayData.storePurchases.length > 0) {
                     dayData.storePurchases.forEach(sp => {
-                        if (sp.tp > 0) {
+                        const amt = parseFloat(sp.tp) || 0;
+                        if (amt > 0) {
+                            hadSp = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Store Purchases',
                                 item: sp.vendor || 'Distributor',
-                                description: `Purchase TP: Rs. ${sp.tp} | Retail: Rs. ${sp.retail}`,
+                                description: `Purchase TP: Rs. ${amt} | Retail: Rs. ${sp.retail || 0}`,
                                 type: 'Debit (Expense)',
-                                amount: sp.tp
+                                amount: amt
                             });
-                            grandTotal += sp.tp;
+                            grandTotal += amt;
                         }
                     });
                 }
+                if (!hadSp) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('store med purchase') || n === 'smp';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
+                        rows.push({
+                            date: formattedDate,
+                            category: 'Store Purchases',
+                            item: 'Store Med Purchases Total',
+                            description: 'Daily Store Medicines Purchase (TP)',
+                            type: 'Debit (Expense)',
+                            amount: amt
+                        });
+                        grandTotal += amt;
+                    }
+                }
             }
-            // 5. Store Sales
-            else if (catKeyLower === 'st_s' || catKeyLower === 'store_sales') {
-                const match = (dayData.credits || []).find(c => (c.name || '').toLowerCase() === 'st s' || (c.name || '').toLowerCase().includes('store sale'));
-                if (match && match.amount > 0) {
+            // 5. Store Sales (St S)
+            else if (catKeyLower === 'st_s' || catKeyLower === 'store_sales' || catKeyLower === 'sts') {
+                const match = (dayData.credits || []).find(c => {
+                    const n = (c.name || '').toLowerCase().trim();
+                    return n === 'st s' || n.includes('store sale') || n === 'sts';
+                });
+                if (match && parseFloat(match.amount) > 0) {
+                    const amt = parseFloat(match.amount);
                     rows.push({
                         date: formattedDate,
                         category: 'Store Sales',
                         item: 'St S (Store Sale)',
                         description: 'Daily Store Medicines Counter Sale',
                         type: 'Credit (Income)',
-                        amount: match.amount
+                        amount: amt
                     });
-                    grandTotal += match.amount;
+                    grandTotal += amt;
                 }
             }
             // 6. Dental Expense
-            else if (catKeyLower === 'dental_expenses' || catKeyLower === 'dental') {
+            else if (catKeyLower === 'dental_expenses' || catKeyLower === 'dental' || catKeyLower === 'dental_exp' || catKeyLower === 'de') {
+                let hadDd = false;
                 if (dayData.dentalDetails && dayData.dentalDetails.length > 0) {
                     dayData.dentalDetails.forEach(dd => {
-                        if (dd.amount > 0) {
+                        const amt = parseFloat(dd.amount) || 0;
+                        if (amt > 0) {
+                            hadDd = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Dental Exp',
                                 item: dd.item || 'Dental Expense',
                                 description: dd.item || 'Dental operating cost',
                                 type: 'Debit (Expense)',
-                                amount: dd.amount
+                                amount: amt
                             });
-                            grandTotal += dd.amount;
+                            grandTotal += amt;
                         }
                     });
-                } else {
-                    const match = (dayData.debits || []).find(d => (d.name || '').toLowerCase().includes('dental'));
-                    if (match && match.amount > 0) {
+                }
+                if (!hadDd) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('dental') || n === 'de';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
                             category: 'Dental Exp',
                             item: 'Dental Clinic Expense',
                             description: 'Dental operating cost',
                             type: 'Debit (Expense)',
-                            amount: match.amount
+                            amount: amt
                         });
-                        grandTotal += match.amount;
+                        grandTotal += amt;
                     }
                 }
             }
-            // 7. Ultrasound (US) Expense & Income
-            else if (catKeyLower === 'us_expenses' || catKeyLower === 'us_exp') {
+            // 7. Ultrasound (US) Expense
+            else if (catKeyLower === 'us_expenses' || catKeyLower === 'us_exp' || catKeyLower === 'use') {
+                let hadUe = false;
                 if (dayData.usExpenseDetails && dayData.usExpenseDetails.length > 0) {
                     dayData.usExpenseDetails.forEach(ue => {
-                        if (ue.amount > 0) {
+                        const amt = parseFloat(ue.amount) || 0;
+                        if (amt > 0) {
+                            hadUe = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'US Exp',
                                 item: ue.item || 'US Expense',
                                 description: ue.item || 'Ultrasound expense',
                                 type: 'Debit (Expense)',
-                                amount: ue.amount
+                                amount: amt
                             });
-                            grandTotal += ue.amount;
+                            grandTotal += amt;
                         }
                     });
-                } else {
-                    const match = (dayData.debits || []).find(d => (d.name || '').toLowerCase().includes('us exp'));
-                    if (match && match.amount > 0) {
+                }
+                if (!hadUe) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('us exp') || n === 'use';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
                             category: 'US Exp',
                             item: 'Ultrasound Expense',
                             description: 'US doctor/department expense',
                             type: 'Debit (Expense)',
-                            amount: match.amount
+                            amount: amt
                         });
-                        grandTotal += match.amount;
+                        grandTotal += amt;
                     }
                 }
             }
-            else if (catKeyLower === 'us_inc' || catKeyLower === 'us_income') {
+            // 8. Ultrasound (US) Income
+            else if (catKeyLower === 'us_inc' || catKeyLower === 'us_income' || catKeyLower === 'usi') {
+                let hadUd = false;
                 if (dayData.usDetails && dayData.usDetails.length > 0) {
-                    dayData.usDetails.forEach(ud => {
-                        if (ud.amount > 0) {
+                    dayData.usDetails.forEach((ud, idx) => {
+                        const amt = parseFloat(ud.amount) || 0;
+                        if (amt > 0) {
+                            hadUd = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'US Income',
-                                item: ud.item || 'US Receipt',
+                                item: ud.item || `US Receipt #${idx + 1}`,
                                 description: ud.item || 'Patient ultrasound consultation',
                                 type: 'Credit (Income)',
-                                amount: ud.amount
+                                amount: amt
                             });
-                            grandTotal += ud.amount;
+                            grandTotal += amt;
                         }
                     });
-                } else {
-                    const match = (dayData.credits || []).find(c => (c.name || '').toLowerCase() === 'us' || (c.name || '').toLowerCase().includes('us'));
-                    if (match && match.amount > 0) {
+                }
+                if (!hadUd) {
+                    const match = (dayData.credits || []).find(c => {
+                        const n = (c.name || '').toLowerCase();
+                        return n === 'us' || n.includes('us inc') || n === 'usi';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
                             category: 'US Income',
                             item: 'Ultrasound Income',
                             description: 'Patient ultrasound receipts',
                             type: 'Credit (Income)',
-                            amount: match.amount
+                            amount: amt
                         });
-                        grandTotal += match.amount;
+                        grandTotal += amt;
                     }
                 }
             }
-            // 8. Clinic Expenses
-            else if (catKeyLower === 'clinic_expenses' || catKeyLower === 'clinic_exp') {
+            // 9. Clinic Petty Expenses
+            else if (catKeyLower === 'clinic_expenses' || catKeyLower === 'clinic_exp' || catKeyLower === 'ce') {
+                let hadCed = false;
                 if (dayData.clinicExpenseDetails && dayData.clinicExpenseDetails.length > 0) {
                     dayData.clinicExpenseDetails.forEach(ced => {
-                        if (ced.amount > 0) {
+                        const amt = parseFloat(ced.amount) || 0;
+                        if (amt > 0) {
+                            hadCed = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Clinic Expenses',
                                 item: ced.item || 'Clinic Petty Item',
                                 description: `Clinic Expense: ${ced.item || 'Item'}`,
                                 type: 'Debit (Expense)',
-                                amount: ced.amount
+                                amount: amt
                             });
-                            grandTotal += ced.amount;
+                            grandTotal += amt;
                         }
                     });
                 }
+                if (!hadCed) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('clinic exp') || n === 'ce';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
+                        rows.push({
+                            date: formattedDate,
+                            category: 'Clinic Expenses',
+                            item: 'Clinic Expenses Total',
+                            description: 'Daily Clinic Petty Expenses',
+                            type: 'Debit (Expense)',
+                            amount: amt
+                        });
+                        grandTotal += amt;
+                    }
+                }
             }
-            // 9. Clinic Pt & Dispensary Income
-            else if (catKeyLower === 'clinic_inc' || catKeyLower === 'clinic_pt_disp_inc') {
+            // 10. Clinic Pt & Dispensary Income
+            else if (catKeyLower === 'clinic_inc' || catKeyLower === 'clinic_pt_disp_inc' || catKeyLower === 'cpdi') {
+                let hadBills = false;
                 if (dayData.clinicBills && dayData.clinicBills.length > 0) {
-                    dayData.clinicBills.forEach(cb => {
-                        if (cb.amount > 0) {
+                    dayData.clinicBills.forEach((cb, idx) => {
+                        const amt = parseFloat(cb.amount) || 0;
+                        if (amt > 0) {
+                            hadBills = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Clinic & Disp Income',
-                                item: cb.item || 'Clinic Bill',
+                                item: cb.item || `Bill #${idx + 1}`,
                                 description: cb.item || 'Patient consultation fee',
                                 type: 'Credit (Income)',
-                                amount: cb.amount
+                                amount: amt
                             });
-                            grandTotal += cb.amount;
+                            grandTotal += amt;
                         }
                     });
-                } else {
-                    const match = (dayData.credits || []).find(c => (c.name || '').toLowerCase().includes('clinic pt') || (c.name || '').toLowerCase().includes('dispensary inc'));
-                    if (match && match.amount > 0) {
+                }
+                if (!hadBills) {
+                    const match = (dayData.credits || []).find(c => {
+                        const n = (c.name || '').toLowerCase();
+                        return n.includes('clinic pt') || n.includes('dispensary inc') || n === 'cpdi';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
                             category: 'Clinic & Disp Income',
                             item: 'Clinic Pt + Dispensary Inc',
                             description: 'Dispensary and patient consultations',
                             type: 'Credit (Income)',
-                            amount: match.amount
+                            amount: amt
                         });
-                        grandTotal += match.amount;
+                        grandTotal += amt;
                     }
                 }
             }
-            // 10. Home Expenses
-            else if (catKeyLower === 'home_expenses' || catKeyLower === 'home_exp') {
+            // 11. Home Expenses
+            else if (catKeyLower === 'home_expenses' || catKeyLower === 'home_exp' || catKeyLower === 'he') {
+                let hadHed = false;
                 if (dayData.homeExpenseDetails && dayData.homeExpenseDetails.length > 0) {
                     dayData.homeExpenseDetails.forEach(hed => {
-                        if (hed.amount > 0) {
+                        const amt = parseFloat(hed.amount) || 0;
+                        if (amt > 0) {
+                            hadHed = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Home Expenses',
                                 item: hed.item || 'Household Item',
-                                description: hed.item || 'Home cash expense',
+                                description: hed.item ? `Home expense: ${hed.item}` : 'Home cash expense',
                                 type: 'Debit (Expense)',
-                                amount: hed.amount
+                                amount: amt
                             });
-                            grandTotal += hed.amount;
+                            grandTotal += amt;
                         }
                     });
                 }
+                if (!hadHed) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('home exp') || n === 'he';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
+                        rows.push({
+                            date: formattedDate,
+                            category: 'Home Expenses',
+                            item: 'Home Expenses Total',
+                            description: 'Daily household expenses',
+                            type: 'Debit (Expense)',
+                            amount: amt
+                        });
+                        grandTotal += amt;
+                    }
+                }
             }
-            // 11. SN Expenses (Collapsible category & breakdown)
-            else if (catKeyLower === 'sn_expenses' || catKeyLower === 'sn_exp' || catKeyLower === 'sn') {
+            // 12. SN Expenses (Collapsible category & breakdown)
+            else if (catKeyLower === 'sn_expenses' || catKeyLower === 'sn_exp' || catKeyLower === 'sn' || catKeyLower === 'sne') {
                 let hadDetails = false;
                 if (dayData.snExpenseDetails && dayData.snExpenseDetails.length > 0) {
                     dayData.snExpenseDetails.forEach(sn => {
@@ -1157,7 +1269,7 @@ class ClinicDataManager {
                 if (!hadDetails) {
                     const match = (dayData.debits || []).find(d => {
                         const n = (d.name || '').trim().toLowerCase();
-                        return n === 'sn expenses' || n === 'sn exp' || n === 'sn';
+                        return n === 'sn expenses' || n === 'sn exp' || n === 'sn' || n === 'sne';
                     });
                     if (match && parseFloat(match.amount) > 0) {
                         const amt = parseFloat(match.amount);
@@ -1173,192 +1285,375 @@ class ClinicDataManager {
                     }
                 }
             }
-            // 11b. A/C (Account Transfers / Deposits)
+            // 13. A/C (Account Transfers / Deposits)
             else if (catKeyLower === 'account_ac' || catKeyLower === 'ac' || catKeyLower === 'a/c' || catKeyLower === 'account') {
-                const match = (dayData.debits || []).find(d => {
+                (dayData.debits || []).forEach(d => {
                     const n = (d.name || '').trim().toLowerCase();
-                    return n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c');
+                    if (n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c')) {
+                        const amt = parseFloat(d.amount) || 0;
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'A/C',
+                                item: 'Account Deposit / Transfer',
+                                description: d.reason || 'Payment / Transfer to Account (A/C)',
+                                type: 'Debit (Account)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    }
+                });
+            }
+            // 14. LB Expenses (Laboratory Operating Expense)
+            else if (catKeyLower === 'lb_expenses' || catKeyLower === 'lb_exp' || catKeyLower === 'lbe') {
+                const match = (dayData.debits || []).find(d => {
+                    const n = (d.name || '').toLowerCase().trim();
+                    return n === 'lb expenses' || n.includes('lb exp') || n === 'lbe';
                 });
                 if (match && parseFloat(match.amount) > 0) {
                     const amt = parseFloat(match.amount);
                     rows.push({
                         date: formattedDate,
-                        category: 'A/C',
-                        item: 'Account Deposit / Transfer',
-                        description: 'Payment / Transfer to Account (A/C)',
-                        type: 'Debit (Account)',
+                        category: 'LB Expenses',
+                        item: match.name || 'Laboratory Operating Expense',
+                        description: match.reason || 'Laboratory Expenses (Tests/Consumables/Operations)',
+                        type: 'Debit (Expense)',
                         amount: amt
                     });
                     grandTotal += amt;
                 }
             }
-            // 12. Partner Withdrawals
-            else if (catKeyLower === 'partners') {
+            // 15. LB Income (Laboratory Diagnostic Income)
+            else if (catKeyLower === 'lb_inc' || catKeyLower === 'lb_income' || catKeyLower === 'lb' || catKeyLower === 'lbi') {
+                const match = (dayData.credits || []).find(c => {
+                    const n = (c.name || '').toLowerCase().trim();
+                    return n === 'lb' || n === 'lb income' || n.includes('lb inc') || n === 'lbi' || n.includes('lab');
+                });
+                if (match && parseFloat(match.amount) > 0) {
+                    const amt = parseFloat(match.amount);
+                    rows.push({
+                        date: formattedDate,
+                        category: 'LB Income',
+                        item: match.name || 'Laboratory Diagnostic Income',
+                        description: match.reason || 'Patient Laboratory Diagnostic Tests Income',
+                        type: 'Credit (Income)',
+                        amount: amt
+                    });
+                    grandTotal += amt;
+                }
+            }
+            // 16. ECG Income
+            else if (catKeyLower === 'ecg' || catKeyLower === 'ecg_inc' || catKeyLower === 'ecg_income') {
+                const match = (dayData.credits || []).find(c => {
+                    const n = (c.name || '').toLowerCase().trim();
+                    return n === 'ecg' || n.includes('ecg');
+                });
+                if (match && parseFloat(match.amount) > 0) {
+                    const amt = parseFloat(match.amount);
+                    rows.push({
+                        date: formattedDate,
+                        category: 'ECG Income',
+                        item: match.name || 'ECG Diagnostic Income',
+                        description: match.reason || 'Patient ECG Reports & Diagnostic Income',
+                        type: 'Credit (Income)',
+                        amount: amt
+                    });
+                    grandTotal += amt;
+                }
+            }
+            // 17. Daraz Cash (Opening Balance)
+            else if (catKeyLower === 'daraz_cash' || catKeyLower === 'daraz cash' || catKeyLower === 'dc') {
+                const match = (dayData.credits || []).find(c => {
+                    const n = (c.name || '').toLowerCase().trim();
+                    return n === 'daraz cash' || n.includes('daraz') || n === 'dc';
+                });
+                if (match && parseFloat(match.amount) > 0) {
+                    const amt = parseFloat(match.amount);
+                    rows.push({
+                        date: formattedDate,
+                        category: 'Daraz Cash',
+                        item: 'Daraz Cash (Opening Balance)',
+                        description: 'Opening Cash / Drawer Balance for the day',
+                        type: 'Credit (Opening)',
+                        amount: amt
+                    });
+                    grandTotal += amt;
+                }
+            }
+            // 18. Partner Withdrawals
+            else if (catKeyLower === 'partners' || catKeyLower === 'partner_zk' || catKeyLower === 'zk' || catKeyLower === 'partner_kh' || catKeyLower === 'kh' || catKeyLower === 'partner_bp' || catKeyLower === 'bp') {
                 (dayData.debits || []).forEach(d => {
                     const dName = (d.name || '').trim().toUpperCase();
-                    if (dName === 'ZK' || dName === 'KH' || dName === 'BP') {
-                        if (d.amount > 0) {
+                    const amt = parseFloat(d.amount) || 0;
+                    if (amt > 0) {
+                        if (catKeyLower === 'partners' && (dName === 'ZK' || dName === 'KH' || dName === 'BP')) {
                             rows.push({
                                 date: formattedDate,
                                 category: `Partner (${dName})`,
                                 item: dName,
                                 description: `Partner account payout: ${dName}`,
                                 type: 'Debit (Expense)',
-                                amount: d.amount
+                                amount: amt
                             });
-                            grandTotal += d.amount;
+                            grandTotal += amt;
+                        } else if (catKeyLower.includes('zk') && dName === 'ZK') {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Partner (ZK)',
+                                item: 'ZK',
+                                description: 'Partner account payout: ZK',
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        } else if (catKeyLower.includes('kh') && dName === 'KH') {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Partner (KH)',
+                                item: 'KH',
+                                description: 'Partner account payout: KH',
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        } else if (catKeyLower.includes('bp') && dName === 'BP') {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Partner (BP)',
+                                item: 'BP',
+                                description: 'Partner account payout: BP',
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
                         }
                     }
                 });
             }
-            // 12. Clinic Bills (User Requested)
+            // 19. Clinic Bills (User Requested Breakdown)
             else if (catKeyLower === 'clinic_bills') {
                 if (dayData.clinicBills && dayData.clinicBills.length > 0) {
                     dayData.clinicBills.forEach((cb, idx) => {
-                        if (cb.amount > 0) {
+                        const amt = parseFloat(cb.amount) || 0;
+                        if (amt > 0) {
                             rows.push({
                                 date: formattedDate,
                                 category: 'Clinic Bills',
                                 item: cb.item || `Bill #${idx + 1}`,
-                                description: `Patient Clinic Bill #${idx + 1}`,
+                                description: cb.item ? `Patient Bill: ${cb.item}` : `Patient Clinic Bill #${idx + 1}`,
                                 type: 'Credit (Income)',
-                                amount: cb.amount
+                                amount: amt
                             });
-                            grandTotal += cb.amount;
+                            grandTotal += amt;
                         }
                     });
                 }
             }
-            // 13. Store Exp
-            else if (catKeyLower === 'store_exp' || catKeyLower === 'store_expenses') {
+            // 20. Store Exp
+            else if (catKeyLower === 'store_exp' || catKeyLower === 'store_expenses' || catKeyLower === 'se') {
+                let hadSe = false;
                 if (dayData.storeExpenseDetails && dayData.storeExpenseDetails.length > 0) {
                     dayData.storeExpenseDetails.forEach(se => {
-                        if (se.amount > 0) {
+                        const amt = parseFloat(se.amount) || 0;
+                        if (amt > 0) {
+                            hadSe = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Store Exp',
                                 item: se.item || 'Store Expense',
                                 description: se.item || 'Store operating expense',
                                 type: 'Debit (Expense)',
-                                amount: se.amount
+                                amount: amt
                             });
-                            grandTotal += se.amount;
+                            grandTotal += amt;
                         }
                     });
-                } else {
-                    const match = (dayData.debits || []).find(d => (d.name || '').toLowerCase().includes('store exp'));
-                    if (match && match.amount > 0) {
+                }
+                if (!hadSe) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('store exp') || n === 'se';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
                             category: 'Store Exp',
                             item: 'Store Expense',
                             description: 'Store running expense',
                             type: 'Debit (Expense)',
-                            amount: match.amount
+                            amount: amt
                         });
-                        grandTotal += match.amount;
+                        grandTotal += amt;
                     }
                 }
             }
-            // 14. Dispensary Purchases
-            else if (catKeyLower === 'disp_purchases' || catKeyLower === 'dispensary_purchases') {
+            // 21. Dispensary Purchases
+            else if (catKeyLower === 'disp_purchases' || catKeyLower === 'dispensary_purchases' || catKeyLower === 'dp') {
+                let hadDp = false;
                 if (dayData.dispPurchases && dayData.dispPurchases.length > 0) {
                     dayData.dispPurchases.forEach(dp => {
-                        if (dp.amount > 0) {
+                        const amt = parseFloat(dp.amount) || 0;
+                        if (amt > 0) {
+                            hadDp = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Dispensary Purchases',
                                 item: dp.item || 'Medicine / Stock',
-                                description: dp.item || 'Dispensary procurement',
+                                description: dp.item ? `Dispensary item: ${dp.item}` : 'Dispensary procurement',
                                 type: 'Debit (Expense)',
-                                amount: dp.amount
+                                amount: amt
                             });
-                            grandTotal += dp.amount;
+                            grandTotal += amt;
                         }
                     });
                 }
+                if (!hadDp) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('dispensary purchase') || n === 'dp';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
+                        rows.push({
+                            date: formattedDate,
+                            category: 'Dispensary Purchases',
+                            item: 'Dispensary Purchases Total',
+                            description: 'Daily Dispensary Purchases Total',
+                            type: 'Debit (Expense)',
+                            amount: amt
+                        });
+                        grandTotal += amt;
+                    }
+                }
             }
-            // 15. Cash Breakdown
-            else if (catKeyLower === 'cash_breakdown') {
+            // 22. Cash Breakdown
+            else if (catKeyLower === 'cash_breakdown' || catKeyLower === 'cash') {
                 if (dayData.cashItems && dayData.cashItems.length > 0) {
                     dayData.cashItems.forEach(ci => {
-                        if (ci.amount > 0) {
+                        const amt = parseFloat(ci.amount) || 0;
+                        if (amt > 0) {
                             rows.push({
                                 date: formattedDate,
                                 category: 'Cash Breakdown',
                                 item: ci.item || 'Cash Entry',
                                 description: ci.item || 'Cash denomination / source',
                                 type: 'Cash / Asset',
-                                amount: ci.amount
+                                amount: amt
                             });
-                            grandTotal += ci.amount;
+                            grandTotal += amt;
                         }
                     });
                 }
             }
-            // 16. All Debits (All Expenses)
+            // 23. All Debits (All Expenses)
             else if (catKeyLower === 'all_debits' || catKeyLower === 'all_expenses') {
                 (dayData.debits || []).forEach(d => {
-                    if (d.amount > 0) {
+                    const amt = parseFloat(d.amount) || 0;
+                    if (amt > 0) {
                         rows.push({
                             date: formattedDate,
                             category: d.name,
                             item: d.name,
-                            description: 'Daily Expense Item',
+                            description: d.reason || 'Daily Expense Item',
                             type: 'Debit (Expense)',
-                            amount: d.amount
+                            amount: amt
                         });
-                        grandTotal += d.amount;
+                        grandTotal += amt;
                     }
                 });
             }
-            // 17. All Credits (All Incomes)
+            // 24. All Credits (All Incomes)
             else if (catKeyLower === 'all_credits' || catKeyLower === 'all_incomes') {
                 (dayData.credits || []).forEach(c => {
-                    if (c.amount > 0) {
+                    const amt = parseFloat(c.amount) || 0;
+                    if (amt > 0) {
                         rows.push({
                             date: formattedDate,
                             category: c.name,
                             item: c.name,
-                            description: 'Daily Income Receipt',
+                            description: c.reason || 'Daily Income Receipt',
                             type: 'Credit (Income)',
-                            amount: c.amount
+                            amount: amt
                         });
-                        grandTotal += c.amount;
+                        grandTotal += amt;
                     }
                 });
             }
-            // 18. All (Complete Ledger Audit)
+            // 25. All (Complete Ledger Audit)
             else if (catKeyLower === 'all') {
                 (dayData.debits || []).forEach(d => {
-                    if (d.amount > 0) {
+                    const amt = parseFloat(d.amount) || 0;
+                    if (amt > 0) {
                         rows.push({
                             date: formattedDate,
                             category: d.name,
                             item: d.name,
-                            description: 'Expense item',
+                            description: d.reason || 'Expense item',
                             type: 'Debit (Expense)',
-                            amount: d.amount
+                            amount: amt
                         });
-                        grandTotal += d.amount;
+                        grandTotal += amt;
                     }
                 });
                 (dayData.credits || []).forEach(c => {
-                    if (c.amount > 0) {
+                    const amt = parseFloat(c.amount) || 0;
+                    if (amt > 0) {
                         rows.push({
                             date: formattedDate,
                             category: c.name,
                             item: c.name,
-                            description: 'Income receipt',
+                            description: c.reason || 'Income receipt',
                             type: 'Credit (Income)',
-                            amount: c.amount
+                            amount: amt
                         });
+                        grandTotal += amt;
+                    }
+                });
+            }
+            // 26. Generic Fallback for custom user categories
+            else {
+                (dayData.debits || []).forEach(d => {
+                    const dName = (d.name || '').trim();
+                    const dNameLower = dName.toLowerCase();
+                    if (dNameLower === catKeyLower || dNameLower.includes(catKeyLower) || (catKeyLower.length > 2 && catKeyLower.includes(dNameLower))) {
+                        const amt = parseFloat(d.amount) || 0;
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: dName,
+                                item: dName,
+                                description: d.reason || d.description || `Expense: ${dName}`,
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    }
+                });
+                (dayData.credits || []).forEach(c => {
+                    const cName = (c.name || '').trim();
+                    const cNameLower = cName.toLowerCase();
+                    if (cNameLower === catKeyLower || cNameLower.includes(catKeyLower) || (catKeyLower.length > 2 && catKeyLower.includes(cNameLower))) {
+                        const amt = parseFloat(c.amount) || 0;
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: cName,
+                                item: cName,
+                                description: c.reason || c.description || `Income: ${cName}`,
+                                type: 'Credit (Income)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
                     }
                 });
             }
         });
 
-        rows.sort((a, b) => new Date(a.date) - new Date(b.date));
+        rows.sort((a, b) => a.date.localeCompare(b.date));
 
         return {
             categoryKey,

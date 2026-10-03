@@ -2747,12 +2747,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const dSummary = data.summary || {};
 
             const getDeb = (name) => {
-                const f = debits.find(d => (d.name || '').toLowerCase().includes(name));
-                return f ? f.amount : 0;
+                const f = debits.find(d => {
+                    const n = (d.name || '').toLowerCase().trim();
+                    return n === name || n.startsWith(name + ' ') || n.includes(name);
+                });
+                return f ? (parseFloat(f.amount) || 0) : 0;
             };
             const getCred = (name) => {
-                const f = credits.find(c => (c.name || '').toLowerCase().includes(name));
-                return f ? f.amount : 0;
+                const f = credits.find(c => {
+                    const n = (c.name || '').toLowerCase().trim();
+                    if (name === 'lb') return n === 'lb' || n === 'lb inc' || n.includes('lb inc') || n.includes('lab');
+                    if (name === 'us') return n === 'us' || n === 'us inc' || n.includes('us inc') || n.includes('ultrasound');
+                    if (name === 'ecg') return n === 'ecg' || n.includes('ecg');
+                    return n === name || n.includes(name);
+                });
+                return f ? (parseFloat(c.amount) || 0) : 0;
             };
 
             const storeRetail = (data.storePurchases || []).reduce((acc, p) => acc + (p.retail || 0), 0);
@@ -2777,7 +2786,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return !standardCredits.some(sc => n.includes(sc) || n === sc);
             }).reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
-            const snDailyTotal = (data.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+            const snDetailsSum = (data.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+            const snDebit = debits.find(d => {
+                const n = (d.name || '').trim().toLowerCase();
+                return n === 'sn expenses' || n === 'sn exp' || n === 'sn' || n === 'sne';
+            });
+            const snDebitAmt = snDebit ? (parseFloat(snDebit.amount) || 0) : 0;
+            const snDailyTotal = Math.max(snDetailsSum, snDebitAmt);
+
             const acDailyTotal = debits.filter(d => {
                 const n = (d.name || '').trim().toLowerCase();
                 return n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c');
@@ -3212,7 +3228,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const printBtn = document.getElementById('print-report-btn');
         const exportCsvBtn = document.getElementById('export-report-csv-btn');
 
-        if (filterCatSelect && filterCatSelect.children.length <= 1) {
+        if (filterCatSelect) {
+            const currentVal = filterCatSelect.value || 'all';
             const staffList = clinicDB.getStaffList();
             let optHtml = `
                 <option value="all">-- All Combined (Complete Audit) --</option>
@@ -3227,12 +3244,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="st_s">Store Sales (St S)</option>
                     <option value="clinic_expenses">Clinic Petty Expenses</option>
                     <option value="clinic_inc">Clinic Pt + Dispensary Income</option>
+                    <option value="lb_expenses">LB Expenses (Laboratory)</option>
+                    <option value="lb_inc">LB Income (Laboratory)</option>
+                    <option value="ecg">ECG Income</option>
                     <option value="us_expenses">US (Ultrasound) Expense</option>
                     <option value="us_inc">US (Ultrasound) Income</option>
                     <option value="dental_expenses">Dental Expense</option>
                     <option value="store_exp">Store Exp</option>
                     <option value="sn_expenses">SN Expenses (Breakdown)</option>
                     <option value="account_ac">A/C (Account Transfers / Deposits)</option>
+                    <option value="daraz_cash">Daraz Cash (Opening Balance)</option>
                     <option value="cash_breakdown">Cash Breakdown</option>
                     <option value="home_expenses">Home Expenses (Home X)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
@@ -3240,11 +3261,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 <optgroup label="Individual Staff & Doctors">
             `;
             staffList.forEach(s => {
-                optHtml += `<option value="staff:${s.name}">${s.name} (${s.role})</option>`;
+                optHtml += `<option value="staff:${escapeHtml(s.name)}">${escapeHtml(s.name)} (${escapeHtml(s.role)})</option>`;
             });
             optHtml += `</optgroup>`;
+
+            const customExpenses = (clinicDB.categories?.expense || []).filter(c => !c.system);
+            const customIncomes = (clinicDB.categories?.income || []).filter(c => !c.system);
+            if (customExpenses.length > 0 || customIncomes.length > 0) {
+                optHtml += `<optgroup label="Custom Categories">`;
+                customExpenses.forEach(c => {
+                    optHtml += `<option value="${escapeHtml(c.id || c.name)}">${escapeHtml(c.name)} (Custom Expense)</option>`;
+                });
+                customIncomes.forEach(c => {
+                    optHtml += `<option value="${escapeHtml(c.id || c.name)}">${escapeHtml(c.name)} (Custom Income)</option>`;
+                });
+                optHtml += `</optgroup>`;
+            }
+
             filterCatSelect.innerHTML = optHtml;
+            if (currentVal && Array.from(filterCatSelect.options).some(o => o.value === currentVal)) {
+                filterCatSelect.value = currentVal;
+            }
+
+            filterCatSelect.onchange = executeCategoryReport;
         }
+
+        const monthSel = document.getElementById('report-month-select');
+        if (monthSel) monthSel.onchange = executeCategoryReport;
+
+        const yearSel = document.getElementById('report-year-select');
+        if (yearSel) yearSel.onchange = executeCategoryReport;
+
+        const singleDateInput = document.getElementById('report-single-date');
+        if (singleDateInput) singleDateInput.onchange = executeCategoryReport;
+
+        const startDateInput = document.getElementById('report-start-date');
+        if (startDateInput) startDateInput.onchange = executeCategoryReport;
+
+        const endDateInput = document.getElementById('report-end-date');
+        if (endDateInput) endDateInput.onchange = executeCategoryReport;
 
         if (filterRangeSelect) {
             filterRangeSelect.onchange = () => {
@@ -3258,6 +3313,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (monthWrapper) monthWrapper.style.display = (v === 'month') ? 'block' : 'none';
                 if (singleDateGroup) singleDateGroup.style.display = (v === 'single') ? 'flex' : 'none';
                 if (customDateGroup) customDateGroup.style.display = (v === 'custom') ? 'flex' : 'none';
+
+                executeCategoryReport();
             };
         }
 
@@ -3291,6 +3348,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (range === 'custom') {
             start = document.getElementById('report-start-date')?.value || '2026-01-01';
             end = document.getElementById('report-end-date')?.value || '2026-12-31';
+            if (start > end) {
+                const temp = start;
+                start = end;
+                end = temp;
+            }
         } else if (range === 'all-time') {
             start = '2000-01-01';
             end = '2099-12-31';
