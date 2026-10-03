@@ -2028,19 +2028,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let sumDental = (data.dentalDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalDentalExp.textContent = formatNumber(sumDental);
         elements.badgeDentalExpTotal.textContent = formatNumber(sumDental);
-        if (sumDental > 0) setDebitAutoAmount('Dental Exp', sumDental);
+        setDebitAutoAmount('Dental Exp', sumDental);
 
         // 10. Store Exp Details -> Auto updates Debit C13
         let sumStoreExp = (data.storeExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalStoreExp.textContent = formatNumber(sumStoreExp);
         elements.badgeStoreExpTotal.textContent = formatNumber(sumStoreExp);
-        if (sumStoreExp > 0) setDebitAutoAmount('Store Exp', sumStoreExp);
+        setDebitAutoAmount('Store Exp', sumStoreExp);
 
         // 11. US Exp Details -> Auto updates Debit C11
         let sumUSExp = (data.usExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalUSExp.textContent = formatNumber(sumUSExp);
         elements.badgeUSExpTotal.textContent = formatNumber(sumUSExp);
-        if (sumUSExp > 0) setDebitAutoAmount('US Exp', sumUSExp);
+        setDebitAutoAmount('US Exp', sumUSExp);
 
         // 12. Clinic Bills -> Auto updates Credit F7
         let sumClinicBills = (data.clinicBills || []).reduce((acc, a) => {
@@ -2146,10 +2146,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setDebitAutoAmount(namePart, newAmt) {
         if (!state.currentDayData.debits) state.currentDayData.debits = [];
-        let d = state.currentDayData.debits.find(it => (it.name || '').toLowerCase().includes(namePart.toLowerCase()));
+        const npLower = namePart.toLowerCase().trim();
+        let d = state.currentDayData.debits.find(it => (it.name || '').toLowerCase().trim().includes(npLower));
         if (!d) {
             d = { name: namePart, amount: newAmt, isAuto: true };
-            if (namePart.toLowerCase().includes('total cash available')) {
+            if (npLower.includes('total cash available')) {
                 d.isCash = true;
                 state.currentDayData.debits.push(d);
             } else {
@@ -2160,8 +2161,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         d.amount = newAmt;
         const rows = elements.tbodyDebit.querySelectorAll('tr');
-        rows.forEach(r => {
-            if (r.innerText.toLowerCase().includes(namePart.toLowerCase())) {
+        rows.forEach((r, idx) => {
+            const debItem = state.currentDayData.debits[idx];
+            const debName = debItem ? (debItem.name || '').toLowerCase() : '';
+            if (debName.includes(npLower) || r.innerText.toLowerCase().includes(npLower)) {
                 const inp = r.querySelector('.debit-amt-input');
                 if (inp) inp.value = newAmt;
             }
@@ -2169,12 +2172,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setCreditAutoAmount(namePart, newAmt) {
-        const c = (state.currentDayData.credits || []).find(it => (it.name || '').toLowerCase().includes(namePart.toLowerCase()));
+        if (!state.currentDayData.credits) state.currentDayData.credits = [];
+        const npLower = namePart.toLowerCase().trim();
+        const c = state.currentDayData.credits.find(it => (it.name || '').toLowerCase().trim().includes(npLower));
         if (c) {
             c.amount = newAmt;
             const rows = elements.tbodyCredit.querySelectorAll('tr');
-            rows.forEach(r => {
-                if (r.innerText.toLowerCase().includes(namePart.toLowerCase())) {
+            rows.forEach((r, idx) => {
+                const credItem = state.currentDayData.credits[idx];
+                const credName = credItem ? (credItem.name || '').toLowerCase() : '';
+                if (credName.includes(npLower) || r.innerText.toLowerCase().includes(npLower)) {
                     const inp = r.querySelector('.credit-amt-input');
                     if (inp) inp.value = newAmt;
                 }
@@ -2761,7 +2768,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (name === 'ecg') return n === 'ecg' || n.includes('ecg');
                     return n === name || n.includes(name);
                 });
-                return f ? (parseFloat(c.amount) || 0) : 0;
+                return f ? (parseFloat(f.amount) || 0) : 0;
             };
 
             const storeRetail = (data.storePurchases || []).reduce((acc, p) => acc + (p.retail || 0), 0);

@@ -147,9 +147,7 @@ class ClinicDataManager {
             snItem.name = 'SN Expenses';
             snItem.isAuto = true;
             delete snItem.isCustom;
-            if (currentSNAmt > 0 || snItem.amount === undefined) {
-                snItem.amount = currentSNAmt;
-            }
+            snItem.amount = currentSNAmt;
         }
 
         // 2. Ensure A/C exists (Permanent entry for Account payment)
