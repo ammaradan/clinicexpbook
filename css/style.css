@@ -1171,6 +1171,20 @@ input[type="number"] {
   padding: 0.65rem;
 }
 
+.stock-view-layout {
+  padding: 1rem 0;
+}
+
+.stock-audit-table th {
+  background: #f1f5f9;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.stock-audit-table tr:hover {
+  background: #f8fafc;
+}
+
 /* Category Reports Filter */
 .report-filter-bar {
   background: #ffffff;

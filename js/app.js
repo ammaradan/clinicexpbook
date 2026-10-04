@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         masterFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
         masterSubTab: 'grid', // 'grid' or 'sn_ledger'
         staffFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
-        pnlFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr }
+        pnlFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr },
+        stockFilter: { mode: 'month', month: todayDateStr.substring(0, 7), start: '2026-09-01', end: todayDateStr }
     };
 
     // ==========================================================
@@ -645,6 +646,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderStaffMatrix();
                 } else if (state.activeTab === 'pnl') {
                     renderPnL();
+                } else if (state.activeTab === 'stock') {
+                    renderStockReconciliationView();
                 } else if (state.activeTab === 'reports') {
                     renderCategoryReports();
                 } else if (state.activeTab === 'settings') {
@@ -687,6 +690,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchTab(targetViewId);
             });
         });
+
+        const quickStockBtn = document.getElementById('btn-quick-stock-rec');
+        if (quickStockBtn) {
+            quickStockBtn.addEventListener('click', () => switchTab('view-stock'));
+        }
     }
 
     function switchTab(viewId) {
@@ -705,6 +713,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStaffMatrix();
         } else if (viewId === 'view-pnl') {
             renderPnL();
+        } else if (viewId === 'view-stock') {
+            renderStockReconciliationView();
         } else if (viewId === 'view-reports') {
             renderCategoryReports();
         } else if (viewId === 'view-settings') {
@@ -3599,6 +3609,317 @@ document.addEventListener('DOMContentLoaded', () => {
 
         bindPeriodFilterEvents('pnl', state.pnlFilter, renderPnL);
         const printBtn = document.getElementById('print-pnl-btn');
+        if (printBtn) printBtn.onclick = () => window.print();
+    }
+
+    // ==========================================================
+    // 4B. MEDICAL STORE STOCK RECONCILIATION & DIFFERENCE VIEW
+    // ==========================================================
+    function renderStockReconciliationView() {
+        const container = document.getElementById('stock-view-container');
+        if (!container) return;
+        const { summary, label, days } = resolvePeriodData(state.stockFilter);
+
+        const periodKey = state.stockFilter.mode === 'month' 
+            ? (state.stockFilter.month || state.currentMonth)
+            : (state.stockFilter.start ? `${state.stockFilter.start}_${state.stockFilter.end}` : state.currentMonth);
+
+        const stockData = clinicDB.getStockReconciliation(periodKey);
+        const prevStockTP = stockData.prevStockTP || 0;
+        const presentStockTP = stockData.presentStockTP || 0;
+
+        // Calculate Purchase This Month TP from store purchases in this period
+        let purchaseThisMonthTP = 0;
+        const purchaseBreakdown = [];
+        (days || []).forEach(({ dateKey, data }) => {
+            if (data.storePurchases && Array.isArray(data.storePurchases)) {
+                data.storePurchases.forEach(sp => {
+                    const tpVal = parseFloat(sp.tp) || 0;
+                    if (tpVal > 0 || (sp.distributor && sp.distributor.trim())) {
+                        purchaseThisMonthTP += tpVal;
+                        purchaseBreakdown.push({
+                            date: dateKey,
+                            distributor: sp.distributor || 'General Store',
+                            tp: tpVal,
+                            retail: parseFloat(sp.retail) || 0
+                        });
+                    }
+                });
+            }
+        });
+        if (purchaseThisMonthTP === 0 && summary.sumStoreMedPurchases) {
+            purchaseThisMonthTP = summary.sumStoreMedPurchases;
+        }
+
+        // Calculate St Sale This Month from credits
+        let stSaleThisMonth = summary.sumStSaleThisMonth || 0;
+        const saleBreakdown = [];
+        (days || []).forEach(({ dateKey, data }) => {
+            (data.credits || []).forEach(c => {
+                const n = (c.name || '').toLowerCase().trim();
+                if (n === 'st s' || n.includes('store sale') || n === 'sts') {
+                    const amt = parseFloat(c.amount) || 0;
+                    if (amt > 0) {
+                        saleBreakdown.push({
+                            date: dateKey,
+                            name: c.name || 'Store Sale',
+                            amount: amt
+                        });
+                    }
+                }
+            });
+        });
+        if (stSaleThisMonth === 0 && saleBreakdown.length > 0) {
+            stSaleThisMonth = saleBreakdown.reduce((sum, item) => sum + item.amount, 0);
+        }
+
+        const total1 = prevStockTP + purchaseThisMonthTP;
+        const total2 = stSaleThisMonth + presentStockTP;
+        const stockDiff = total1 - total2;
+
+        let diffStatusHtml = '';
+        if (stockDiff > 0) {
+            diffStatusHtml = `<span style="color: #dc2626; font-weight: 800; background: #fef2f2; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #f87171;">Surplus: +${formatNumber(stockDiff)} (Cash Short)</span>`;
+        } else if (stockDiff < 0) {
+            diffStatusHtml = `<span style="color: #059669; font-weight: 800; background: #ecfdf5; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #34d399;">Deficit: -${formatNumber(Math.abs(stockDiff))} (Cash Excess)</span>`;
+        } else {
+            diffStatusHtml = `<span style="color: #0284c7; font-weight: 800; background: #f0f9ff; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #38bdf8;">Calculated: Balanced (Rs. 0)</span>`;
+        }
+
+        let html = `
+            <div class="stock-view-layout" style="max-width: 860px; margin: 0 auto; padding-bottom: 2.5rem;">
+                <!-- Header Banner -->
+                <div class="grand-statement" style="margin-bottom: 1.5rem;">
+                    <div class="grand-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%; gap: 1rem;">
+                        <div>
+                            <h2>📦 Medical Store Stock Reconciliation & Difference</h2>
+                            <p>Monthly Physical Stock vs Daily Sales Audit (${label})</p>
+                        </div>
+                        <div class="no-print" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                            <div style="background: rgba(255, 255, 255, 0.15); padding: 0.35rem 0.6rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
+                                ${getPeriodFilterBarHtml('stock', state.stockFilter)}
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" id="print-stock-view-btn" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.8rem; font-weight: 600; cursor: pointer; border-radius: 6px; font-size: 0.82rem; background: #2563eb; color: #fff; border: 1px solid #1d4ed8; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                                🖨️ Print Stock Sheet
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print Banner (Visible only on print) -->
+                <div class="print-only print-header-banner" style="margin-bottom: 1.25rem;">
+                    <div>
+                        <h2>CLINIC & MEDICAL STORE - STOCK RECONCILIATION</h2>
+                        <p>Period: ${label} | Physical Stock vs Daily Sales Audit</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <span>Printed: ${todayDateStr}</span>
+                    </div>
+                </div>
+
+                <!-- Main Reconciliation Card -->
+                <div class="stock-reconciliation-card" style="max-width: 680px; margin: 0 auto 1.5rem auto;">
+                    <div class="stock-rec-header">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span>📦</span>
+                            <span>Medical Store Stock Reconciliation & Difference (${label})</span>
+                        </div>
+                        <span id="stock-view-save-pill" class="auto-save-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3);">✓ Auto-saved</span>
+                    </div>
+
+                    <div class="stock-rec-body">
+                        <!-- ROW 1: Prev Month Stock TP + Purchase This Month TP -->
+                        <div class="stock-block">
+                            <div class="stock-block-header">
+                                <div>Prev Month Stock TP</div>
+                                <div style="font-size: 1.15rem; font-weight: 900;">+</div>
+                                <div>Purchase This Month TP</div>
+                            </div>
+                            <div class="stock-block-row">
+                                <input type="number" step="any" class="stock-cell-input" id="stock-view-prev-month" value="${prevStockTP || 0}" title="Enter Previous Month Stock TP (Manual count)">
+                                <div class="stock-cell-plus">+</div>
+                                <div class="stock-cell-readonly" id="stock-view-purchase-display">${formatNumber(purchaseThisMonthTP)}</div>
+                            </div>
+                            <div class="stock-subtotal-row" id="stock-view-total-1-display">
+                                ${formatNumber(total1)}
+                            </div>
+                        </div>
+
+                        <!-- ROW 2: St Sale This Month + Present Month Stock TP -->
+                        <div class="stock-block">
+                            <div class="stock-block-header">
+                                <div>St Sale This Month</div>
+                                <div style="font-size: 1.15rem; font-weight: 900;">+</div>
+                                <div>Present Month Stock TP</div>
+                            </div>
+                            <div class="stock-block-row">
+                                <div class="stock-cell-readonly" id="stock-view-sale-display">${formatNumber(stSaleThisMonth)}</div>
+                                <div class="stock-cell-plus">+</div>
+                                <input type="number" step="any" class="stock-cell-input" id="stock-view-present-month" value="${presentStockTP || 0}" title="Enter Present Month Stock TP (Manual count)">
+                            </div>
+                            <div class="stock-subtotal-row" id="stock-view-total-2-display">
+                                ${formatNumber(total2)}
+                            </div>
+                        </div>
+
+                        <!-- ROW 3: Stock Difference -->
+                        <div class="stock-block">
+                            <div class="stock-block-header single">
+                                Stock Difference
+                            </div>
+                            <div class="stock-diff-val" id="stock-view-diff-display">
+                                ${formatNumber(stockDiff)}
+                            </div>
+                        </div>
+
+                        <!-- Status Badge -->
+                        <div style="text-align: center; margin-top: 0.25rem;">
+                            <span id="stock-view-status-display">${diffStatusHtml}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explanation & Formula Guide -->
+                <div class="stock-guide-box no-print" style="max-width: 680px; margin: 0 auto 1.5rem auto; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 1rem 1.25rem; box-shadow: var(--shadow-sm);">
+                    <div style="font-weight: 700; font-size: 0.9rem; color: #1e293b; margin-bottom: 0.4rem;">
+                        💡 How this calculation works:
+                    </div>
+                    <ul style="font-size: 0.82rem; color: #475569; margin: 0; padding-left: 1.2rem; line-height: 1.6;">
+                        <li><strong>Subtotal 1:</strong> Previous Month Stock (TP) + Store Purchases (TP) during this period.</li>
+                        <li><strong>Subtotal 2:</strong> Store Sales (St S) during this period + Present Month Physical Stock (TP).</li>
+                        <li><strong>Stock Difference:</strong> Subtotal 1 minus Subtotal 2.</li>
+                        <li>Yellow fields with bold numbers can be edited — changes are <strong>auto-saved</strong> instantly.</li>
+                    </ul>
+                </div>
+
+                <!-- Detailed Audit Breakdown (Purchases & Sales) -->
+                <div class="no-print" style="max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
+                    <!-- Store Purchases Table -->
+                    <div style="background: #ffffff; border: 1.5px solid #000000; border-radius: 6px; overflow: hidden; box-shadow: var(--shadow-sm);">
+                        <div style="background: #1e293b; color: #ffffff; padding: 0.5rem 1rem; font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span>📦 Store Purchases TP Breakdown (${purchaseBreakdown.length} Entries)</span>
+                            <span>Total TP: Rs. ${formatNumber(purchaseThisMonthTP)}</span>
+                        </div>
+                        <div style="max-height: 240px; overflow-y: auto;">
+                            <table class="stock-audit-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                                <thead>
+                                    <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+                                        <th style="padding: 6px 10px; text-align: left;">Date</th>
+                                        <th style="padding: 6px 10px; text-align: left;">Distributor</th>
+                                        <th style="padding: 6px 10px; text-align: right;">TP (Rs.)</th>
+                                        <th style="padding: 6px 10px; text-align: right;">Retail (Rs.)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${purchaseBreakdown.length === 0 ? '<tr><td colspan="4" style="text-align: center; padding: 12px; color: #94a3b8;">No store purchase entries found in this period</td></tr>' : purchaseBreakdown.map(p => `
+                                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                                            <td style="padding: 5px 10px;">${p.date}</td>
+                                            <td style="padding: 5px 10px; font-weight: 600;">${p.distributor}</td>
+                                            <td style="padding: 5px 10px; text-align: right; font-weight: 700; color: #0284c7;">Rs. ${formatNumber(p.tp)}</td>
+                                            <td style="padding: 5px 10px; text-align: right; color: #64748b;">Rs. ${formatNumber(p.retail)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Store Sales Table -->
+                    <div style="background: #ffffff; border: 1.5px solid #000000; border-radius: 6px; overflow: hidden; box-shadow: var(--shadow-sm);">
+                        <div style="background: #1e293b; color: #ffffff; padding: 0.5rem 1rem; font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span>💰 Store Sales (St S) Breakdown (${saleBreakdown.length} Entries)</span>
+                            <span>Total Sales: Rs. ${formatNumber(stSaleThisMonth)}</span>
+                        </div>
+                        <div style="max-height: 240px; overflow-y: auto;">
+                            <table class="stock-audit-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                                <thead>
+                                    <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+                                        <th style="padding: 6px 10px; text-align: left;">Date</th>
+                                        <th style="padding: 6px 10px; text-align: left;">Entry Name</th>
+                                        <th style="padding: 6px 10px; text-align: right;">Amount (Rs.)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${saleBreakdown.length === 0 ? '<tr><td colspan="3" style="text-align: center; padding: 12px; color: #94a3b8;">No store sales entries found in this period</td></tr>' : saleBreakdown.map(s => `
+                                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                                            <td style="padding: 5px 10px;">${s.date}</td>
+                                            <td style="padding: 5px 10px; font-weight: 600;">${s.name}</td>
+                                            <td style="padding: 5px 10px; text-align: right; font-weight: 700; color: #059669;">Rs. ${formatNumber(s.amount)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signature Footer for Print -->
+                <div class="print-only signature-area" style="display: flex; justify-content: space-between; margin-top: 3.5rem; padding-top: 1rem; border-top: 1px solid #000;">
+                    <div style="text-align: center; width: 200px; border-top: 1.5px dashed #000; padding-top: 5px; font-weight: bold; font-size: 8.5pt;">Store In-charge</div>
+                    <div style="text-align: center; width: 200px; border-top: 1.5px dashed #000; padding-top: 5px; font-weight: bold; font-size: 8.5pt;">Internal Auditor</div>
+                    <div style="text-align: center; width: 200px; border-top: 1.5px dashed #000; padding-top: 5px; font-weight: bold; font-size: 8.5pt;">Authorized Signature</div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Wire interactive inputs
+        const inpPrev = document.getElementById('stock-view-prev-month');
+        const inpPresent = document.getElementById('stock-view-present-month');
+        const dispTotal1 = document.getElementById('stock-view-total-1-display');
+        const dispTotal2 = document.getElementById('stock-view-total-2-display');
+        const dispDiff = document.getElementById('stock-view-diff-display');
+        const dispStatus = document.getElementById('stock-view-status-display');
+        const savePill = document.getElementById('stock-view-save-pill');
+
+        function updateStockViewCalculations() {
+            const pVal = parseFloat(inpPrev?.value) || 0;
+            const prVal = parseFloat(inpPresent?.value) || 0;
+            const t1 = pVal + purchaseThisMonthTP;
+            const t2 = stSaleThisMonth + prVal;
+            const diff = t1 - t2;
+
+            if (dispTotal1) dispTotal1.textContent = formatNumber(t1);
+            if (dispTotal2) dispTotal2.textContent = formatNumber(t2);
+            if (dispDiff) dispDiff.textContent = formatNumber(diff);
+
+            if (dispStatus) {
+                if (diff > 0) {
+                    dispStatus.innerHTML = `<span style="color: #dc2626; font-weight: 800; background: #fef2f2; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #f87171;">Surplus: +${formatNumber(diff)} (Cash Short)</span>`;
+                } else if (diff < 0) {
+                    dispStatus.innerHTML = `<span style="color: #059669; font-weight: 800; background: #ecfdf5; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #34d399;">Deficit: -${formatNumber(Math.abs(diff))} (Cash Excess)</span>`;
+                } else {
+                    dispStatus.innerHTML = `<span style="color: #0284c7; font-weight: 800; background: #f0f9ff; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #38bdf8;">Calculated: Balanced (Rs. 0)</span>`;
+                }
+            }
+
+            clinicDB.saveStockReconciliation(periodKey, { prevStockTP: pVal, presentStockTP: prVal });
+            if (savePill) {
+                savePill.textContent = '✓ Saved';
+                savePill.style.background = '#ecfdf5';
+                savePill.style.color = '#059669';
+                setTimeout(() => {
+                    if (savePill) {
+                        savePill.textContent = '✓ Auto-saved';
+                        savePill.style.background = 'rgba(255,255,255,0.2)';
+                        savePill.style.color = '#fff';
+                    }
+                }, 1500);
+            }
+        }
+
+        if (inpPrev) {
+            inpPrev.addEventListener('input', updateStockViewCalculations);
+            inpPrev.addEventListener('focus', () => { if (inpPrev.value === '0') inpPrev.select(); });
+        }
+        if (inpPresent) {
+            inpPresent.addEventListener('input', updateStockViewCalculations);
+            inpPresent.addEventListener('focus', () => { if (inpPresent.value === '0') inpPresent.select(); });
+        }
+
+        bindPeriodFilterEvents('stock', state.stockFilter, renderStockReconciliationView);
+        const printBtn = document.getElementById('print-stock-view-btn');
         if (printBtn) printBtn.onclick = () => window.print();
     }
 
