@@ -363,6 +363,238 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================================
+    // EXCEL SPREADSHEET 2D KEYBOARD ARROW NAVIGATION (UP/DOWN/LEFT/RIGHT/ENTER)
+    // ==========================================================
+    function setupSpreadsheetArrowNavigation() {
+        function focusAndSelect(target) {
+            if (!target) return;
+            target.focus();
+            try {
+                if (target.select) target.select();
+            } catch (_) {}
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) return;
+
+            const input = e.target;
+            if (!input || (!input.classList.contains('cell-input') && !input.classList.contains('recon-excel-input'))) return;
+
+            // Handle bottom reconciliation inputs
+            if (input.classList.contains('recon-excel-input')) {
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const lastCell = document.querySelector('#table-debit tbody tr:last-child .cell-input');
+                    if (lastCell) focusAndSelect(lastCell);
+                } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Enter') {
+                    const allRecon = Array.from(document.querySelectorAll('.recon-excel-input:not([disabled])'));
+                    const rIdx = allRecon.indexOf(input);
+                    if (rIdx < allRecon.length - 1) {
+                        e.preventDefault();
+                        focusAndSelect(allRecon[rIdx + 1]);
+                    }
+                } else if (e.key === 'ArrowLeft') {
+                    const allRecon = Array.from(document.querySelectorAll('.recon-excel-input:not([disabled])'));
+                    const rIdx = allRecon.indexOf(input);
+                    if (rIdx > 0) {
+                        e.preventDefault();
+                        focusAndSelect(allRecon[rIdx - 1]);
+                    }
+                }
+                return;
+            }
+
+            const tr = input.closest('tr');
+            if (!tr) return;
+
+            const tbody = tr.closest('tbody');
+            if (!tbody) return;
+
+            const rowInputs = Array.from(tr.querySelectorAll('.cell-input:not([disabled])'));
+            const inputIdxInRow = rowInputs.indexOf(input);
+            if (inputIdxInRow === -1) return;
+
+            const isNum = input.type === 'number';
+
+            // 1. VERTICAL NAVIGATION: DOWN (ArrowDown or Enter)
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                e.preventDefault();
+                let nextTr = tr.nextElementSibling;
+                while (nextTr && (nextTr.tagName !== 'TR' || nextTr.style.display === 'none')) {
+                    nextTr = nextTr.nextElementSibling;
+                }
+                if (nextTr) {
+                    const nextRowInputs = Array.from(nextTr.querySelectorAll('.cell-input:not([disabled])'));
+                    if (nextRowInputs.length > 0) {
+                        const targetIdx = Math.min(inputIdxInRow, nextRowInputs.length - 1);
+                        focusAndSelect(nextRowInputs[targetIdx]);
+                        return;
+                    }
+                }
+
+                // If at bottom of current table, try next sub-section module in same column
+                const currentMod = tr.closest('.sub-section-module');
+                if (currentMod) {
+                    let nextMod = currentMod.nextElementSibling;
+                    while (nextMod && (!nextMod.classList.contains('sub-section-module') || nextMod.classList.contains('is-user-hidden') || nextMod.style.display === 'none')) {
+                        nextMod = nextMod.nextElementSibling;
+                    }
+                    if (nextMod) {
+                        const firstInput = nextMod.querySelector('tbody tr .cell-input:not([disabled])');
+                        if (firstInput) {
+                            focusAndSelect(firstInput);
+                            return;
+                        }
+                    }
+                }
+
+                // If at bottom of column 0 or 1, can navigate down to reconciliation input
+                const reconInput = document.getElementById('recon-cash-hand');
+                if (reconInput) {
+                    focusAndSelect(reconInput);
+                }
+                return;
+            }
+
+            // 2. VERTICAL NAVIGATION: UP (ArrowUp)
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                let prevTr = tr.previousElementSibling;
+                while (prevTr && (prevTr.tagName !== 'TR' || prevTr.style.display === 'none')) {
+                    prevTr = prevTr.previousElementSibling;
+                }
+                if (prevTr) {
+                    const prevRowInputs = Array.from(prevTr.querySelectorAll('.cell-input:not([disabled])'));
+                    if (prevRowInputs.length > 0) {
+                        const targetIdx = Math.min(inputIdxInRow, prevRowInputs.length - 1);
+                        focusAndSelect(prevRowInputs[targetIdx]);
+                        return;
+                    }
+                }
+
+                // If at top of current table, try previous sub-section module in same column
+                const currentMod = tr.closest('.sub-section-module');
+                if (currentMod) {
+                    let prevMod = currentMod.previousElementSibling;
+                    while (prevMod && (!prevMod.classList.contains('sub-section-module') || prevMod.classList.contains('is-user-hidden') || prevMod.style.display === 'none')) {
+                        prevMod = prevMod.previousElementSibling;
+                    }
+                    if (prevMod) {
+                        const lastInputs = Array.from(prevMod.querySelectorAll('tbody tr .cell-input:not([disabled])'));
+                        if (lastInputs.length > 0) {
+                            focusAndSelect(lastInputs[lastInputs.length - 1]);
+                            return;
+                        }
+                    }
+                }
+                return;
+            }
+
+            // 3. HORIZONTAL NAVIGATION: RIGHT (ArrowRight)
+            if (e.key === 'ArrowRight') {
+                const atEnd = isNum || (input.selectionEnd === input.value.length);
+                if (atEnd) {
+                    // Inside same row: next input
+                    if (inputIdxInRow < rowInputs.length - 1) {
+                        e.preventDefault();
+                        focusAndSelect(rowInputs[inputIdxInRow + 1]);
+                        return;
+                    }
+
+                    // At end of row: move to adjacent column panel to the right at same row index
+                    const currentPanel = tr.closest('.excel-col-panel');
+                    if (currentPanel) {
+                        let nextPanel = currentPanel.nextElementSibling;
+                        while (nextPanel && (!nextPanel.classList.contains('excel-col-panel') || nextPanel.style.display === 'none' || nextPanel.classList.contains('is-empty-col'))) {
+                            nextPanel = nextPanel.nextElementSibling;
+                        }
+                        if (nextPanel) {
+                            const trIndex = Array.from(tbody.children).indexOf(tr);
+                            const nextTbody = nextPanel.querySelector('tbody');
+                            if (nextTbody && nextTbody.children[trIndex]) {
+                                const targetInput = nextTbody.children[trIndex].querySelector('.cell-input:not([disabled])');
+                                if (targetInput) {
+                                    e.preventDefault();
+                                    focusAndSelect(targetInput);
+                                    return;
+                                }
+                            }
+                            const anyFirstInput = nextPanel.querySelector('tbody tr .cell-input:not([disabled])');
+                            if (anyFirstInput) {
+                                e.preventDefault();
+                                focusAndSelect(anyFirstInput);
+                                return;
+                            }
+                        }
+                    }
+
+                    // Otherwise wrap to next row's first input
+                    let nextTr = tr.nextElementSibling;
+                    if (nextTr) {
+                        const nextRowInputs = Array.from(nextTr.querySelectorAll('.cell-input:not([disabled])'));
+                        if (nextRowInputs.length > 0) {
+                            e.preventDefault();
+                            focusAndSelect(nextRowInputs[0]);
+                        }
+                    }
+                }
+                return;
+            }
+
+            // 4. HORIZONTAL NAVIGATION: LEFT (ArrowLeft)
+            if (e.key === 'ArrowLeft') {
+                const atStart = isNum || (input.selectionStart === 0 && input.selectionEnd === 0);
+                if (atStart) {
+                    // Inside same row: previous input
+                    if (inputIdxInRow > 0) {
+                        e.preventDefault();
+                        focusAndSelect(rowInputs[inputIdxInRow - 1]);
+                        return;
+                    }
+
+                    // At start of row: move to adjacent column panel to the left at same row index
+                    const currentPanel = tr.closest('.excel-col-panel');
+                    if (currentPanel) {
+                        let prevPanel = currentPanel.previousElementSibling;
+                        while (prevPanel && (!prevPanel.classList.contains('excel-col-panel') || prevPanel.style.display === 'none' || prevPanel.classList.contains('is-empty-col'))) {
+                            prevPanel = prevPanel.previousElementSibling;
+                        }
+                        if (prevPanel) {
+                            const trIndex = Array.from(tbody.children).indexOf(tr);
+                            const prevTbody = prevPanel.querySelector('tbody');
+                            if (prevTbody && prevTbody.children[trIndex]) {
+                                const rowInputsInPrev = Array.from(prevTbody.children[trIndex].querySelectorAll('.cell-input:not([disabled])'));
+                                if (rowInputsInPrev.length > 0) {
+                                    e.preventDefault();
+                                    focusAndSelect(rowInputsInPrev[rowInputsInPrev.length - 1]);
+                                    return;
+                                }
+                            }
+                            const allInputsInPrev = Array.from(prevPanel.querySelectorAll('tbody tr .cell-input:not([disabled])'));
+                            if (allInputsInPrev.length > 0) {
+                                e.preventDefault();
+                                focusAndSelect(allInputsInPrev[allInputsInPrev.length - 1]);
+                                return;
+                            }
+                        }
+                    }
+
+                    // Otherwise wrap to previous row's last input
+                    let prevTr = tr.previousElementSibling;
+                    if (prevTr) {
+                        const prevRowInputs = Array.from(prevTr.querySelectorAll('.cell-input:not([disabled])'));
+                        if (prevRowInputs.length > 0) {
+                            e.preventDefault();
+                            focusAndSelect(prevRowInputs[prevRowInputs.length - 1]);
+                        }
+                    }
+                }
+                return;
+            }
+        });
+    }
+
+    // ==========================================================
     // CLOUD SYNC UI & REALTIME REMOTE REFRESH
     // ==========================================================
     function setupCloudSyncUI() {
@@ -441,6 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupAutoSaveListener();
         setupAddRowButtons();
         setupAutoZeroNumberInputs();
+        setupSpreadsheetArrowNavigation();
         setupCloudSyncUI();
         loadDay(state.currentDate);
         renderSettings();
@@ -1088,14 +1321,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.prevDayBtn.addEventListener('click', () => changeDay(-1));
         elements.nextDayBtn.addEventListener('click', () => changeDay(1));
-        elements.todayBtn.addEventListener('click', () => {
-            saveCurrentDay(false);
-            const today = getTodayDateString();
-            state.currentDate = today;
-            elements.dateInput.value = state.currentDate;
-            updateDateBadge(state.currentDate);
-            loadDay(state.currentDate);
-        });
+        if (elements.todayBtn) {
+            elements.todayBtn.addEventListener('click', () => {
+                saveCurrentDay(false);
+                const today = getTodayDateString();
+                state.currentDate = today;
+                elements.dateInput.value = state.currentDate;
+                updateDateBadge(state.currentDate);
+                loadDay(state.currentDate);
+            });
+        }
 
         elements.saveDayBtn.addEventListener('click', () => {
             saveCurrentDay(true);
@@ -3389,19 +3624,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     <table class="custom-table" id="category-report-table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Category</th>
-                                <th>Payee / Item</th>
-                                <th>Reason / Detail</th>
-                                <th>Type</th>
-                                <th class="num-cell">Amount (Rs.)</th>
+                                <th style="width: 14%;">Date</th>
+                                <th style="width: 18%;">Category</th>
+                                <th style="width: 28%;">Payee / Item</th>
+                                <th style="width: 26%;">Reason / Detail</th>
+                                <th class="num-cell" style="width: 14%;">Amount (Rs.)</th>
                             </tr>
                         </thead>
                         <tbody>
         `;
 
         if (report.rows.length === 0) {
-            html += `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries found for this category and date range.</td></tr>`;
+            html += `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries found for this category and date range.</td></tr>`;
         } else {
             report.rows.forEach(r => {
                 const isCredit = r.type.includes('Credit');
@@ -3411,7 +3645,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td><span class="report-cat-badge">${escapeHtml(r.category)}</span></td>
                         <td><strong>${escapeHtml(r.item)}</strong></td>
                         <td class="report-desc-cell">${escapeHtml(r.description)}</td>
-                        <td><span class="report-type-badge ${isCredit ? 'cr' : 'dr'}">${escapeHtml(r.type)}</span></td>
                         <td class="num-cell report-amount-cell ${isCredit ? 'cr' : 'dr'}">Rs. ${formatNumber(r.amount)}</td>
                     </tr>
                 `;
@@ -3422,7 +3655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="5">CATEGORY GRAND TOTAL</td>
+                                <td colspan="4">CATEGORY GRAND TOTAL</td>
                                 <td class="num-cell cat-grand-total">Rs. ${formatNumber(report.grandTotal)}</td>
                             </tr>
                         </tfoot>
