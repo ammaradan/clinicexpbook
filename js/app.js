@@ -722,11 +722,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
-
-        const quickStockBtn = document.getElementById('btn-quick-stock-rec');
-        if (quickStockBtn) {
-            quickStockBtn.addEventListener('click', () => switchTab('view-stock'));
-        }
     }
 
     function switchTab(viewId) {
@@ -1328,6 +1323,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (elements.btnOrganizeSections && elements.organizeModal) {
             const openModal = () => {
+                const dropdown = document.getElementById('nav-modules-dropdown');
+                if (dropdown) dropdown.classList.remove('open');
                 renderOrganizeModalList();
                 elements.organizeModal.classList.add('active');
                 elements.organizeModal.style.setProperty('display', 'flex', 'important');
