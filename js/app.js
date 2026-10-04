@@ -3975,71 +3975,42 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="num-cell" style="color: #f59e0b;">Rs. ${formatNumber(summary.sumCash)}</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Medical Store Stock Reconciliation & Difference (User Requested Segment) -->
-            <div class="stock-reconciliation-card">
-                <div class="stock-rec-header">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span>📦</span>
-                        <span>Medical Store Stock Reconciliation & Difference (${label})</span>
+                <!-- 7. Medical Store Stock Reconciliation (Read-only View) -->
+                <div class="pnl-card">
+                    <div class="pnl-card-header">📦 Stock Reconciliation & Difference</div>
+                    <div class="pnl-row">
+                        <span>Prev Month Stock (Retail):</span>
+                        <span class="num-cell">Rs. ${formatNumber(prevStockRetail)}</span>
                     </div>
-                    <span id="stock-save-pill" class="auto-save-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3);">✓ Auto-saved</span>
-                </div>
-
-                <div class="stock-rec-body">
-                    <!-- ROW 1: Prev Month Stock (Retail) + Purchase This Month (Retail) -->
-                    <div class="stock-block">
-                        <div class="stock-block-header">
-                            <div>Prev Month Stock (Retail)</div>
-                            <div style="font-size: 1.15rem; font-weight: 900;">+</div>
-                            <div>Purchase This Month (Retail)</div>
-                        </div>
-                        <div class="stock-block-row">
-                            <input type="number" step="any" class="stock-cell-input" id="stock-prev-month" value="${prevStockRetail || 0}" title="Enter Previous Month Stock Retail (Manual)">
-                            <div class="stock-cell-plus">+</div>
-                            <div class="stock-cell-readonly" id="stock-purchase-display">${formatNumber(purchaseThisMonthRetail)}</div>
-                        </div>
-                        <div class="stock-subtotal-row" id="stock-total-1-display">
-                            ${formatNumber(total1)}
-                        </div>
+                    <div class="pnl-row">
+                        <span>Purchase This Month (Retail):</span>
+                        <span class="num-cell" style="color: #38bdf8;">+ Rs. ${formatNumber(purchaseThisMonthRetail)}</span>
                     </div>
-
-                    <!-- ROW 2: St Sale This Month + Present Month Stock (Retail) -->
-                    <div class="stock-block">
-                        <div class="stock-block-header">
-                            <div>St Sale This Month</div>
-                            <div style="font-size: 1.15rem; font-weight: 900;">+</div>
-                            <div>Present Month Stock (Retail)</div>
-                        </div>
-                        <div class="stock-block-row">
-                            <div class="stock-cell-readonly" id="stock-sale-display">${formatNumber(stSaleThisMonth)}</div>
-                            <div class="stock-cell-plus">+</div>
-                            <input type="number" step="any" class="stock-cell-input" id="stock-present-month" value="${presentStockRetail || 0}" title="Enter Present Month Stock Retail (Manual count)">
-                        </div>
-                        <div class="stock-subtotal-row" id="stock-total-2-display">
-                            ${formatNumber(total2)}
-                        </div>
+                    <div class="pnl-row highlight primary">
+                        <span>Total Stock (Retail):</span>
+                        <span class="num-cell">Rs. ${formatNumber(total1)}</span>
                     </div>
-
-                    <!-- ROW 3: Stock Difference -->
-                    <div class="stock-block">
-                        <div class="stock-block-header single">
-                            Stock Difference
-                        </div>
-                        <div class="stock-diff-val" id="stock-diff-display">
-                            ${formatNumber(stockDiff)}
-                        </div>
+                    <div class="pnl-row sub">
+                        <span>Store Sale This Month:</span>
+                        <span class="num-cell" style="color: #fb7185;">- Rs. ${formatNumber(stSaleThisMonth)}</span>
                     </div>
-
-                    <!-- Status Indicator Badge -->
-                    <div style="text-align: center; margin-top: 0.25rem;">
-                        <span id="stock-pnl-status-display">
+                    <div class="pnl-row sub">
+                        <span>Present Month Stock (Count):</span>
+                        <span class="num-cell">Rs. ${formatNumber(presentStockRetail)}</span>
+                    </div>
+                    <div class="pnl-row">
+                        <span>Total Accounted:</span>
+                        <span class="num-cell">Rs. ${formatNumber(total2)}</span>
+                    </div>
+                    <div class="pnl-row highlight ${stockDiff > 0 ? 'debit' : stockDiff < 0 ? 'credit' : 'primary'}">
+                        <span>Stock Difference:</span>
+                        <span class="num-cell" style="font-weight: 800;">
                             ${stockDiff > 0 
-                                ? `<span style="color: #dc2626; font-weight: 800; background: #fef2f2; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #f87171;">Surplus: +${formatNumber(stockDiff)} (Cash Short)</span>`
-                                : stockDiff < 0
-                                    ? `<span style="color: #059669; font-weight: 800; background: #ecfdf5; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #34d399;">Deficit: -${formatNumber(Math.abs(stockDiff))} (Cash Excess)</span>`
-                                    : `<span style="color: #0284c7; font-weight: 800; background: #f0f9ff; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #38bdf8;">Calculated: Balanced (Rs. 0)</span>`
+                                ? `+Rs. ${formatNumber(stockDiff)} (Shortage)` 
+                                : stockDiff < 0 
+                                    ? `-Rs. ${formatNumber(Math.abs(stockDiff))} (Surplus)` 
+                                    : 'Rs. 0 (Balanced)'
                             }
                         </span>
                     </div>
@@ -4048,60 +4019,6 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         container.innerHTML = html;
-
-        // Wire up interactive calculation and auto-saving for stock reconciliation
-        const inpPrev = document.getElementById('stock-prev-month');
-        const inpPresent = document.getElementById('stock-present-month');
-        const dispTotal1 = document.getElementById('stock-total-1-display');
-        const dispTotal2 = document.getElementById('stock-total-2-display');
-        const dispDiff = document.getElementById('stock-diff-display');
-        const statusDisp = document.getElementById('stock-pnl-status-display');
-        const savePill = document.getElementById('stock-save-pill');
-
-        function updateStockCalculations() {
-            const pVal = parseFloat(inpPrev?.value) || 0;
-            const prVal = parseFloat(inpPresent?.value) || 0;
-            const t1 = pVal + purchaseThisMonthRetail;
-            const t2 = stSaleThisMonth + prVal;
-            const diff = t1 - t2;
-
-            if (dispTotal1) dispTotal1.textContent = formatNumber(t1);
-            if (dispTotal2) dispTotal2.textContent = formatNumber(t2);
-            if (dispDiff) dispDiff.textContent = formatNumber(diff);
-
-            if (statusDisp) {
-                if (diff > 0) {
-                    statusDisp.innerHTML = `<span style="color: #dc2626; font-weight: 800; background: #fef2f2; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #f87171;">Surplus: +${formatNumber(diff)} (Cash Short)</span>`;
-                } else if (diff < 0) {
-                    statusDisp.innerHTML = `<span style="color: #059669; font-weight: 800; background: #ecfdf5; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #34d399;">Deficit: -${formatNumber(Math.abs(diff))} (Cash Excess)</span>`;
-                } else {
-                    statusDisp.innerHTML = `<span style="color: #0284c7; font-weight: 800; background: #f0f9ff; padding: 0.35rem 0.85rem; border-radius: 6px; border: 1.5px solid #38bdf8;">Calculated: Balanced (Rs. 0)</span>`;
-                }
-            }
-
-            clinicDB.saveStockReconciliation(periodKey, { prevStockRetail: pVal, presentStockRetail: prVal });
-            if (savePill) {
-                savePill.textContent = '✓ Saved';
-                savePill.style.background = '#ecfdf5';
-                savePill.style.color = '#059669';
-                setTimeout(() => {
-                    if (savePill) {
-                        savePill.textContent = '✓ Auto-saved';
-                        savePill.style.background = 'rgba(255,255,255,0.2)';
-                        savePill.style.color = '#fff';
-                    }
-                }, 1500);
-            }
-        }
-
-        if (inpPrev) {
-            inpPrev.addEventListener('input', updateStockCalculations);
-            inpPrev.addEventListener('focus', () => { if (inpPrev.value === '0') inpPrev.select(); });
-        }
-        if (inpPresent) {
-            inpPresent.addEventListener('input', updateStockCalculations);
-            inpPresent.addEventListener('focus', () => { if (inpPresent.value === '0') inpPresent.select(); });
-        }
 
         bindPeriodFilterEvents('pnl', state.pnlFilter, renderPnL);
         const printBtn = document.getElementById('print-pnl-btn');
