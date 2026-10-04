@@ -2203,8 +2203,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Add Staff Payment directly into Debit with Selection + Reason (Inserted ABOVE ZK)
         elements.btnAddStaffDebitBtn.addEventListener('click', () => {
             const staffList = clinicDB.getStaffList();
-            const staffOptions = staffList.map((s, i) => `${i + 1}. ${s.name} (${s.role})`).join('\n');
-            const selection = prompt(`Select Staff Member (Enter number 1-${staffList.length}) or type Name:\n${staffOptions}`);
+            const staffOptions = staffList.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+            const selection = prompt(`Select Staff / Vendor (Enter number 1-${staffList.length}) or type Name:\n${staffOptions}`);
             if (!selection) return;
 
             let chosenStaff = null;
@@ -2918,7 +2918,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
                         <div class="table-title">
-                            👥 Staff & Doctors Ledger - ${label}
+                            👥 Staff & Vendors Ledger - ${label}
                         </div>
                         ${getPeriodFilterBarHtml('staff', state.staffFilter)}
                     </div>
@@ -3265,10 +3265,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="home_expenses">Home Expenses (Home X)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
                 </optgroup>
-                <optgroup label="Individual Staff & Doctors">
+                <optgroup label="Staff & Vendors">
             `;
             staffList.forEach(s => {
-                optHtml += `<option value="staff:${escapeHtml(s.name)}">${escapeHtml(s.name)} (${escapeHtml(s.role)})</option>`;
+                optHtml += `<option value="staff:${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`;
             });
             optHtml += `</optgroup>`;
 
@@ -3404,14 +3404,15 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries found for this category and date range.</td></tr>`;
         } else {
             report.rows.forEach(r => {
+                const isCredit = r.type.includes('Credit');
                 html += `
                     <tr>
                         <td><strong>${r.date}</strong></td>
-                        <td><span style="padding: 0.2rem 0.5rem; background: rgba(255,255,255,0.06); border-radius: 4px; font-size: 0.75rem;">${escapeHtml(r.category)}</span></td>
+                        <td><span class="report-cat-badge">${escapeHtml(r.category)}</span></td>
                         <td><strong>${escapeHtml(r.item)}</strong></td>
-                        <td style="color: #cbd5e1; font-weight: 500;">${escapeHtml(r.description)}</td>
-                        <td><span style="color: ${r.type.includes('Credit') ? '#34d399' : '#fb7185'}; font-size: 0.78rem;">${escapeHtml(r.type)}</span></td>
-                        <td class="num-cell" style="font-weight: 700; color: ${r.type.includes('Credit') ? '#34d399' : '#fb7185'};">Rs. ${formatNumber(r.amount)}</td>
+                        <td class="report-desc-cell">${escapeHtml(r.description)}</td>
+                        <td><span class="report-type-badge ${isCredit ? 'cr' : 'dr'}">${escapeHtml(r.type)}</span></td>
+                        <td class="num-cell report-amount-cell ${isCredit ? 'cr' : 'dr'}">Rs. ${formatNumber(r.amount)}</td>
                     </tr>
                 `;
             });
@@ -3422,7 +3423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tfoot>
                             <tr>
                                 <td colspan="5">CATEGORY GRAND TOTAL</td>
-                                <td class="num-cell" style="color: #38bdf8; font-size: 1.15rem;">Rs. ${formatNumber(report.grandTotal)}</td>
+                                <td class="num-cell cat-grand-total">Rs. ${formatNumber(report.grandTotal)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -3507,17 +3508,16 @@ document.addEventListener('DOMContentLoaded', () => {
             div.innerHTML = `
                 <div>
                     <strong>${escapeHtml(s.name)}</strong>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">(${escapeHtml(s.role)})</span>
                 </div>
                 <div>
                     <button type="button" class="btn-icon btn-sm del-staff-btn" style="color: #f43f5e;" data-id="${s.id}">&times; Remove</button>
                 </div>
             `;
             div.querySelector('.del-staff-btn').addEventListener('click', () => {
-                if (confirm(`Remove staff member "${s.name}"?`)) {
+                if (confirm(`Remove "${s.name}" from Staff & Vendors?`)) {
                     clinicDB.deleteStaff(s.id);
                     renderSettings();
-                    showToast('Staff removed', 'info');
+                    showToast('Removed from Staff & Vendors', 'info');
                 }
             });
             staffListEl.appendChild(div);
@@ -3591,12 +3591,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         document.getElementById('add-staff-btn').onclick = () => {
-            const name = prompt('Enter new Staff / Doctor / Vendor Name:');
+            const name = prompt('Enter Name for Staff / Vendor:');
             if (name && name.trim()) {
-                const role = prompt('Enter Designation / Role:') || 'Staff';
-                clinicDB.addStaff({ name, role });
+                clinicDB.addStaff({ name: name.trim(), role: '' });
                 renderSettings();
-                showToast(`Staff member "${name}" added!`, 'success');
+                showToast(`"${name.trim()}" added to Staff & Vendors!`, 'success');
             }
         };
 
