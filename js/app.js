@@ -123,6 +123,418 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================================
+    // MODERN APP MODALS SYSTEM (Confirm, Prompt, Alert, Staff Pay)
+    // ==========================================================
+    const appModal = {
+        _dialogEl: null,
+        _staffEl: null,
+        _activeResolve: null,
+        _initialized: false,
+
+        init() {
+            if (this._initialized) return;
+            this._dialogEl = document.getElementById('app-dialog-modal');
+            this._staffEl = document.getElementById('staff-pay-modal');
+            if (!this._dialogEl || !this._staffEl) return;
+
+            // Dialog Cancel Button
+            const cancelBtn = document.getElementById('app-dialog-cancel-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => this.closeDialog(null));
+            }
+
+            // Dialog Backdrop click
+            this._dialogEl.addEventListener('click', (e) => {
+                if (e.target === this._dialogEl) this.closeDialog(null);
+            });
+
+            // Staff Modal Close & Cancel
+            const spmClose = document.getElementById('spm-btn-close');
+            const spmCancel = document.getElementById('spm-btn-cancel');
+            if (spmClose) spmClose.addEventListener('click', () => this.closeStaffPay());
+            if (spmCancel) spmCancel.addEventListener('click', () => this.closeStaffPay());
+
+            // Staff Modal Backdrop click
+            this._staffEl.addEventListener('click', (e) => {
+                if (e.target === this._staffEl) this.closeStaffPay();
+            });
+
+            // ESC key closes any active modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (this._staffEl && this._staffEl.classList.contains('active')) {
+                        this.closeStaffPay();
+                    } else if (this._dialogEl && this._dialogEl.classList.contains('active')) {
+                        this.closeDialog(null);
+                    }
+                }
+            });
+
+            this._initialized = true;
+        },
+
+        confirm({ title = 'Confirm Action', message = 'Are you sure?', icon = '⚠️', confirmText = 'Confirm', cancelText = 'Cancel', danger = false, onConfirm = null }) {
+            this.init();
+            return new Promise((resolve) => {
+                this._activeResolve = (val) => {
+                    resolve(val);
+                    if (val && onConfirm) onConfirm();
+                };
+
+                const titleEl = document.getElementById('app-dialog-title');
+                const msgEl = document.getElementById('app-dialog-message');
+                const iconBox = document.getElementById('app-dialog-icon-box');
+                const iconEl = document.getElementById('app-dialog-icon');
+                const inputCont = document.getElementById('app-dialog-input-container');
+                const cancelBtn = document.getElementById('app-dialog-cancel-btn');
+                const confirmBtn = document.getElementById('app-dialog-confirm-btn');
+
+                if (titleEl) titleEl.textContent = title;
+                if (msgEl) msgEl.textContent = message;
+                if (iconEl) iconEl.textContent = icon;
+                if (inputCont) inputCont.style.display = 'none';
+
+                if (cancelBtn) {
+                    cancelBtn.style.display = 'inline-block';
+                    cancelBtn.textContent = cancelText;
+                }
+
+                if (confirmBtn) {
+                    confirmBtn.textContent = confirmText;
+                    if (danger) {
+                        confirmBtn.className = 'btn btn-danger';
+                        confirmBtn.style.background = '#dc2626';
+                        confirmBtn.style.borderColor = '#dc2626';
+                        confirmBtn.style.color = '#ffffff';
+                        if (iconBox) iconBox.className = 'modal-icon-box modal-icon-danger';
+                    } else {
+                        confirmBtn.className = 'btn btn-primary';
+                        confirmBtn.style.background = '';
+                        confirmBtn.style.borderColor = '';
+                        confirmBtn.style.color = '';
+                        if (iconBox) {
+                            iconBox.className = (icon === '📅') ? 'modal-icon-box modal-icon-info' : 'modal-icon-box modal-icon-warning';
+                        }
+                    }
+
+                    const newConfirmBtn = confirmBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                    newConfirmBtn.addEventListener('click', () => {
+                        this.closeDialog(true);
+                    });
+                    setTimeout(() => newConfirmBtn.focus(), 80);
+                }
+
+                this._dialogEl.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    this._dialogEl.classList.add('active');
+                });
+            });
+        },
+
+        prompt({ title = 'Enter Value', message = '', placeholder = '', defaultValue = '', icon = '✏️', confirmText = 'Save', cancelText = 'Cancel', onConfirm = null }) {
+            this.init();
+            return new Promise((resolve) => {
+                this._activeResolve = (val) => {
+                    resolve(val);
+                    if (val !== null && onConfirm) onConfirm(val);
+                };
+
+                const titleEl = document.getElementById('app-dialog-title');
+                const msgEl = document.getElementById('app-dialog-message');
+                const iconBox = document.getElementById('app-dialog-icon-box');
+                const iconEl = document.getElementById('app-dialog-icon');
+                const inputCont = document.getElementById('app-dialog-input-container');
+                const inputEl = document.getElementById('app-dialog-input');
+                const cancelBtn = document.getElementById('app-dialog-cancel-btn');
+                const confirmBtn = document.getElementById('app-dialog-confirm-btn');
+
+                if (titleEl) titleEl.textContent = title;
+                if (msgEl) msgEl.textContent = message;
+                if (iconEl) iconEl.textContent = icon;
+                if (iconBox) iconBox.className = 'modal-icon-box modal-icon-info';
+
+                if (inputCont && inputEl) {
+                    inputCont.style.display = 'block';
+                    inputEl.value = defaultValue || '';
+                    inputEl.placeholder = placeholder || '';
+                }
+
+                if (cancelBtn) {
+                    cancelBtn.style.display = 'inline-block';
+                    cancelBtn.textContent = cancelText;
+                }
+
+                if (confirmBtn) {
+                    confirmBtn.textContent = confirmText;
+                    confirmBtn.className = 'btn btn-primary';
+                    confirmBtn.style.background = '';
+                    confirmBtn.style.borderColor = '';
+                    confirmBtn.style.color = '';
+
+                    const handleConfirm = () => {
+                        const val = inputEl ? inputEl.value.trim() : '';
+                        this.closeDialog(val);
+                    };
+
+                    const newConfirmBtn = confirmBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                    newConfirmBtn.addEventListener('click', handleConfirm);
+
+                    if (inputEl) {
+                        inputEl.onkeydown = (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleConfirm();
+                            }
+                        };
+                    }
+                }
+
+                this._dialogEl.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    this._dialogEl.classList.add('active');
+                    if (inputEl) {
+                        setTimeout(() => {
+                            inputEl.focus();
+                            inputEl.select();
+                        }, 80);
+                    }
+                });
+            });
+        },
+
+        alert({ title = 'Notice', message = '', icon = 'ℹ️', confirmText = 'OK', onConfirm = null }) {
+            this.init();
+            return new Promise((resolve) => {
+                this._activeResolve = (val) => {
+                    resolve(true);
+                    if (onConfirm) onConfirm();
+                };
+
+                const titleEl = document.getElementById('app-dialog-title');
+                const msgEl = document.getElementById('app-dialog-message');
+                const iconBox = document.getElementById('app-dialog-icon-box');
+                const iconEl = document.getElementById('app-dialog-icon');
+                const inputCont = document.getElementById('app-dialog-input-container');
+                const cancelBtn = document.getElementById('app-dialog-cancel-btn');
+                const confirmBtn = document.getElementById('app-dialog-confirm-btn');
+
+                if (titleEl) titleEl.textContent = title;
+                if (msgEl) msgEl.textContent = message;
+                if (iconEl) iconEl.textContent = icon;
+                if (iconBox) iconBox.className = 'modal-icon-box modal-icon-info';
+                if (inputCont) inputCont.style.display = 'none';
+                if (cancelBtn) cancelBtn.style.display = 'none';
+
+                if (confirmBtn) {
+                    confirmBtn.textContent = confirmText;
+                    confirmBtn.className = 'btn btn-primary';
+                    confirmBtn.style.background = '';
+                    confirmBtn.style.borderColor = '';
+                    confirmBtn.style.color = '';
+
+                    const newConfirmBtn = confirmBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                    newConfirmBtn.addEventListener('click', () => {
+                        this.closeDialog(true);
+                    });
+                    setTimeout(() => newConfirmBtn.focus(), 80);
+                }
+
+                this._dialogEl.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    this._dialogEl.classList.add('active');
+                });
+            });
+        },
+
+        closeDialog(val) {
+            if (!this._dialogEl) return;
+            this._dialogEl.classList.remove('active');
+            setTimeout(() => {
+                this._dialogEl.style.display = 'none';
+                if (this._activeResolve) {
+                    this._activeResolve(val);
+                    this._activeResolve = null;
+                }
+            }, 180);
+        },
+
+        // Dedicated Interactive Staff & Vendor Payment Modal
+        openStaffPayModal() {
+            this.init();
+            const staffList = clinicDB.getStaffList() || [];
+
+            const searchInp = document.getElementById('spm-search');
+            const gridEl = document.getElementById('spm-staff-grid');
+            const countEl = document.getElementById('spm-staff-count');
+            const nameInp = document.getElementById('spm-name');
+            const reasonInp = document.getElementById('spm-reason');
+            const amtInp = document.getElementById('spm-amount');
+            const previewEl = document.getElementById('spm-preview-text');
+            const submitBtn = document.getElementById('spm-btn-submit');
+
+            let selectedStaffName = '';
+
+            const updatePreview = () => {
+                const name = (nameInp.value || '').trim();
+                const reason = (reasonInp.value || '').trim();
+                const amt = parseFloat(amtInp.value) || 0;
+                if (!name) {
+                    previewEl.innerHTML = '<span style="color: #94a3b8; font-style: italic;">Select a staff member or enter payee name above...</span>';
+                    return;
+                }
+                const formattedAmt = amt > 0 ? `Rs. ${amt.toLocaleString()}` : 'Rs. 0';
+                const formattedReason = reason ? `(${reason})` : '(Payment)';
+                previewEl.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="color: #64748b;">${escapeHtml(formattedReason)}</span> &nbsp;—&nbsp; <span style="color: #059669; font-weight: 800; font-size: 1rem;">${formattedAmt}</span>`;
+            };
+
+            const renderGrid = (filter = '') => {
+                gridEl.innerHTML = '';
+                const query = (filter || '').toLowerCase().trim();
+                const filtered = staffList.filter(s => (s.name || '').toLowerCase().includes(query));
+                if (countEl) countEl.textContent = `${filtered.length} of ${staffList.length} staff`;
+
+                if (filtered.length === 0) {
+                    gridEl.innerHTML = `<div style="grid-column: 1 / -1; padding: 0.85rem; text-align: center; color: #64748b; font-size: 0.82rem;">No staff match found. You can type payee name directly below.</div>`;
+                    return;
+                }
+
+                filtered.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'spm-staff-card' + (selectedStaffName === s.name ? ' selected' : '');
+
+                    const parts = s.name.trim().split(/\s+/);
+                    const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].substring(0, 2).toUpperCase();
+
+                    card.innerHTML = `
+                        <div class="spm-staff-avatar">${initials}</div>
+                        <div class="spm-staff-name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+                        ${selectedStaffName === s.name ? '<span style="color: #059669; font-weight: 800; font-size: 0.85rem;">✓</span>' : ''}
+                    `;
+
+                    card.addEventListener('click', () => {
+                        selectedStaffName = s.name;
+                        nameInp.value = s.name;
+                        renderGrid(searchInp.value);
+                        updatePreview();
+                        if (!reasonInp.value) {
+                            reasonInp.focus();
+                        } else {
+                            amtInp.focus();
+                        }
+                    });
+
+                    gridEl.appendChild(card);
+                });
+            };
+
+            // Preset reason buttons
+            const presetPills = document.querySelectorAll('.spm-preset-chip');
+            presetPills.forEach(pill => {
+                pill.onclick = () => {
+                    reasonInp.value = pill.getAttribute('data-reason');
+                    presetPills.forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    updatePreview();
+                    amtInp.focus();
+                };
+            });
+
+            // Search input live filter
+            searchInp.value = '';
+            searchInp.oninput = (e) => renderGrid(e.target.value);
+
+            nameInp.value = '';
+            reasonInp.value = 'Salary';
+            amtInp.value = '';
+
+            // Reset active state on chips to default Salary
+            presetPills.forEach(p => {
+                if (p.getAttribute('data-reason') === 'Salary') p.classList.add('active');
+                else p.classList.remove('active');
+            });
+
+            nameInp.oninput = () => {
+                selectedStaffName = nameInp.value.trim();
+                renderGrid(searchInp.value);
+                updatePreview();
+            };
+            reasonInp.oninput = () => updatePreview();
+            amtInp.oninput = () => updatePreview();
+
+            // Submit handler
+            const newSubmitBtn = submitBtn.cloneNode(true);
+            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+
+            const handleSubmit = () => {
+                const chosenStaff = (nameInp.value || '').trim();
+                if (!chosenStaff) {
+                    showToast('Please select or enter a Staff / Payee name.', 'warning');
+                    nameInp.focus();
+                    return;
+                }
+                const reason = (reasonInp.value || '').trim() || 'Payment';
+                const amount = parseFloat(amtInp.value) || 0;
+
+                // 1. Add to Debit list above ZK
+                const lineName = `${chosenStaff} (${reason})`;
+                insertDebitRowAboveZK(state.currentDayData, { name: lineName, amount, isCustom: true, staffRef: chosenStaff });
+
+                // 2. Link to Staff & Vendors Table
+                if (!state.currentDayData.staffPayments) state.currentDayData.staffPayments = {};
+                const existing = state.currentDayData.staffPayments[chosenStaff];
+                const prevAmt = typeof existing === 'number' ? existing : (existing?.amount || 0);
+                state.currentDayData.staffPayments[chosenStaff] = {
+                    amount: prevAmt + amount,
+                    reason: reason
+                };
+
+                renderDebitTable(state.currentDayData);
+                renderStaffVendorsTable(state.currentDayData);
+                recalculateAll();
+                scheduleAutoSave();
+                this.closeStaffPay();
+                showToast(`Added Rs. ${amount.toLocaleString()} for ${chosenStaff}!`, 'success');
+            };
+
+            newSubmitBtn.addEventListener('click', handleSubmit);
+
+            // Pressing Enter in amount or reason input submits
+            amtInp.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSubmit();
+                }
+            };
+            reasonInp.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    amtInp.focus();
+                }
+            };
+
+            renderGrid();
+            updatePreview();
+
+            this._staffEl.style.display = 'flex';
+            requestAnimationFrame(() => {
+                this._staffEl.classList.add('active');
+                setTimeout(() => searchInp.focus(), 80);
+            });
+        },
+
+        closeStaffPay() {
+            if (!this._staffEl) return;
+            this._staffEl.classList.remove('active');
+            setTimeout(() => {
+                this._staffEl.style.display = 'none';
+            }, 180);
+        }
+    };
+
     // DOM Elements
     const elements = {
         tabs: document.querySelectorAll('.tab-btn'),
@@ -1349,16 +1761,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const resetBtn = document.getElementById('btn-reset-layout') || elements.btnResetSectionsLayout;
             if (resetBtn) {
                 resetBtn.addEventListener('click', () => {
-                    if (confirm('Reset all sub-sections to their original layout and make all visible?')) {
-                        saveSectionsLayout(JSON.parse(JSON.stringify(DEFAULT_SECTIONS_LAYOUT)));
-                        saveCollapsedSections([]);
-                        applySectionsLayout();
-                        document.querySelectorAll('.collapsible-header').forEach(h => {
-                            toggleSectionCollapse(h, false);
-                        });
-                        renderOrganizeModalList();
-                        showToast('Sections reset to default layout!', 'success');
-                    }
+                    appModal.confirm({
+                        title: 'Reset Sub-Sections',
+                        message: 'Reset all sub-sections to their original layout and make all visible?',
+                        icon: '🔄',
+                        confirmText: 'Reset Layout',
+                        onConfirm: () => {
+                            saveSectionsLayout(JSON.parse(JSON.stringify(DEFAULT_SECTIONS_LAYOUT)));
+                            saveCollapsedSections([]);
+                            applySectionsLayout();
+                            document.querySelectorAll('.collapsible-header').forEach(h => {
+                                toggleSectionCollapse(h, false);
+                            });
+                            renderOrganizeModalList();
+                            showToast('Sections reset to default layout!', 'success');
+                        }
+                    });
                 });
             }
         }
@@ -1584,11 +2002,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function confirmDeletion(itemName, onConfirm) {
-        const label = itemName ? `"${itemName}"` : 'this entry';
-        const msg = `⚠️ Are you sure you want to delete ${label}?\n\nThis will remove the item from today's record. Click OK to confirm or Cancel to keep it.`;
-        if (window.confirm(msg)) {
-            onConfirm();
-        }
+        const label = itemName ? `"${itemName}"` : 'this item';
+        appModal.confirm({
+            title: 'Delete Item',
+            message: `Are you sure you want to delete ${label}?\nThis will remove the item from today's record.`,
+            icon: '🗑️',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            danger: true,
+            onConfirm: onConfirm
+        });
     }
 
     // --- PANEL 1: DEBIT TABLE ---
@@ -2487,60 +2910,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupAddRowButtons() {
         // 1. Add Custom Expense Line in Debit (Inserted ABOVE ZK)
         elements.btnAddDebitRow.addEventListener('click', () => {
-            const name = prompt('Enter description for new Debit (Expense) item:') || 'Other Expense';
-            insertDebitRowAboveZK(state.currentDayData, { name, amount: 0, isCustom: true });
-            renderDebitTable(state.currentDayData);
-            recalculateAll();
-            scheduleAutoSave();
+            appModal.prompt({
+                title: 'Add Expense Item',
+                message: 'Enter description / name for new Debit (Expense) item:',
+                placeholder: 'e.g. Office Repair',
+                defaultValue: 'Other Expense',
+                icon: '💸',
+                confirmText: 'Add Item',
+                onConfirm: (name) => {
+                    const finalName = (name || '').trim() || 'Other Expense';
+                    insertDebitRowAboveZK(state.currentDayData, { name: finalName, amount: 0, isCustom: true });
+                    renderDebitTable(state.currentDayData);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Added "${finalName}" to Debit!`, 'success');
+                }
+            });
         });
 
         // 2. Add Staff Payment directly into Debit with Selection + Reason (Inserted ABOVE ZK)
         elements.btnAddStaffDebitBtn.addEventListener('click', () => {
-            const staffList = clinicDB.getStaffList();
-            const staffOptions = staffList.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
-            const selection = prompt(`Select Staff / Vendor (Enter number 1-${staffList.length}) or type Name:\n${staffOptions}`);
-            if (!selection) return;
-
-            let chosenStaff = null;
-            const num = parseInt(selection, 10);
-            if (!isNaN(num) && num >= 1 && num <= staffList.length) {
-                chosenStaff = staffList[num - 1].name;
-            } else {
-                const found = staffList.find(s => s.name.toLowerCase() === selection.trim().toLowerCase());
-                chosenStaff = found ? found.name : selection.trim();
-            }
-
-            const reason = prompt(`Enter detail / reason for payment to "${chosenStaff}" (e.g. Salary, Advance, Fuel, Bonus):`) || 'Payment';
-            const amtStr = prompt(`Enter payment amount (Rs.) for "${chosenStaff}":`) || '0';
-            const amount = parseFloat(amtStr) || 0;
-
-            // 1. Add to Debit list above ZK
-            const lineName = `${chosenStaff} (${reason})`;
-            insertDebitRowAboveZK(state.currentDayData, { name: lineName, amount, isCustom: true, staffRef: chosenStaff });
-
-            // 2. Link to Staff & Vendors Table
-            if (!state.currentDayData.staffPayments) state.currentDayData.staffPayments = {};
-            const existing = state.currentDayData.staffPayments[chosenStaff];
-            const prevAmt = typeof existing === 'number' ? existing : (existing?.amount || 0);
-            state.currentDayData.staffPayments[chosenStaff] = {
-                amount: prevAmt + amount,
-                reason: reason
-            };
-
-            renderDebitTable(state.currentDayData);
-            renderStaffVendorsTable(state.currentDayData);
-            recalculateAll();
-            scheduleAutoSave();
-            showToast(`Added Rs. ${amount} for ${chosenStaff}!`, 'success');
+            appModal.openStaffPayModal();
         });
 
         // 3. Add Custom Income Line in Credit
         elements.btnAddCreditRow.addEventListener('click', () => {
-            const name = prompt('Enter description for new Credit (Income) item:') || 'Other Income';
-            state.currentDayData.credits.push({ name, amount: 0, isCustom: true });
-            renderCreditTable(state.currentDayData);
-            recalculateAll();
-            scheduleAutoSave();
+            appModal.prompt({
+                title: 'Add Income Item',
+                message: 'Enter description / name for new Credit (Income) item:',
+                placeholder: 'e.g. Special Consultation',
+                defaultValue: 'Other Income',
+                icon: '💰',
+                confirmText: 'Add Item',
+                onConfirm: (name) => {
+                    const finalName = (name || '').trim() || 'Other Income';
+                    state.currentDayData.credits.push({ name: finalName, amount: 0, isCustom: true });
+                    renderCreditTable(state.currentDayData);
+                    recalculateAll();
+                    scheduleAutoSave();
+                    showToast(`Added "${finalName}" to Credit!`, 'success');
+                }
+            });
         });
 
         // 4. Detail Panel Add Buttons
@@ -2961,13 +3371,20 @@ document.addEventListener('DOMContentLoaded', () => {
             container.querySelectorAll('.master-row').forEach(r => {
                 r.addEventListener('click', () => {
                     const dt = r.dataset.date;
-                    if (!confirm(`Open Daily Sheet for ${dt}?`)) return;
-                    saveCurrentDay(false);
-                    state.currentDate = dt;
-                    elements.dateInput.value = dt;
-                    updateDateBadge(dt);
-                    loadDay(dt);
-                    switchTab('view-daily');
+                    appModal.confirm({
+                        title: 'Open Daily Sheet',
+                        message: `Do you want to switch to the Daily Sheet for ${dt}?`,
+                        icon: '📅',
+                        confirmText: 'Open Sheet',
+                        onConfirm: () => {
+                            saveCurrentDay(false);
+                            state.currentDate = dt;
+                            elements.dateInput.value = dt;
+                            updateDateBadge(dt);
+                            loadDay(dt);
+                            switchTab('view-daily');
+                        }
+                    });
                 });
             });
 
@@ -3181,13 +3598,20 @@ document.addEventListener('DOMContentLoaded', () => {
         container.querySelectorAll('.master-row').forEach(r => {
             r.addEventListener('click', () => {
                 const dt = r.dataset.date;
-                if (!confirm(`Open Daily Sheet for ${dt}?`)) return;
-                saveCurrentDay(false);
-                state.currentDate = dt;
-                elements.dateInput.value = dt;
-                updateDateBadge(dt);
-                loadDay(dt);
-                switchTab('view-daily');
+                appModal.confirm({
+                    title: 'Open Daily Sheet',
+                    message: `Do you want to switch to the Daily Sheet for ${dt}?`,
+                    icon: '📅',
+                    confirmText: 'Open Sheet',
+                    onConfirm: () => {
+                        saveCurrentDay(false);
+                        state.currentDate = dt;
+                        elements.dateInput.value = dt;
+                        updateDateBadge(dt);
+                        loadDay(dt);
+                        switchTab('view-daily');
+                    }
+                });
             });
         });
 
@@ -4309,11 +4733,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const delBtn = div.querySelector('.del-cat-btn');
             if (delBtn) {
                 delBtn.addEventListener('click', () => {
-                    if (confirm(`Delete category "${cat.name}"?`)) {
-                        clinicDB.deleteCategory('expense', cat.id);
-                        renderSettings();
-                        showToast('Category deleted', 'info');
-                    }
+                    appModal.confirm({
+                        title: 'Delete Category',
+                        message: `Are you sure you want to delete expense category "${cat.name}"?`,
+                        icon: '🗑️',
+                        confirmText: 'Delete',
+                        danger: true,
+                        onConfirm: () => {
+                            clinicDB.deleteCategory('expense', cat.id);
+                            renderSettings();
+                            showToast('Category deleted', 'info');
+                        }
+                    });
                 });
             }
             catListExpense.appendChild(div);
@@ -4336,11 +4767,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const delBtn = div.querySelector('.del-inc-btn');
             if (delBtn) {
                 delBtn.addEventListener('click', () => {
-                    if (confirm(`Delete category "${cat.name}"?`)) {
-                        clinicDB.deleteCategory('income', cat.id);
-                        renderSettings();
-                        showToast('Category deleted', 'info');
-                    }
+                    appModal.confirm({
+                        title: 'Delete Category',
+                        message: `Are you sure you want to delete income category "${cat.name}"?`,
+                        icon: '🗑️',
+                        confirmText: 'Delete',
+                        danger: true,
+                        onConfirm: () => {
+                            clinicDB.deleteCategory('income', cat.id);
+                            renderSettings();
+                            showToast('Category deleted', 'info');
+                        }
+                    });
                 });
             }
             catListIncome.appendChild(div);
@@ -4359,11 +4797,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             div.querySelector('.del-staff-btn').addEventListener('click', () => {
-                if (confirm(`Remove "${s.name}" from Staff & Vendors?`)) {
-                    clinicDB.deleteStaff(s.id);
-                    renderSettings();
-                    showToast('Removed from Staff & Vendors', 'info');
-                }
+                appModal.confirm({
+                    title: 'Remove Staff / Vendor',
+                    message: `Are you sure you want to remove "${s.name}" from Staff & Vendors?`,
+                    icon: '🗑️',
+                    confirmText: 'Remove',
+                    danger: true,
+                    onConfirm: () => {
+                        clinicDB.deleteStaff(s.id);
+                        renderSettings();
+                        showToast('Removed from Staff & Vendors', 'info');
+                    }
+                });
             });
             staffListEl.appendChild(div);
         });
@@ -4407,41 +4852,89 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnResetSectionTitles = document.getElementById('btn-reset-section-titles');
         if (btnResetSectionTitles) {
             btnResetSectionTitles.onclick = () => {
-                if (confirm('Reset all section headings to their original default names?')) {
-                    saveCustomSectionTitles({ ...DEFAULT_SECTION_TITLES });
-                    renderSettings();
-                    showToast('Section headings reset to defaults', 'info');
-                }
+                appModal.confirm({
+                    title: 'Reset Section Headings',
+                    message: 'Reset all section headings to their original default names?',
+                    icon: '🔄',
+                    confirmText: 'Reset Defaults',
+                    danger: true,
+                    onConfirm: () => {
+                        saveCustomSectionTitles({ ...DEFAULT_SECTION_TITLES });
+                        renderSettings();
+                        showToast('Section headings reset to defaults', 'info');
+                    }
+                });
             };
         }
 
         document.getElementById('add-expense-cat-btn').onclick = () => {
-            const name = prompt('Enter new Expense Category Name:');
-            if (name && name.trim()) {
-                const code = prompt('Enter Short Code (optional):') || '';
-                clinicDB.addCategory('expense', { name, code });
-                renderSettings();
-                showToast(`Expense Category "${name}" added!`, 'success');
-            }
+            appModal.prompt({
+                title: 'Add Expense Category',
+                message: 'Enter name for new Expense Category:',
+                placeholder: 'e.g. Laboratory Tests',
+                icon: '🏷️',
+                confirmText: 'Next',
+                onConfirm: (name) => {
+                    if (!name || !name.trim()) return;
+                    const catName = name.trim();
+                    appModal.prompt({
+                        title: 'Category Short Code',
+                        message: `Enter optional short code for "${catName}":`,
+                        placeholder: 'e.g. LAB (optional)',
+                        defaultValue: '',
+                        icon: '🔖',
+                        confirmText: 'Save Category',
+                        onConfirm: (code) => {
+                            clinicDB.addCategory('expense', { name: catName, code: (code || '').trim() });
+                            renderSettings();
+                            showToast(`Expense Category "${catName}" added!`, 'success');
+                        }
+                    });
+                }
+            });
         };
 
         document.getElementById('add-income-cat-btn').onclick = () => {
-            const name = prompt('Enter new Income Category Name:');
-            if (name && name.trim()) {
-                const code = prompt('Enter Short Code (optional):') || '';
-                clinicDB.addCategory('income', { name, code });
-                renderSettings();
-                showToast(`Income Category "${name}" added!`, 'success');
-            }
+            appModal.prompt({
+                title: 'Add Income Category',
+                message: 'Enter name for new Income Category:',
+                placeholder: 'e.g. Pharmacy Sales',
+                icon: '🏷️',
+                confirmText: 'Next',
+                onConfirm: (name) => {
+                    if (!name || !name.trim()) return;
+                    const catName = name.trim();
+                    appModal.prompt({
+                        title: 'Category Short Code',
+                        message: `Enter optional short code for "${catName}":`,
+                        placeholder: 'e.g. PHARM (optional)',
+                        defaultValue: '',
+                        icon: '🔖',
+                        confirmText: 'Save Category',
+                        onConfirm: (code) => {
+                            clinicDB.addCategory('income', { name: catName, code: (code || '').trim() });
+                            renderSettings();
+                            showToast(`Income Category "${catName}" added!`, 'success');
+                        }
+                    });
+                }
+            });
         };
 
         document.getElementById('add-staff-btn').onclick = () => {
-            const name = prompt('Enter Name for Staff / Vendor:');
-            if (name && name.trim()) {
-                clinicDB.addStaff({ name: name.trim(), role: '' });
-                renderSettings();
-                showToast(`"${name.trim()}" added to Staff & Vendors!`, 'success');
-            }
+            appModal.prompt({
+                title: 'Add Staff / Vendor',
+                message: 'Enter Name for Staff Member or Vendor:',
+                placeholder: 'e.g. Dr. Salman or Vendor Name',
+                icon: '👤',
+                confirmText: 'Add Staff',
+                onConfirm: (name) => {
+                    if (!name || !name.trim()) return;
+                    clinicDB.addStaff({ name: name.trim(), role: 'Staff' });
+                    renderSettings();
+                    showToast(`"${name.trim()}" added to Staff & Vendors!`, 'success');
+                }
+            });
         };
 
         document.getElementById('download-backup-btn').onclick = () => {
@@ -4469,7 +4962,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         showToast('Backup restored successfully!', 'success');
                         setTimeout(() => location.reload(), 800);
                     } else {
-                        alert('Error importing backup: ' + res.error);
+                        appModal.alert({
+                            title: 'Import Error',
+                            message: 'Error importing backup: ' + (res.error || 'Invalid file format'),
+                            icon: '⚠️'
+                        });
                     }
                 };
                 reader.readAsText(file);
@@ -4480,11 +4977,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnResetSeed = document.getElementById('reset-seed-btn');
         if (btnResetSeed) {
             btnResetSeed.onclick = () => {
-                if (confirm('Reload reference September 2026 data from Excel?')) {
-                    clinicDB.resetToSeed();
-                    showToast('Reloaded original reference Excel data!', 'success');
-                    setTimeout(() => location.reload(), 800);
-                }
+                appModal.confirm({
+                    title: 'Reload Reference Data',
+                    message: 'Reload reference September 2026 data from Excel? Current unsaved modifications will be reset.',
+                    icon: '⚠️',
+                    confirmText: 'Reload Data',
+                    danger: true,
+                    onConfirm: () => {
+                        clinicDB.resetToSeed();
+                        showToast('Reloaded original reference Excel data!', 'success');
+                        setTimeout(() => location.reload(), 800);
+                    }
+                });
             };
         }
 
@@ -4500,27 +5004,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const stored = getStoredPassword();
                 if (!currentVal) {
-                    alert('Please enter your current password.');
+                    showToast('Please enter your current password.', 'warning');
                     currentInp?.focus();
                     return;
                 }
                 if (currentVal !== stored) {
-                    alert('Current password does not match.');
+                    showToast('Current password does not match.', 'error');
                     currentInp?.focus();
                     return;
                 }
                 if (!newVal) {
-                    alert('Please enter a new password.');
+                    showToast('Please enter a new password.', 'warning');
                     newInp?.focus();
                     return;
                 }
                 if (newVal.length < 4) {
-                    alert('Password should be at least 4 characters.');
+                    showToast('Password should be at least 4 characters.', 'warning');
                     newInp?.focus();
                     return;
                 }
                 if (newVal !== confirmVal) {
-                    alert('New password and Confirm password do not match.');
+                    showToast('New password and Confirm password do not match.', 'error');
                     confirmInp?.focus();
                     return;
                 }
