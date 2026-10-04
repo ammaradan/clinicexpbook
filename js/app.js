@@ -4021,8 +4021,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="receivables">Receivables (Pending / Due)</option>
                     <option value="staff_vendors">Staff & Vendors (All Staff)</option>
                     <option value="disp_purchases">Dispensary Purchases</option>
-                    <option value="store_purchases">Store Purchases (Medicines TP)</option>
-                    <option value="st_s">Store Sales (St S)</option>
+                    <option value="store_purchases">Store Purchases (Medicines TP & Retail Combined)</option>
+                    <option value="store_purchases_tp">Store Purchases (Medicines TP Price Only)</option>
+                    <option value="store_purchases_retail">Store Purchases (Medicines Retail / Sale Price Only)</option>
+                    <option value="st_s">Store Sales (St S - Daily Cash / Counter Sales)</option>
                     <option value="clinic_expenses">Clinic Petty Expenses</option>
                     <option value="clinic_inc">Clinic Pt + Dispensary Income</option>
                     <option value="lb_expenses">LB Expenses (Laboratory)</option>
@@ -4146,62 +4148,136 @@ document.addEventListener('DOMContentLoaded', () => {
             ? catSelect.selectedOptions[0].textContent 
             : catKey.replace('staff:', 'Doctor/Staff: ');
 
-        let html = `
-            <div class="category-summary-banner">
-                <div>
-                    <h3>Category: ${escapeHtml(selectedLabel)}</h3>
-                    <span style="color: var(--text-muted); font-size: 0.85rem;">Period: ${report.startDate} to ${report.endDate} &bull; Total Transactions: ${report.count}</span>
-                </div>
-                <div style="text-align: right;">
-                    <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Category Total</span>
-                    <div class="cat-banner-total">Rs. ${formatNumber(report.grandTotal)}</div>
-                </div>
-            </div>
+        let html = '';
 
-            <div class="table-card">
-                <div class="table-responsive">
-                    <table class="custom-table" id="category-report-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 14%;">Date</th>
-                                <th style="width: 18%;">Category</th>
-                                <th style="width: 28%;">Payee / Item</th>
-                                <th style="width: 26%;">Reason / Detail</th>
-                                <th class="num-cell" style="width: 14%;">Amount (Rs.)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-        `;
+        if (report.isStorePurchasesCombined) {
+            html += `
+                <div class="category-summary-banner">
+                    <div>
+                        <h3>Category: ${escapeHtml(selectedLabel)}</h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Period: ${report.startDate} to ${report.endDate} &bull; Total Purchases: ${report.count}</span>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem; text-align: right; flex-wrap: wrap;">
+                        <div>
+                            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Purchase (TP)</span>
+                            <div class="cat-banner-total" style="color: #0284c7; font-size: 1.25rem;">Rs. ${formatNumber(report.tpTotal)}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Retail (Sale Price)</span>
+                            <div class="cat-banner-total" style="color: #059669; font-size: 1.25rem;">Rs. ${formatNumber(report.retailTotal)}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Margin / Diff</span>
+                            <div class="cat-banner-total" style="color: #7c3aed; font-size: 1.25rem;">Rs. ${formatNumber(report.retailTotal - report.tpTotal)}</div>
+                        </div>
+                    </div>
+                </div>
 
-        if (report.rows.length === 0) {
-            html += `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries found for this category and date range.</td></tr>`;
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table class="custom-table" id="category-report-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 13%;">Date</th>
+                                    <th style="width: 15%;">Category</th>
+                                    <th style="width: 24%;">Distributor / Payee</th>
+                                    <th class="num-cell" style="width: 16%; color: #0284c7;">Purchase Price (TP)</th>
+                                    <th class="num-cell" style="width: 16%; color: #059669;">Retail Price (Sale)</th>
+                                    <th class="num-cell" style="width: 16%; color: #7c3aed;">Margin / Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            if (report.rows.length === 0) {
+                html += `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No store purchase entries found for this date range.</td></tr>`;
+            } else {
+                report.rows.forEach(r => {
+                    html += `
+                        <tr>
+                            <td><strong>${r.date}</strong></td>
+                            <td><span class="report-cat-badge">${escapeHtml(r.category)}</span></td>
+                            <td><strong>${escapeHtml(r.item)}</strong></td>
+                            <td class="num-cell" style="color: #0284c7; font-weight: 700;">Rs. ${formatNumber(r.tp)}</td>
+                            <td class="num-cell" style="color: #059669; font-weight: 700;">Rs. ${formatNumber(r.retail)}</td>
+                            <td class="num-cell" style="color: #7c3aed; font-weight: 700;">Rs. ${formatNumber(r.margin)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3"><strong>TOTALS (${report.count} ENTRIES)</strong></td>
+                                    <td class="num-cell cat-grand-total" style="color: #0284c7;">Rs. ${formatNumber(report.tpTotal)}</td>
+                                    <td class="num-cell cat-grand-total" style="color: #059669;">Rs. ${formatNumber(report.retailTotal)}</td>
+                                    <td class="num-cell cat-grand-total" style="color: #7c3aed;">Rs. ${formatNumber(report.retailTotal - report.tpTotal)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
         } else {
-            report.rows.forEach(r => {
-                const isCredit = r.type.includes('Credit');
-                html += `
-                    <tr>
-                        <td><strong>${r.date}</strong></td>
-                        <td><span class="report-cat-badge">${escapeHtml(r.category)}</span></td>
-                        <td><strong>${escapeHtml(r.item)}</strong></td>
-                        <td class="report-desc-cell">${escapeHtml(r.description)}</td>
-                        <td class="num-cell report-amount-cell ${isCredit ? 'cr' : 'dr'}">Rs. ${formatNumber(r.amount)}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        html += `
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="4">CATEGORY GRAND TOTAL</td>
-                                <td class="num-cell cat-grand-total">Rs. ${formatNumber(report.grandTotal)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+            html += `
+                <div class="category-summary-banner">
+                    <div>
+                        <h3>Category: ${escapeHtml(selectedLabel)}</h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Period: ${report.startDate} to ${report.endDate} &bull; Total Transactions: ${report.count}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Category Total</span>
+                        <div class="cat-banner-total">Rs. ${formatNumber(report.grandTotal)}</div>
+                    </div>
                 </div>
-            </div>
-        `;
+
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table class="custom-table" id="category-report-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 14%;">Date</th>
+                                    <th style="width: 18%;">Category</th>
+                                    <th style="width: 28%;">Payee / Item</th>
+                                    <th style="width: 26%;">Reason / Detail</th>
+                                    <th class="num-cell" style="width: 14%;">Amount (Rs.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            if (report.rows.length === 0) {
+                html += `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries found for this category and date range.</td></tr>`;
+            } else {
+                report.rows.forEach(r => {
+                    const isCredit = r.type.includes('Credit');
+                    html += `
+                        <tr>
+                            <td><strong>${r.date}</strong></td>
+                            <td><span class="report-cat-badge">${escapeHtml(r.category)}</span></td>
+                            <td><strong>${escapeHtml(r.item)}</strong></td>
+                            <td class="report-desc-cell">${escapeHtml(r.description)}</td>
+                            <td class="num-cell report-amount-cell ${isCredit ? 'cr' : 'dr'}">Rs. ${formatNumber(r.amount)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4">CATEGORY GRAND TOTAL</td>
+                                    <td class="num-cell cat-grand-total">Rs. ${formatNumber(report.grandTotal)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
 
         resultsContainer.innerHTML = html;
     }

@@ -870,7 +870,10 @@ class ClinicDataManager {
     getCategoryReport(categoryKey, startDate, endDate) {
         const rows = [];
         let grandTotal = 0;
+        let tpTotal = 0;
+        let retailTotal = 0;
         const catKeyLower = (categoryKey || 'all').toLowerCase().trim();
+        const isStorePurchasesCombined = (catKeyLower === 'store_purchases' || catKeyLower === 'store_med_purchases' || catKeyLower === 'smp');
 
         const sStr = startDate || '2000-01-01';
         const eStr = endDate || '2099-12-31';
@@ -983,23 +986,30 @@ class ClinicDataManager {
                     });
                 }
             }
-            // 4. Store Purchases (Medicines TP)
+            // 4. Store Purchases (Medicines TP & Retail Combined)
             else if (catKeyLower === 'store_purchases' || catKeyLower === 'store_med_purchases' || catKeyLower === 'smp') {
                 let hadSp = false;
                 if (dayData.storePurchases && dayData.storePurchases.length > 0) {
                     dayData.storePurchases.forEach(sp => {
-                        const amt = parseFloat(sp.tp) || 0;
-                        if (amt > 0) {
+                        const tpVal = parseFloat(sp.tp) || 0;
+                        const retailVal = parseFloat(sp.retail) || 0;
+                        const vName = sp.vendor || sp.distributor || 'General Distributor';
+                        if (tpVal > 0 || retailVal > 0 || vName.trim()) {
                             hadSp = true;
                             rows.push({
                                 date: formattedDate,
                                 category: 'Store Purchases',
-                                item: sp.vendor || 'Distributor',
-                                description: `Purchase TP: Rs. ${amt} | Retail: Rs. ${sp.retail || 0}`,
+                                item: vName,
+                                tp: tpVal,
+                                retail: retailVal,
+                                margin: retailVal - tpVal,
+                                description: `Purchase TP: Rs. ${tpVal} | Retail: Rs. ${retailVal}`,
                                 type: 'Debit (Expense)',
-                                amount: amt
+                                amount: retailVal || tpVal
                             });
-                            grandTotal += amt;
+                            tpTotal += tpVal;
+                            retailTotal += retailVal;
+                            grandTotal += retailVal || tpVal;
                         }
                     });
                 }
@@ -1014,12 +1024,79 @@ class ClinicDataManager {
                             date: formattedDate,
                             category: 'Store Purchases',
                             item: 'Store Med Purchases Total',
+                            tp: amt,
+                            retail: amt,
+                            margin: 0,
                             description: 'Daily Store Medicines Purchase (TP)',
                             type: 'Debit (Expense)',
                             amount: amt
                         });
+                        tpTotal += amt;
+                        retailTotal += amt;
                         grandTotal += amt;
                     }
+                }
+            }
+            // 4B. Store Purchases (Medicines TP Price Only)
+            else if (catKeyLower === 'store_purchases_tp' || catKeyLower === 'store_tp') {
+                let hadSp = false;
+                if (dayData.storePurchases && dayData.storePurchases.length > 0) {
+                    dayData.storePurchases.forEach(sp => {
+                        const tpVal = parseFloat(sp.tp) || 0;
+                        const vName = sp.vendor || sp.distributor || 'General Distributor';
+                        if (tpVal > 0 || vName.trim()) {
+                            hadSp = true;
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Store Purchases (TP)',
+                                item: vName,
+                                description: `Purchase Trade Price (TP) | Retail: Rs. ${sp.retail || 0}`,
+                                type: 'Debit (Expense - TP)',
+                                amount: tpVal
+                            });
+                            grandTotal += tpVal;
+                        }
+                    });
+                }
+                if (!hadSp) {
+                    const match = (dayData.debits || []).find(d => {
+                        const n = (d.name || '').toLowerCase();
+                        return n.includes('store med purchase') || n === 'smp';
+                    });
+                    if (match && parseFloat(match.amount) > 0) {
+                        const amt = parseFloat(match.amount);
+                        rows.push({
+                            date: formattedDate,
+                            category: 'Store Purchases (TP)',
+                            item: 'Store Med Purchases Total',
+                            description: 'Daily Store Medicines Purchase (TP)',
+                            type: 'Debit (Expense - TP)',
+                            amount: amt
+                        });
+                        grandTotal += amt;
+                    }
+                }
+            }
+            // 4C. Store Purchases (Medicines Retail / Sale Price Only)
+            else if (catKeyLower === 'store_purchases_retail' || catKeyLower === 'store_retail' || catKeyLower === 'store_sale_price') {
+                let hadSp = false;
+                if (dayData.storePurchases && dayData.storePurchases.length > 0) {
+                    dayData.storePurchases.forEach(sp => {
+                        const retailVal = parseFloat(sp.retail) || 0;
+                        const vName = sp.vendor || sp.distributor || 'General Distributor';
+                        if (retailVal > 0 || vName.trim()) {
+                            hadSp = true;
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Store Purchases (Retail)',
+                                item: vName,
+                                description: `Purchase Retail / Sale Price | TP: Rs. ${sp.tp || 0}`,
+                                type: 'Retail Valuation',
+                                amount: retailVal
+                            });
+                            grandTotal += retailVal;
+                        }
+                    });
                 }
             }
             // 5. Store Sales (St S)
@@ -1690,6 +1767,9 @@ class ClinicDataManager {
             endDate: endDate || 'All',
             count: rows.length,
             grandTotal,
+            tpTotal,
+            retailTotal,
+            isStorePurchasesCombined,
             rows
         };
     }
