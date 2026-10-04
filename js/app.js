@@ -3281,7 +3281,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================
     function renderPnL() {
         const container = document.getElementById('pnl-container');
-        const { summary, label } = resolvePeriodData(state.pnlFilter);
+        const { summary, label, days } = resolvePeriodData(state.pnlFilter);
+
+        // Determine unique period key for stock reconciliation
+        const periodKey = state.pnlFilter.mode === 'month' 
+            ? (state.pnlFilter.month || state.currentMonth)
+            : (state.pnlFilter.start ? `${state.pnlFilter.start}_${state.pnlFilter.end}` : state.currentMonth);
+
+        const stockData = clinicDB.getStockReconciliation(periodKey);
+        const prevStockTP = stockData.prevStockTP || 0;
+        const presentStockTP = stockData.presentStockTP || 0;
+
+        // Calculate Purchase This Month TP from store purchases in this period
+        let purchaseThisMonthTP = 0;
+        (days || []).forEach(({ data }) => {
+            if (data.storePurchases && Array.isArray(data.storePurchases)) {
+                data.storePurchases.forEach(sp => {
+                    purchaseThisMonthTP += (parseFloat(sp.tp) || 0);
+                });
+            }
+        });
+        if (purchaseThisMonthTP === 0 && summary.sumStoreMedPurchases) {
+            purchaseThisMonthTP = summary.sumStoreMedPurchases;
+        }
+
+        // Calculate St Sale This Month from credits
+        let stSaleThisMonth = summary.sumStSaleThisMonth || 0;
+        if (stSaleThisMonth === 0) {
+            (days || []).forEach(({ data }) => {
+                (data.credits || []).forEach(c => {
+                    const n = (c.name || '').toLowerCase().trim();
+                    if (n === 'st s' || n.includes('store sale') || n === 'sts') {
+                        stSaleThisMonth += (parseFloat(c.amount) || 0);
+                    }
+                });
+            });
+        }
+
+        const total1 = prevStockTP + purchaseThisMonthTP;
+        const total2 = stSaleThisMonth + presentStockTP;
+        const stockDiff = total1 - total2;
 
         let html = `
             <div class="grand-statement">
@@ -3454,9 +3493,110 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             </div>
+
+            <!-- Medical Store Stock Reconciliation & Difference (User Requested Segment) -->
+            <div class="stock-reconciliation-card">
+                <div class="stock-rec-header">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📦</span>
+                        <span>Medical Store Stock Reconciliation & Difference (${label})</span>
+                    </div>
+                    <span id="stock-save-pill" class="auto-save-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3);">✓ Auto-saved</span>
+                </div>
+
+                <div class="stock-rec-body">
+                    <!-- ROW 1: Prev Month Stock TP + Purchase This Month TP -->
+                    <div class="stock-block">
+                        <div class="stock-block-header">
+                            <div>Prev Month Stock TP</div>
+                            <div style="font-size: 1.15rem; font-weight: 900;">+</div>
+                            <div>Purchase This Month TP</div>
+                        </div>
+                        <div class="stock-block-row">
+                            <input type="number" step="any" class="stock-cell-input" id="stock-prev-month" value="${prevStockTP || 0}" title="Enter Previous Month Stock TP (Manual)">
+                            <div class="stock-cell-plus">+</div>
+                            <div class="stock-cell-readonly" id="stock-purchase-display">${formatNumber(purchaseThisMonthTP)}</div>
+                        </div>
+                        <div class="stock-subtotal-row" id="stock-total-1-display">
+                            ${formatNumber(total1)}
+                        </div>
+                    </div>
+
+                    <!-- ROW 2: St Sale This Month + Present Month Stock TP -->
+                    <div class="stock-block">
+                        <div class="stock-block-header">
+                            <div>St Sale This Month</div>
+                            <div style="font-size: 1.15rem; font-weight: 900;">+</div>
+                            <div>Present Month Stock TP</div>
+                        </div>
+                        <div class="stock-block-row">
+                            <div class="stock-cell-readonly" id="stock-sale-display">${formatNumber(stSaleThisMonth)}</div>
+                            <div class="stock-cell-plus">+</div>
+                            <input type="number" step="any" class="stock-cell-input" id="stock-present-month" value="${presentStockTP || 0}" title="Enter Present Month Stock TP (Manual count)">
+                        </div>
+                        <div class="stock-subtotal-row" id="stock-total-2-display">
+                            ${formatNumber(total2)}
+                        </div>
+                    </div>
+
+                    <!-- ROW 3: Stock Difference -->
+                    <div class="stock-block">
+                        <div class="stock-block-header single">
+                            Stock Difference
+                        </div>
+                        <div class="stock-diff-val" id="stock-diff-display">
+                            ${formatNumber(stockDiff)}
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
 
         container.innerHTML = html;
+
+        // Wire up interactive calculation and auto-saving for stock reconciliation
+        const inpPrev = document.getElementById('stock-prev-month');
+        const inpPresent = document.getElementById('stock-present-month');
+        const dispTotal1 = document.getElementById('stock-total-1-display');
+        const dispTotal2 = document.getElementById('stock-total-2-display');
+        const dispDiff = document.getElementById('stock-diff-display');
+        const savePill = document.getElementById('stock-save-pill');
+
+        function updateStockCalculations() {
+            const pVal = parseFloat(inpPrev?.value) || 0;
+            const prVal = parseFloat(inpPresent?.value) || 0;
+            const t1 = pVal + purchaseThisMonthTP;
+            const t2 = stSaleThisMonth + prVal;
+            const diff = t1 - t2;
+
+            if (dispTotal1) dispTotal1.textContent = formatNumber(t1);
+            if (dispTotal2) dispTotal2.textContent = formatNumber(t2);
+            if (dispDiff) dispDiff.textContent = formatNumber(diff);
+
+            clinicDB.saveStockReconciliation(periodKey, { prevStockTP: pVal, presentStockTP: prVal });
+            if (savePill) {
+                savePill.textContent = '✓ Saved';
+                savePill.style.background = '#ecfdf5';
+                savePill.style.color = '#059669';
+                setTimeout(() => {
+                    if (savePill) {
+                        savePill.textContent = '✓ Auto-saved';
+                        savePill.style.background = 'rgba(255,255,255,0.2)';
+                        savePill.style.color = '#fff';
+                    }
+                }, 1500);
+            }
+        }
+
+        if (inpPrev) {
+            inpPrev.addEventListener('input', updateStockCalculations);
+            inpPrev.addEventListener('focus', () => { if (inpPrev.value === '0') inpPrev.select(); });
+        }
+        if (inpPresent) {
+            inpPresent.addEventListener('input', updateStockCalculations);
+            inpPresent.addEventListener('focus', () => { if (inpPresent.value === '0') inpPresent.select(); });
+        }
+
         bindPeriodFilterEvents('pnl', state.pnlFilter, renderPnL);
         const printBtn = document.getElementById('print-pnl-btn');
         if (printBtn) printBtn.onclick = () => window.print();

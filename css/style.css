@@ -1037,6 +1037,140 @@ input[type="number"] {
   color: #ffffff;
 }
 
+/* ==========================================================
+   MEDICAL STORE STOCK RECONCILIATION & DIFFERENCE WIDGET
+   ========================================================== */
+.stock-reconciliation-card {
+  background: #ffffff;
+  border: 1.5px solid #000000;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  max-width: 680px;
+}
+
+.stock-rec-header {
+  background: #243c5a;
+  color: #ffffff;
+  padding: 0.65rem 1.15rem;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stock-rec-body {
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  background: #f8fafc;
+}
+
+.stock-block {
+  border: 1.5px solid #000000;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+}
+
+.stock-block-header {
+  background: #2ea0ba;
+  color: #000000;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.6rem;
+  display: grid;
+  grid-template-columns: 1fr 34px 1fr;
+  align-items: center;
+  text-align: center;
+  border-bottom: 1.5px solid #000000;
+}
+
+.stock-block-header.single {
+  display: block;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.stock-block-row {
+  display: grid;
+  grid-template-columns: 1fr 34px 1fr;
+  align-items: stretch;
+  background: #ffff00;
+  border-bottom: 1.5px solid #000000;
+}
+
+.stock-cell-input {
+  background: #ffff00;
+  color: #000000;
+  border: none;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 0.55rem 0.25rem;
+  width: 100%;
+  outline: none;
+}
+.stock-cell-input:focus {
+  background: #fef08a;
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.stock-cell-readonly {
+  background: #ffff00;
+  color: #000000;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.25rem;
+  text-align: center;
+}
+
+.stock-cell-plus {
+  background: #ffffff;
+  color: #000000;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1.5px solid #000000;
+  border-right: 1.5px solid #000000;
+  user-select: none;
+}
+
+.stock-subtotal-row {
+  background: #fed7aa;
+  color: #000000;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 1.3rem;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.stock-diff-val {
+  background: #fed7aa;
+  color: #000000;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 1.5rem;
+  text-align: center;
+  padding: 0.65rem;
+}
+
 /* Category Reports Filter */
 .report-filter-bar {
   background: #ffffff;
@@ -2118,6 +2252,55 @@ input[type="number"] {
     box-shadow: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  .stock-reconciliation-card {
+    border: 1.5px solid #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-top: 3mm !important;
+    box-shadow: none !important;
+  }
+  .stock-rec-header {
+    background: #e5e7eb !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    border-bottom: 1.5px solid #000000 !important;
+  }
+  .stock-block {
+    border: 1.5px solid #000000 !important;
+  }
+  .stock-block-header {
+    background: #e5e7eb !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    border-bottom: 1.5px solid #000000 !important;
+    font-weight: 800 !important;
+  }
+  .stock-block-row {
+    background: #ffffff !important;
+    border-bottom: 1.5px solid #000000 !important;
+  }
+  .stock-cell-input,
+  .stock-cell-readonly {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    font-weight: 800 !important;
+  }
+  .stock-cell-plus {
+    border-left: 1.5px solid #000000 !important;
+    border-right: 1.5px solid #000000 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+  }
+  .stock-subtotal-row,
+  .stock-diff-val {
+    background: #f3f4f6 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    font-weight: 900 !important;
+    border-top: 1.5px solid #000000 !important;
   }
 }
 

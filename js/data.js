@@ -643,6 +643,25 @@ class ClinicDataManager {
         return true;
     }
 
+    getStockReconciliation(periodKey) {
+        if (!this.settings) this.settings = {};
+        if (!this.settings.stockReconciliation) this.settings.stockReconciliation = {};
+        return this.settings.stockReconciliation[periodKey] || { prevStockTP: 0, presentStockTP: 0 };
+    }
+
+    saveStockReconciliation(periodKey, data) {
+        if (!this.settings) this.settings = {};
+        if (!this.settings.stockReconciliation) this.settings.stockReconciliation = {};
+        this.settings.stockReconciliation[periodKey] = {
+            prevStockTP: parseFloat(data.prevStockTP) || 0,
+            presentStockTP: parseFloat(data.presentStockTP) || 0
+        };
+        this.saveAll();
+        if (window.cloudSync && typeof window.cloudSync.saveMetaToCloud === 'function') {
+            window.cloudSync.saveMetaToCloud(this.categories, this.staffList, this.settings);
+        }
+    }
+
     getDaysForMonth(yearMonthStr = '2026-09') {
         const results = [];
         const parts = yearMonthStr.split('-');
