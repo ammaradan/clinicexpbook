@@ -129,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const appModal = {
         _dialogEl: null,
         _staffEl: null,
+        _catEl: null,
         _activeResolve: null,
         _initialized: false,
 
@@ -136,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (this._initialized) return;
             this._dialogEl = document.getElementById('app-dialog-modal');
             this._staffEl = document.getElementById('staff-pay-modal');
+            this._catEl = document.getElementById('category-edit-modal');
             if (!this._dialogEl || !this._staffEl) return;
 
             // Dialog Cancel Button
@@ -160,10 +162,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.target === this._staffEl) this.closeStaffPay();
             });
 
+            // Category Edit Modal Close & Cancel
+            const catClose = document.getElementById('cat-modal-btn-close');
+            const catCancel = document.getElementById('cat-modal-btn-cancel');
+            if (catClose) catClose.addEventListener('click', () => this.closeCategoryEdit());
+            if (catCancel) catCancel.addEventListener('click', () => this.closeCategoryEdit());
+
+            if (this._catEl) {
+                this._catEl.addEventListener('click', (e) => {
+                    if (e.target === this._catEl) this.closeCategoryEdit();
+                });
+            }
+
             // ESC key closes any active modal
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
-                    if (this._staffEl && this._staffEl.classList.contains('active')) {
+                    if (this._catEl && this._catEl.classList.contains('active')) {
+                        this.closeCategoryEdit();
+                    } else if (this._staffEl && this._staffEl.classList.contains('active')) {
                         this.closeStaffPay();
                     } else if (this._dialogEl && this._dialogEl.classList.contains('active')) {
                         this.closeDialog(null);
@@ -531,6 +547,130 @@ document.addEventListener('DOMContentLoaded', () => {
             this._staffEl.classList.remove('active');
             setTimeout(() => {
                 this._staffEl.style.display = 'none';
+            }, 180);
+        },
+
+        openCategoryEditModal({ type, category, onSaved }) {
+            this.init();
+            if (!this._catEl || !category) return;
+
+            const titleEl = document.getElementById('cat-modal-title');
+            const subTitleEl = document.getElementById('cat-modal-subtitle');
+            const infoBox = document.getElementById('cat-modal-info-box');
+            const nameInp = document.getElementById('cat-modal-name-input');
+            const codeInp = document.getElementById('cat-modal-code-input');
+            const resetRow = document.getElementById('cat-modal-reset-row');
+            const origNameEl = document.getElementById('cat-modal-orig-name');
+            const resetBtn = document.getElementById('cat-modal-btn-reset');
+            const saveBtn = document.getElementById('cat-modal-btn-save');
+
+            const isPredefined = Boolean(category.system);
+            const defCat = clinicDB.getDefaultCategory(type, category.id);
+            const defaultName = defCat ? defCat.name : category.name;
+            const defaultCode = defCat ? (defCat.code || '') : (category.code || '');
+
+            if (titleEl) {
+                titleEl.textContent = `Edit ${isPredefined ? 'Predefined ' : ''}${type === 'expense' ? 'Expense' : 'Income'} Category`;
+            }
+            if (subTitleEl) {
+                subTitleEl.textContent = isPredefined 
+                    ? 'Customize display title (backend functions & formulas remain intact)'
+                    : 'Customize category title and short code';
+            }
+
+            if (infoBox) {
+                infoBox.style.display = isPredefined ? 'block' : 'none';
+            }
+
+            if (nameInp) {
+                nameInp.value = category.name || '';
+            }
+            if (codeInp) {
+                codeInp.value = category.code || '';
+            }
+
+            if (resetRow && origNameEl) {
+                if (isPredefined && defaultName) {
+                    resetRow.style.display = 'flex';
+                    origNameEl.textContent = defaultName + (defaultCode ? ` (${defaultCode})` : '');
+                } else {
+                    resetRow.style.display = 'none';
+                }
+            }
+
+            if (resetBtn) {
+                resetBtn.onclick = () => {
+                    if (nameInp) nameInp.value = defaultName;
+                    if (codeInp) codeInp.value = defaultCode;
+                    if (nameInp) nameInp.focus();
+                    showToast(`Reset to default: "${defaultName}"`, 'info');
+                };
+            }
+
+            const handleSave = () => {
+                const newName = (nameInp ? nameInp.value : '').trim();
+                const newCode = (codeInp ? codeInp.value : '').trim();
+
+                if (!newName) {
+                    showToast('Category name cannot be empty.', 'warning');
+                    if (nameInp) nameInp.focus();
+                    return;
+                }
+
+                const updated = clinicDB.updateCategory(type, category.id, { name: newName, code: newCode });
+                this.closeCategoryEdit();
+
+                // If currently open day data is loaded, clean names and refresh
+                if (state.currentDayData) {
+                    clinicDB.cleanDayItemNames(state.currentDayData);
+                    renderDebitTable(state.currentDayData);
+                    renderCreditTable(state.currentDayData);
+                    recalculateAll();
+                }
+
+                renderSettings();
+                if (typeof onSaved === 'function') onSaved(updated);
+                showToast(`Category "${newName}" updated successfully!`, 'success');
+            };
+
+            const newSaveBtn = saveBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+            newSaveBtn.addEventListener('click', handleSave);
+
+            if (nameInp) {
+                nameInp.onkeydown = (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSave();
+                    }
+                };
+            }
+            if (codeInp) {
+                codeInp.onkeydown = (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSave();
+                    }
+                };
+            }
+
+            this._catEl.style.display = 'flex';
+            requestAnimationFrame(() => {
+                this._catEl.classList.add('active');
+                if (nameInp) {
+                    setTimeout(() => {
+                        nameInp.focus();
+                        nameInp.select();
+                    }, 80);
+                }
+            });
+        },
+
+        closeCategoryEdit() {
+            if (!this._catEl) return;
+            this._catEl.classList.remove('active');
+            setTimeout(() => {
+                this._catEl.style.display = 'none';
             }, 180);
         }
     };
@@ -1924,7 +2064,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const prevDay = clinicDB.getExistingDay(prevKey);
             if (prevDay && prevDay.summary && prevDay.summary.darazCash !== undefined) {
                 const prevDaraz = parseFloat(prevDay.summary.darazCash) || 0;
-                let credItem = (state.currentDayData.credits || []).find(c => (c.name || '').toLowerCase().trim() === 'daraz cash');
+                let credItem = (state.currentDayData.credits || []).find(c => c.catId === 'daraz_cash' || (c.name || '').toLowerCase().trim() === 'daraz cash');
                 if (credItem && (credItem.amount === 0 || credItem.amount === undefined) && prevDaraz > 0) {
                     credItem.amount = prevDaraz;
                 }
@@ -2084,7 +2224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (data.credits || []).forEach((item, idx) => {
             const tr = document.createElement('tr');
             const isAuto = item.isAuto;
-            const isDarazCash = (item.name || '').toLowerCase().trim() === 'daraz cash';
+            const isDarazCash = item.catId === 'daraz_cash' || (item.name || '').toLowerCase().trim() === 'daraz cash';
             tr.innerHTML = `
                 <td>
                     ${item.isCustom ? `
@@ -2680,7 +2820,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let sumDispPurch = (data.dispPurchases || []).reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
         elements.subtotalDispPurch.textContent = formatNumber(sumDispPurch);
         elements.badgeDispPurchTotal.textContent = formatNumber(sumDispPurch);
-        setDebitAutoAmount('Dispensary Purchases', sumDispPurch);
+        setDebitAutoAmount('dispensary_purchases', sumDispPurch);
 
         // 2. Store Purchases Subtotals -> TP updates Debit C6
         let sumStoreTP = 0, sumStoreRetail = 0;
@@ -2691,13 +2831,13 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.subtotalStoreTP.textContent = formatNumber(sumStoreTP);
         elements.subtotalStoreRetail.textContent = formatNumber(sumStoreRetail);
         elements.badgeStorePurchTP.textContent = `TP: ${formatNumber(sumStoreTP)}`;
-        setDebitAutoAmount('Store Med Purchases', sumStoreTP);
+        setDebitAutoAmount('store_med_purchases', sumStoreTP);
 
         // 3. Clinic Expenses Details Subtotal -> Auto updates Debit C8
         let sumClinicExp = (data.clinicExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalClinicExp.textContent = formatNumber(sumClinicExp);
         elements.badgeClinicExpTotal.textContent = formatNumber(sumClinicExp);
-        setDebitAutoAmount('Clinic Expenses', sumClinicExp);
+        setDebitAutoAmount('clinic_expenses', sumClinicExp);
 
         // 4. US Total Receipts -> Auto updates Credit F9
         let sumUSReceipts = (data.usDetails || []).reduce((acc, a) => {
@@ -2706,7 +2846,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 0);
         elements.subtotalUSTotal.textContent = formatNumber(sumUSReceipts);
         elements.badgeUSTotal.textContent = formatNumber(sumUSReceipts);
-        setCreditAutoAmount('US', sumUSReceipts);
+        setCreditAutoAmount('us_inc', sumUSReceipts);
 
         // 5. Cash Breakdown -> Auto-syncs to Debit 'Total Cash Available' (fixed at bottom of Debit)
         let sumCashItems = (data.cashItems || []).reduce((acc, a) => {
@@ -2716,7 +2856,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.subtotalCashTotal.textContent = formatNumber(sumCashItems);
         elements.badgeCashBreakdownTotal.textContent = formatNumber(sumCashItems);
         ensureDebitRowOrder(data);
-        setDebitAutoAmount('Total Cash Available', sumCashItems);
+        setDebitAutoAmount('total_cash_available', sumCashItems);
 
         // 6. Home X Details -> Auto updates Debit C10
         let sumHomeX = (data.homeExpenseDetails || []).reduce((acc, a) => {
@@ -2725,7 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 0);
         elements.subtotalHomeX.textContent = formatNumber(sumHomeX);
         elements.badgeHomeXTotal.textContent = formatNumber(sumHomeX);
-        setDebitAutoAmount('Home Expenses', sumHomeX);
+        setDebitAutoAmount('home_expenses', sumHomeX);
 
         // 7. Staff & Vendors Total
         let sumStaffPay = Object.values(data.staffPayments || {}).reduce((acc, a) => {
@@ -2739,25 +2879,25 @@ document.addEventListener('DOMContentLoaded', () => {
         let sumReceivables = (data.receivables || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalReceivables.textContent = formatNumber(sumReceivables);
         elements.badgeReceivablesTotal.textContent = formatNumber(sumReceivables);
-        setDebitAutoAmount('Receivables', sumReceivables);
+        setDebitAutoAmount('receivables', sumReceivables);
 
         // 9. Dental Exp Details -> Auto updates Debit C12
         let sumDental = (data.dentalDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalDentalExp.textContent = formatNumber(sumDental);
         elements.badgeDentalExpTotal.textContent = formatNumber(sumDental);
-        setDebitAutoAmount('Dental Exp', sumDental);
+        setDebitAutoAmount('dental_expenses', sumDental);
 
         // 10. Store Exp Details -> Auto updates Debit C13
         let sumStoreExp = (data.storeExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalStoreExp.textContent = formatNumber(sumStoreExp);
         elements.badgeStoreExpTotal.textContent = formatNumber(sumStoreExp);
-        setDebitAutoAmount('Store Exp', sumStoreExp);
+        setDebitAutoAmount('store_expenses', sumStoreExp);
 
         // 11. US Exp Details -> Auto updates Debit C11
         let sumUSExp = (data.usExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
         elements.subtotalUSExp.textContent = formatNumber(sumUSExp);
         elements.badgeUSExpTotal.textContent = formatNumber(sumUSExp);
-        setDebitAutoAmount('US Exp', sumUSExp);
+        setDebitAutoAmount('us_expenses', sumUSExp);
 
         // 12. Clinic Bills -> Auto updates Credit F7
         let sumClinicBills = (data.clinicBills || []).reduce((acc, a) => {
@@ -2766,13 +2906,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 0);
         elements.subtotalClinicBills.textContent = formatNumber(sumClinicBills);
         elements.badgeClinicBillsTotal.textContent = formatNumber(sumClinicBills);
-        setCreditAutoAmount('Clinic Pt + Dispensary Inc', sumClinicBills);
+        setCreditAutoAmount('clinic_pt_disp_inc', sumClinicBills);
 
         // 12b. SN Expenses (Auto updates Debit "SN Expenses")
         let sumSNExp = (data.snExpenseDetails || []).reduce((acc, a) => acc + (parseFloat(a.amount) || 0), 0);
         if (elements.subtotalSNExp) elements.subtotalSNExp.textContent = formatNumber(sumSNExp);
         if (elements.badgeSNExpTotal) elements.badgeSNExpTotal.textContent = formatNumber(sumSNExp);
-        setDebitAutoAmount('SN Expenses', sumSNExp);
+        setDebitAutoAmount('sn_expenses', sumSNExp);
 
         // 13. Debit Column Grand Total (SUM C6:C34)
         let totalDebit = (data.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
@@ -2823,15 +2963,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Debit Ordering Helpers: Keeps Total Cash Available at bottom, inserts lines above ZK
     function ensureDebitRowOrder(data) {
         if (!data || !data.debits) return;
-        const cashIdx = data.debits.findIndex(d => (d.name || '').toLowerCase().includes('total cash available'));
+        const cashIdx = data.debits.findIndex(d => 
+            d.catId === 'total_cash_available' || (d.name || '').toLowerCase().includes('total cash available')
+        );
         let cashItem = null;
         if (cashIdx !== -1) {
             cashItem = data.debits.splice(cashIdx, 1)[0];
         } else {
-            cashItem = { name: 'Total Cash Available', amount: 0, isAuto: true, isCash: true };
+            cashItem = { catId: 'total_cash_available', name: 'Total Cash Available', amount: 0, isAuto: true, isCash: true };
         }
+        cashItem.catId = 'total_cash_available';
         cashItem.isAuto = true;
         cashItem.isCash = true;
+        delete cashItem.isCustom;
         data.debits.push(cashItem);
     }
 
@@ -2841,6 +2985,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Find index of ZK
         let targetIdx = data.debits.findIndex(d => {
+            if (d.catId === 'partner_zk') return true;
             const n = (d.name || '').trim().toLowerCase();
             return n === 'zk' || n.startsWith('zk ') || n.includes('zk');
         });
@@ -2848,6 +2993,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fallback: find KH, BP, or Total Cash Available
         if (targetIdx === -1) {
             targetIdx = data.debits.findIndex(d => {
+                if (d.catId === 'partner_kh' || d.catId === 'partner_bp' || d.catId === 'total_cash_available') return true;
                 const n = (d.name || '').trim().toLowerCase();
                 return n === 'kh' || n === 'bp' || n.includes('total cash available');
             });
@@ -2861,14 +3007,23 @@ document.addEventListener('DOMContentLoaded', () => {
         ensureDebitRowOrder(data);
     }
 
-    function setDebitAutoAmount(namePart, newAmt) {
-        if (!state.currentDayData.debits) state.currentDayData.debits = [];
-        const npLower = namePart.toLowerCase().trim();
-        let d = state.currentDayData.debits.find(it => (it.name || '').toLowerCase().trim().includes(npLower));
+    function setDebitAutoAmount(catIdOrName, newAmt) {
+        if (!state.currentDayData || !state.currentDayData.debits) return;
+        const keyLower = catIdOrName.toLowerCase().trim();
+        let d = state.currentDayData.debits.find(it => {
+            if (it.catId && it.catId.toLowerCase() === keyLower) return true;
+            if (clinicDB && typeof clinicDB.identifyDebitCategoryId === 'function') {
+                return clinicDB.identifyDebitCategoryId(it) === catIdOrName;
+            }
+            const n = (it.name || '').toLowerCase().trim();
+            return n === keyLower;
+        });
         if (!d) {
-            d = { name: namePart, amount: newAmt, isAuto: true };
-            if (npLower.includes('total cash available')) {
+            const catName = clinicDB.getCategoryName('expense', catIdOrName, catIdOrName);
+            d = { catId: catIdOrName, name: catName, amount: newAmt, isAuto: true };
+            if (keyLower.includes('total_cash_available') || keyLower.includes('total cash available')) {
                 d.isCash = true;
+                d.catId = 'total_cash_available';
                 state.currentDayData.debits.push(d);
             } else {
                 insertDebitRowAboveZK(state.currentDayData, d);
@@ -2877,28 +3032,42 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         d.amount = newAmt;
+        d.isAuto = true;
+        d.catId = catIdOrName;
+        const currentName = clinicDB.getCategoryName('expense', catIdOrName);
+        if (currentName) d.name = currentName;
+
         const rows = elements.tbodyDebit.querySelectorAll('tr');
         rows.forEach((r, idx) => {
             const debItem = state.currentDayData.debits[idx];
-            const debName = debItem ? (debItem.name || '').toLowerCase() : '';
-            if (debName.includes(npLower) || r.innerText.toLowerCase().includes(npLower)) {
+            if (debItem && debItem === d) {
                 const inp = r.querySelector('.debit-amt-input');
                 if (inp) inp.value = newAmt;
             }
         });
     }
 
-    function setCreditAutoAmount(namePart, newAmt) {
-        if (!state.currentDayData.credits) state.currentDayData.credits = [];
-        const npLower = namePart.toLowerCase().trim();
-        const c = state.currentDayData.credits.find(it => (it.name || '').toLowerCase().trim().includes(npLower));
+    function setCreditAutoAmount(catIdOrName, newAmt) {
+        if (!state.currentDayData || !state.currentDayData.credits) return;
+        const keyLower = catIdOrName.toLowerCase().trim();
+        const c = state.currentDayData.credits.find(it => {
+            if (it.catId && it.catId.toLowerCase() === keyLower) return true;
+            if (clinicDB && typeof clinicDB.identifyCreditCategoryId === 'function') {
+                return clinicDB.identifyCreditCategoryId(it) === catIdOrName;
+            }
+            const n = (it.name || '').toLowerCase().trim();
+            return n === keyLower;
+        });
         if (c) {
             c.amount = newAmt;
+            c.catId = catIdOrName;
+            const currentName = clinicDB.getCategoryName('income', catIdOrName);
+            if (currentName) c.name = currentName;
+
             const rows = elements.tbodyCredit.querySelectorAll('tr');
             rows.forEach((r, idx) => {
                 const credItem = state.currentDayData.credits[idx];
-                const credName = credItem ? (credItem.name || '').toLowerCase() : '';
-                if (credName.includes(npLower) || r.innerText.toLowerCase().includes(npLower)) {
+                if (credItem && credItem === c) {
                     const inp = r.querySelector('.credit-amt-input');
                     if (inp) inp.value = newAmt;
                 }
@@ -4362,21 +4531,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="store_purchases">Store Purchases (Medicines TP & Retail Combined)</option>
                     <option value="store_purchases_tp">Store Purchases (Medicines TP Price Only)</option>
                     <option value="store_purchases_retail">Store Purchases (Medicines Retail / Sale Price Only)</option>
-                    <option value="st_s">Store Sales (St S - Daily Cash / Counter Sales)</option>
-                    <option value="clinic_expenses">Clinic Petty Expenses</option>
-                    <option value="clinic_inc">Clinic Pt + Dispensary Income</option>
-                    <option value="lb_expenses">LB Expenses (Laboratory)</option>
-                    <option value="lb_inc">LB Income (Laboratory)</option>
-                    <option value="ecg">ECG Income</option>
-                    <option value="us_expenses">US (Ultrasound) Expense</option>
-                    <option value="us_inc">US (Ultrasound) Income</option>
-                    <option value="dental_expenses">Dental Expense</option>
-                    <option value="store_exp">Store Exp</option>
-                    <option value="sn_expenses">SN Expenses (Breakdown)</option>
-                    <option value="account_ac">A/C (Account Transfers / Deposits)</option>
-                    <option value="daraz_cash">Daraz Cash (Opening Balance)</option>
+                    <option value="st_s">${escapeHtml(clinicDB.getCategoryName('income', 'st_s', 'Store Sales (St S)'))}</option>
+                    <option value="clinic_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'clinic_expenses', 'Clinic Petty Expenses'))}</option>
+                    <option value="clinic_inc">${escapeHtml(clinicDB.getCategoryName('income', 'clinic_pt_disp_inc', 'Clinic Pt + Dispensary Income'))}</option>
+                    <option value="lb_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'lb_expenses', 'LB Expenses (Laboratory)'))}</option>
+                    <option value="lb_inc">${escapeHtml(clinicDB.getCategoryName('income', 'lb_inc', 'LB Income (Laboratory)'))}</option>
+                    <option value="ecg">${escapeHtml(clinicDB.getCategoryName('income', 'ecg', 'ECG Income'))}</option>
+                    <option value="us_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'us_expenses', 'US (Ultrasound) Expense'))}</option>
+                    <option value="us_inc">${escapeHtml(clinicDB.getCategoryName('income', 'us_inc', 'US (Ultrasound) Income'))}</option>
+                    <option value="dental_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'dental_expenses', 'Dental Expense'))}</option>
+                    <option value="store_exp">${escapeHtml(clinicDB.getCategoryName('expense', 'store_expenses', 'Store Exp'))}</option>
+                    <option value="sn_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'sn_expenses', 'SN Expenses (Breakdown)'))}</option>
+                    <option value="account_ac">${escapeHtml(clinicDB.getCategoryName('expense', 'account_ac', 'A/C (Account Transfers / Deposits)'))}</option>
+                    <option value="daraz_cash">${escapeHtml(clinicDB.getCategoryName('income', 'daraz_cash', 'Daraz Cash (Opening Balance)'))}</option>
                     <option value="cash_breakdown">Cash Breakdown</option>
-                    <option value="home_expenses">Home Expenses (Home X)</option>
+                    <option value="home_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'home_expenses', 'Home Expenses (Home X)'))}</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
                 </optgroup>
                 <optgroup label="Staff & Vendors">
@@ -4635,18 +4804,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         catListExpense.innerHTML = '';
         (categories.expense || []).forEach(cat => {
+            const defaultCat = clinicDB.getDefaultCategory('expense', cat.id);
+            const isRenamed = defaultCat && (defaultCat.name !== cat.name || (defaultCat.code || '') !== (cat.code || ''));
             const div = document.createElement('div');
             div.className = 'settings-item';
             div.innerHTML = `
-                <div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <strong>${escapeHtml(cat.name)}</strong>
-                    ${cat.code ? `<span style="font-size: 0.7rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.08); border-radius: 4px; margin-left: 0.4rem;">${escapeHtml(cat.code)}</span>` : ''}
-                    ${cat.system ? `<span style="font-size: 0.7rem; color: #38bdf8; margin-left: 0.4rem;">(Predefined)</span>` : ''}
+                    ${cat.code ? `<span style="font-size: 0.72rem; padding: 0.15rem 0.45rem; background: rgba(255,255,255,0.08); border-radius: 4px; font-weight: 600;">${escapeHtml(cat.code)}</span>` : ''}
+                    ${cat.system ? `<span style="font-size: 0.72rem; color: #38bdf8; font-weight: 500;">(Predefined)</span>` : ''}
+                    ${isRenamed ? `<span style="font-size: 0.7rem; color: #f59e0b; background: rgba(245, 158, 11, 0.12); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.25);" title="Original default name: ${escapeHtml(defaultCat.name)}">✏️ Custom Name</span>` : ''}
                 </div>
-                <div>
-                    ${!cat.system ? `<button type="button" class="btn-icon btn-sm del-cat-btn" style="color: #f43f5e;" data-id="${cat.id}">&times; Delete</button>` : ''}
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button type="button" class="btn-icon btn-sm edit-cat-btn" data-id="${cat.id}" data-type="expense" title="Edit Category Name" style="color: #38bdf8; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); cursor: pointer; font-size: 0.78rem;">✏️ Edit</button>
+                    ${!cat.system ? `<button type="button" class="btn-icon btn-sm del-cat-btn" style="color: #f43f5e; padding: 3px 8px;" data-id="${cat.id}">&times; Delete</button>` : ''}
                 </div>
             `;
+            const editBtn = div.querySelector('.edit-cat-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', () => {
+                    appModal.openCategoryEditModal({
+                        type: 'expense',
+                        category: cat,
+                        onSaved: () => {
+                            renderSettings();
+                            if (state.currentDayData) {
+                                renderDebitTable(state.currentDayData);
+                            }
+                        }
+                    });
+                });
+            }
             const delBtn = div.querySelector('.del-cat-btn');
             if (delBtn) {
                 delBtn.addEventListener('click', () => {
@@ -4669,18 +4857,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         catListIncome.innerHTML = '';
         (categories.income || []).forEach(cat => {
+            const defaultCat = clinicDB.getDefaultCategory('income', cat.id);
+            const isRenamed = defaultCat && (defaultCat.name !== cat.name || (defaultCat.code || '') !== (cat.code || ''));
             const div = document.createElement('div');
             div.className = 'settings-item';
             div.innerHTML = `
-                <div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <strong>${escapeHtml(cat.name)}</strong>
-                    ${cat.code ? `<span style="font-size: 0.7rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.08); border-radius: 4px; margin-left: 0.4rem;">${escapeHtml(cat.code)}</span>` : ''}
-                    ${cat.system ? `<span style="font-size: 0.7rem; color: #38bdf8; margin-left: 0.4rem;">(Predefined)</span>` : ''}
+                    ${cat.code ? `<span style="font-size: 0.72rem; padding: 0.15rem 0.45rem; background: rgba(255,255,255,0.08); border-radius: 4px; font-weight: 600;">${escapeHtml(cat.code)}</span>` : ''}
+                    ${cat.system ? `<span style="font-size: 0.72rem; color: #38bdf8; font-weight: 500;">(Predefined)</span>` : ''}
+                    ${isRenamed ? `<span style="font-size: 0.7rem; color: #f59e0b; background: rgba(245, 158, 11, 0.12); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.25);" title="Original default name: ${escapeHtml(defaultCat.name)}">✏️ Custom Name</span>` : ''}
                 </div>
-                <div>
-                    ${!cat.system ? `<button type="button" class="btn-icon btn-sm del-inc-btn" style="color: #f43f5e;" data-id="${cat.id}">&times; Delete</button>` : ''}
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button type="button" class="btn-icon btn-sm edit-cat-btn" data-id="${cat.id}" data-type="income" title="Edit Category Name" style="color: #38bdf8; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); cursor: pointer; font-size: 0.78rem;">✏️ Edit</button>
+                    ${!cat.system ? `<button type="button" class="btn-icon btn-sm del-inc-btn" style="color: #f43f5e; padding: 3px 8px;" data-id="${cat.id}">&times; Delete</button>` : ''}
                 </div>
             `;
+            const editBtn = div.querySelector('.edit-cat-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', () => {
+                    appModal.openCategoryEditModal({
+                        type: 'income',
+                        category: cat,
+                        onSaved: () => {
+                            renderSettings();
+                            if (state.currentDayData) {
+                                renderCreditTable(state.currentDayData);
+                            }
+                        }
+                    });
+                });
+            }
             const delBtn = div.querySelector('.del-inc-btn');
             if (delBtn) {
                 delBtn.addEventListener('click', () => {

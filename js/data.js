@@ -100,17 +100,103 @@ class ClinicDataManager {
                 this.days = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAYS)) || {};
                 delete this.days['2026-09-31'];
                 delete this.days['31'];
+                this.categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES)) || DEFAULT_CATEGORIES;
+                this.ensureDefaultCategories();
+                this.staffList = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF)) || DEFAULT_STAFF_LIST;
+                this.settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS)) || this.settings;
                 Object.keys(this.days).forEach(k => {
                     this.days[k] = this.cleanDayItemNames(this.days[k]);
                 });
-                this.categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES)) || DEFAULT_CATEGORIES;
-                this.staffList = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF)) || DEFAULT_STAFF_LIST;
-                this.settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS)) || this.settings;
                 this.saveAll();
             } catch (e) {
                 console.error('Error loading localStorage:', e);
             }
         }
+    }
+
+    ensureDefaultCategories() {
+        if (!this.categories) this.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+        ['expense', 'income'].forEach(type => {
+            if (!Array.isArray(this.categories[type])) this.categories[type] = [];
+            DEFAULT_CATEGORIES[type].forEach(defCat => {
+                const existing = this.categories[type].find(c => c.id === defCat.id);
+                if (!existing) {
+                    this.categories[type].push({ ...defCat });
+                } else {
+                    existing.system = true;
+                    if (!existing.code && defCat.code) existing.code = defCat.code;
+                }
+            });
+        });
+    }
+
+    getDefaultCategory(type, id) {
+        if (DEFAULT_CATEGORIES && DEFAULT_CATEGORIES[type]) {
+            return DEFAULT_CATEGORIES[type].find(c => c.id === id) || null;
+        }
+        return null;
+    }
+
+    getCategory(type, id) {
+        if (this.categories && this.categories[type]) {
+            return this.categories[type].find(c => c.id === id) || null;
+        }
+        return null;
+    }
+
+    getCategoryName(type, id, defaultFallback = '') {
+        const cat = this.getCategory(type, id);
+        if (cat && cat.name) return cat.name;
+        const def = this.getDefaultCategory(type, id);
+        if (def && def.name) return def.name;
+        return defaultFallback;
+    }
+
+    updateCategory(type, id, updateObj) {
+        if (!this.categories[type]) return null;
+        const cat = this.categories[type].find(c => c.id === id);
+        if (!cat) return null;
+
+        const oldName = cat.name;
+        const newName = (updateObj.name || '').trim();
+        if (newName) {
+            cat.name = newName;
+        }
+        if (updateObj.code !== undefined) {
+            cat.code = (updateObj.code || '').trim().toUpperCase();
+        }
+
+        // Propagate across existing days
+        if (newName && newName !== oldName) {
+            const oldNameLower = (oldName || '').trim().toLowerCase();
+            Object.values(this.days).forEach(day => {
+                if (!day) return;
+                if (type === 'expense' && Array.isArray(day.debits)) {
+                    day.debits.forEach(d => {
+                        if (d.catId === id || (!d.catId && (d.name || '').trim().toLowerCase() === oldNameLower)) {
+                            d.name = newName;
+                            d.catId = id;
+                        }
+                    });
+                } else if (type === 'income' && Array.isArray(day.credits)) {
+                    day.credits.forEach(c => {
+                        if (c.catId === id || (!c.catId && (c.name || '').trim().toLowerCase() === oldNameLower)) {
+                            c.name = newName;
+                            c.catId = id;
+                        }
+                    });
+                }
+            });
+        }
+
+        this.saveAll();
+        return cat;
+    }
+
+    resetCategory(type, id) {
+        const def = this.getDefaultCategory(type, id);
+        if (!def) return null;
+        return this.updateCategory(type, id, { name: def.name, code: def.code });
     }
 
     clearToZero() {
@@ -126,45 +212,136 @@ class ClinicDataManager {
         this.saveAll();
     }
 
+    identifyDebitCategoryId(item) {
+        if (!item) return null;
+        if (item.catId) {
+            const sysCat = (this.categories?.expense || []).find(c => c.id === item.catId && c.system);
+            if (sysCat) return sysCat.id;
+            const partnerCat = (DEFAULT_CATEGORIES.partners || []).find(p => p.id === item.catId);
+            if (partnerCat) return partnerCat.id;
+        }
+
+        const nameLower = (item.name || '').trim().toLowerCase();
+        if (!nameLower) return null;
+
+        // Check against current configured name of each system expense category
+        for (const cat of (this.categories?.expense || [])) {
+            if (cat.system && cat.name && (cat.name || '').trim().toLowerCase() === nameLower) {
+                return cat.id;
+            }
+        }
+
+        // Exact match alias dictionary (no substring/includes matching)
+        const exactDebitAliases = {
+            'store_med_purchases': ['store med purchases', 'store med purchase', 'smp'],
+            'dispensary_purchases': ['dispensary purchases', 'dispensary purchase', 'dp'],
+            'clinic_expenses': ['clinic expenses', 'clinic exp', 'ce'],
+            'lb_expenses': ['lb expenses', 'lb exp', 'lbe'],
+            'home_expenses': ['home expenses', 'home exp', 'he'],
+            'us_expenses': ['us exp', 'us expenses', 'use'],
+            'dental_expenses': ['dental exp', 'dental expenses', 'de'],
+            'store_expenses': ['store exp', 'store expenses', 'se'],
+            'sn_expenses': ['sn expenses', 'sn exp'],
+            'account_ac': ['a/c', 'ac', 'account'],
+            'receivables': ['receivables', 'receivable', 'rec'],
+            'partner_zk': ['zk'],
+            'partner_kh': ['kh'],
+            'partner_bp': ['bp'],
+            'total_cash_available': ['total cash available']
+        };
+
+        for (const [catId, aliases] of Object.entries(exactDebitAliases)) {
+            if (aliases.includes(nameLower)) {
+                return catId;
+            }
+        }
+
+        return null;
+    }
+
+    identifyCreditCategoryId(item) {
+        if (!item) return null;
+        if (item.catId) {
+            const sysCat = (this.categories?.income || []).find(c => c.id === item.catId && c.system);
+            if (sysCat) return sysCat.id;
+        }
+
+        const nameLower = (item.name || '').trim().toLowerCase();
+        if (!nameLower) return null;
+
+        for (const cat of (this.categories?.income || [])) {
+            if (cat.system && cat.name && (cat.name || '').trim().toLowerCase() === nameLower) {
+                return cat.id;
+            }
+        }
+
+        const exactCreditAliases = {
+            'daraz_cash': ['daraz cash', 'daraz', 'dc'],
+            'clinic_pt_disp_inc': ['clinic pt + dispensary inc', 'clinic pt', 'dispensary inc', 'cpdi'],
+            'lb_inc': ['lb (lab) income', 'lb', 'lb inc', 'lbi'],
+            'us_inc': ['us (ultrasound) income', 'us', 'us inc', 'usi'],
+            'st_s': ['st s (store sale)', 'st s', 'store sale', 'sts'],
+            'ecg': ['ecg income', 'ecg', 'ecg inc']
+        };
+
+        for (const [catId, aliases] of Object.entries(exactCreditAliases)) {
+            if (aliases.includes(nameLower)) {
+                return catId;
+            }
+        }
+
+        return null;
+    }
+
     ensureStandardDebits(dayData) {
         if (!dayData || !dayData.debits) return dayData;
 
         // 1. Ensure SN Expenses exists (Auto-calculated from collapsible SN Expenses)
         let snItem = dayData.debits.find(d => {
+            if (d.catId === 'sn_expenses') return true;
             const n = (d.name || '').trim().toLowerCase();
-            return n === 'sn expenses' || n === 'sn exp' || n === 'sn';
+            return n === 'sn expenses' || n === 'sn exp';
         });
         const currentSNAmt = (dayData.snExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+        const snCatName = this.getCategoryName('expense', 'sn_expenses', 'SN Expenses');
         if (!snItem) {
-            snItem = { name: 'SN Expenses', amount: currentSNAmt, isAuto: true };
-            let targetIdx = dayData.debits.findIndex(d => {
-                const n = (d.name || '').trim().toLowerCase();
-                return n === 'a/c' || n.includes('receivable') || n === 'zk' || n === 'kh' || n === 'bp' || n.includes('total cash available');
-            });
-            if (targetIdx === -1) targetIdx = Math.max(0, dayData.debits.length - 1);
-            dayData.debits.splice(targetIdx, 0, snItem);
+            if (currentSNAmt > 0) {
+                snItem = { catId: 'sn_expenses', name: snCatName, amount: currentSNAmt, isAuto: true };
+                let targetIdx = dayData.debits.findIndex(d => {
+                    const n = (d.name || '').trim().toLowerCase();
+                    return n === 'a/c' || n.includes('receivable') || n === 'zk' || n === 'kh' || n === 'bp' || n.includes('total cash available') || d.catId === 'account_ac' || d.catId === 'receivables' || d.catId === 'partner_zk';
+                });
+                if (targetIdx === -1) targetIdx = Math.max(0, dayData.debits.length - 1);
+                dayData.debits.splice(targetIdx, 0, snItem);
+            }
         } else {
-            snItem.name = 'SN Expenses';
+            snItem.catId = 'sn_expenses';
+            snItem.name = snCatName;
             snItem.isAuto = true;
             delete snItem.isCustom;
-            snItem.amount = currentSNAmt;
+            if (currentSNAmt > 0 || (parseFloat(snItem.amount) || 0) === 0) {
+                snItem.amount = currentSNAmt;
+            }
         }
 
         // 2. Ensure A/C exists (Permanent entry for Account payment)
         let acItem = dayData.debits.find(d => {
+            if (d.catId === 'account_ac') return true;
             const n = (d.name || '').trim().toLowerCase();
-            return n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c');
+            return n === 'a/c' || n === 'ac' || n === 'account';
         });
+        const acCatName = this.getCategoryName('expense', 'account_ac', 'A/C');
         if (!acItem) {
-            acItem = { name: 'A/C', amount: 0, isAuto: false };
+            acItem = { catId: 'account_ac', name: acCatName, amount: 0, isAuto: false };
             let targetIdx = dayData.debits.findIndex(d => {
                 const n = (d.name || '').trim().toLowerCase();
-                return n.includes('receivable') || n === 'zk' || n === 'kh' || n === 'bp' || n.includes('total cash available');
+                return n.includes('receivable') || n === 'zk' || n === 'kh' || n === 'bp' || n.includes('total cash available') || d.catId === 'receivables' || d.catId === 'partner_zk';
             });
             if (targetIdx === -1) targetIdx = Math.max(0, dayData.debits.length - 1);
             dayData.debits.splice(targetIdx, 0, acItem);
         } else {
-            acItem.name = 'A/C';
+            acItem.catId = 'account_ac';
+            acItem.name = acCatName;
             acItem.isAuto = false;
             delete acItem.isCustom;
         }
@@ -174,47 +351,90 @@ class ClinicDataManager {
 
     cleanDayItemNames(dayData) {
         if (!dayData) return dayData;
-        const standardDebits = [
-            'store med purchases', 'dispensary purchases', 'clinic expenses',
-            'lb expenses', 'home expenses', 'us exp', 'dental exp', 'store exp',
-            'sn expenses', 'sn exp', 'sn', 'a/c', 'ac', 'account',
-            'receivables', 'zk', 'kh', 'bp', 'total cash available'
-        ];
-        if (dayData.debits) {
+
+        // Clean & Deduplicate Debits
+        if (Array.isArray(dayData.debits)) {
             dayData.debits = dayData.debits.filter(d => {
                 const n = (d.name || '').trim().toLowerCase();
                 return n !== 'kam hisab' && n !== 'kam_hisab';
             });
+
+            const seenCatIds = new Set();
+            const cleanedDebits = [];
+
             dayData.debits.forEach(d => {
-                const n = (d.name || '').trim().toLowerCase();
-                if (n === 'sn expenses' || n === 'sn exp' || n === 'sn') {
-                    d.name = 'SN Expenses';
-                    d.isAuto = true;
+                const catId = this.identifyDebitCategoryId(d);
+                if (catId) {
+                    if (seenCatIds.has(catId)) {
+                        // Duplicate detected - preserve any positive amount into first row and drop this duplicate
+                        const existing = cleanedDebits.find(it => it.catId === catId);
+                        if (existing && (parseFloat(existing.amount) || 0) === 0 && (parseFloat(d.amount) || 0) > 0) {
+                            existing.amount = parseFloat(d.amount);
+                        }
+                        return;
+                    }
+                    seenCatIds.add(catId);
+                    d.catId = catId;
+                    const configuredName = this.getCategoryName('expense', catId);
+                    if (configuredName) {
+                        d.name = configuredName;
+                    }
                     delete d.isCustom;
-                } else if (n === 'a/c' || n === 'ac' || n === 'account' || n.startsWith('a/c')) {
-                    d.name = 'A/C';
-                    d.isAuto = false;
-                    delete d.isCustom;
-                } else if (!standardDebits.includes(n)) {
+                    if (catId === 'sn_expenses') {
+                        d.isAuto = true;
+                    } else if (catId === 'total_cash_available') {
+                        d.isAuto = true;
+                        d.isCash = true;
+                    } else if (catId.startsWith('partner_')) {
+                        d.isPartner = true;
+                    }
+                    cleanedDebits.push(d);
+                } else {
                     d.isCustom = true;
+                    cleanedDebits.push(d);
                 }
             });
+
+            dayData.debits = cleanedDebits;
         }
-        const standardCredits = [
-            'daraz cash', 'clinic pt + dispensary inc', 'lb', 'us', 'st s', 'ecg'
-        ];
-        if (dayData.credits) {
+
+        // Clean & Deduplicate Credits
+        if (Array.isArray(dayData.credits)) {
             dayData.credits = dayData.credits.filter(c => {
                 const n = (c.name || '').trim().toLowerCase();
                 return n !== 'darex credit' && n !== 'darex_credit';
             });
+
+            const seenCreditCatIds = new Set();
+            const cleanedCredits = [];
+
             dayData.credits.forEach(c => {
-                const n = (c.name || '').trim().toLowerCase();
-                if (!standardCredits.includes(n)) {
+                const catId = this.identifyCreditCategoryId(c);
+                if (catId) {
+                    if (seenCreditCatIds.has(catId)) {
+                        const existing = cleanedCredits.find(it => it.catId === catId);
+                        if (existing && (parseFloat(existing.amount) || 0) === 0 && (parseFloat(c.amount) || 0) > 0) {
+                            existing.amount = parseFloat(c.amount);
+                        }
+                        return;
+                    }
+                    seenCreditCatIds.add(catId);
+                    c.catId = catId;
+                    const configuredName = this.getCategoryName('income', catId);
+                    if (configuredName) {
+                        c.name = configuredName;
+                    }
+                    delete c.isCustom;
+                    cleanedCredits.push(c);
+                } else {
                     c.isCustom = true;
+                    cleanedCredits.push(c);
                 }
             });
+
+            dayData.credits = cleanedCredits;
         }
+
         if (!dayData.snExpenseDetails) dayData.snExpenseDetails = [];
         this.ensureStandardDebits(dayData);
         this.syncStaffPaymentsWithDebits(dayData);
@@ -424,29 +644,29 @@ class ClinicDataManager {
         return {
             date: dateKey,
             debits: [
-                { name: 'Store Med Purchases', amount: 0, isAuto: true },
-                { name: 'Dispensary Purchases', amount: 0, isAuto: true },
-                { name: 'Clinic Expenses', amount: 0, isAuto: true },
-                { name: 'LB Expenses', amount: 0, isAuto: false },
-                { name: 'Home Expenses', amount: 0, isAuto: true },
-                { name: 'US Exp', amount: 0, isAuto: true },
-                { name: 'Dental Exp', amount: 0, isAuto: true },
-                { name: 'Store Exp', amount: 0, isAuto: true },
-                { name: 'SN Expenses', amount: 0, isAuto: true },
-                { name: 'A/C', amount: 0, isAuto: false },
-                { name: 'Receivables', amount: 0, isAuto: true },
-                { name: 'ZK', amount: 0, isPartner: true },
-                { name: 'KH', amount: 0, isPartner: true },
-                { name: 'BP', amount: 0, isPartner: true },
-                { name: 'Total Cash Available', amount: 0, isCash: true }
+                { catId: 'store_med_purchases', name: this.getCategoryName('expense', 'store_med_purchases', 'Store Med Purchases'), amount: 0, isAuto: true },
+                { catId: 'dispensary_purchases', name: this.getCategoryName('expense', 'dispensary_purchases', 'Dispensary Purchases'), amount: 0, isAuto: true },
+                { catId: 'clinic_expenses', name: this.getCategoryName('expense', 'clinic_expenses', 'Clinic Expenses'), amount: 0, isAuto: true },
+                { catId: 'lb_expenses', name: this.getCategoryName('expense', 'lb_expenses', 'LB Expenses'), amount: 0, isAuto: false },
+                { catId: 'home_expenses', name: this.getCategoryName('expense', 'home_expenses', 'Home Expenses'), amount: 0, isAuto: true },
+                { catId: 'us_expenses', name: this.getCategoryName('expense', 'us_expenses', 'US Exp'), amount: 0, isAuto: true },
+                { catId: 'dental_expenses', name: this.getCategoryName('expense', 'dental_expenses', 'Dental Exp'), amount: 0, isAuto: true },
+                { catId: 'store_expenses', name: this.getCategoryName('expense', 'store_expenses', 'Store Exp'), amount: 0, isAuto: true },
+                { catId: 'sn_expenses', name: this.getCategoryName('expense', 'sn_expenses', 'SN Expenses'), amount: 0, isAuto: true },
+                { catId: 'account_ac', name: this.getCategoryName('expense', 'account_ac', 'A/C'), amount: 0, isAuto: false },
+                { catId: 'receivables', name: this.getCategoryName('expense', 'receivables', 'Receivables'), amount: 0, isAuto: true },
+                { catId: 'partner_zk', name: 'ZK', amount: 0, isPartner: true },
+                { catId: 'partner_kh', name: 'KH', amount: 0, isPartner: true },
+                { catId: 'partner_bp', name: 'BP', amount: 0, isPartner: true },
+                { catId: 'total_cash_available', name: 'Total Cash Available', amount: 0, isCash: true }
             ],
             credits: [
-                { name: 'Daraz Cash', amount: initialDarazCash, isAuto: false },
-                { name: 'Clinic Pt + Dispensary Inc', amount: 0, isAuto: true },
-                { name: 'LB', amount: 0, isAuto: false },
-                { name: 'US', amount: 0, isAuto: true },
-                { name: 'St S', amount: 0, isAuto: false },
-                { name: 'ECG', amount: 0, isAuto: false }
+                { catId: 'daraz_cash', name: this.getCategoryName('income', 'daraz_cash', 'Daraz Cash'), amount: initialDarazCash, isAuto: false },
+                { catId: 'clinic_pt_disp_inc', name: this.getCategoryName('income', 'clinic_pt_disp_inc', 'Clinic Pt + Dispensary Inc'), amount: 0, isAuto: true },
+                { catId: 'lb_inc', name: this.getCategoryName('income', 'lb_inc', 'LB (Lab) Income'), amount: 0, isAuto: false },
+                { catId: 'us_inc', name: this.getCategoryName('income', 'us_inc', 'US (Ultrasound) Income'), amount: 0, isAuto: true },
+                { catId: 'st_s', name: this.getCategoryName('income', 'st_s', 'St S (Store Sale)'), amount: 0, isAuto: false },
+                { catId: 'ecg', name: this.getCategoryName('income', 'ecg', 'ECG Income'), amount: 0, isAuto: false }
             ],
             dispPurchases: [
                 { item: '', amount: 0 },
@@ -578,6 +798,10 @@ class ClinicDataManager {
     deleteCategory(type, id) {
         if (!this.categories[type]) return false;
         const catObj = this.categories[type].find(c => c.id === id);
+        if (catObj && catObj.system) {
+            console.warn('Cannot delete predefined system category:', id);
+            return false;
+        }
         this.categories[type] = this.categories[type].filter(c => c.id !== id);
         if (catObj && catObj.name) {
             const cNameLower = catObj.name.trim().toLowerCase();
@@ -751,37 +975,37 @@ class ClinicDataManager {
             sumCash += (data.summary?.cashTakenAway || 0);
 
             (data.debits || []).forEach(d => {
-                const name = (d.name || '').toLowerCase().trim();
+                const catId = this.identifyDebitCategoryId(d);
                 const amt = parseFloat(d.amount) || 0;
-                if (name.includes('store med purchase') || name === 'smp') sumStoreMedPurchases += amt;
-                else if (name.includes('dispensary purchase') || name === 'dp') sumDispPurchases += amt;
-                else if (name.includes('clinic exp') || name === 'ce') sumClinicExp += amt;
-                else if (name.includes('lb exp') || name === 'lbe') sumLBExp += amt;
-                else if (name.includes('home exp') || name === 'he') sumHomeExp += amt;
-                else if (name.includes('us exp') || name === 'use') sumUSExp += amt;
-                else if (name.includes('dental exp') || name === 'de') sumDentalExp += amt;
-                else if (name.includes('store exp') || name === 'se') sumStoreExp += amt;
-                else if (name === 'sn expenses' || name === 'sn exp' || name === 'sn' || name === 'sne') { /* tracked in sumSNExp */ }
-                else if (name === 'a/c' || name === 'ac' || name === 'account' || name.startsWith('a/c')) sumAC += amt;
-                else if (name.includes('receivable') || name === 'rec') sumReceivables += amt;
-                else if (name === 'kh') sumKH += amt;
-                else if (name === 'zk') sumZK += amt;
-                else if (name === 'bp') sumBP += amt;
-                else if (name.includes('total cash available')) { /* Cash row */ }
+                if (catId === 'store_med_purchases') sumStoreMedPurchases += amt;
+                else if (catId === 'dispensary_purchases') sumDispPurchases += amt;
+                else if (catId === 'clinic_expenses') sumClinicExp += amt;
+                else if (catId === 'lb_expenses') sumLBExp += amt;
+                else if (catId === 'home_expenses') sumHomeExp += amt;
+                else if (catId === 'us_expenses') sumUSExp += amt;
+                else if (catId === 'dental_expenses') sumDentalExp += amt;
+                else if (catId === 'store_expenses') sumStoreExp += amt;
+                else if (catId === 'sn_expenses') { /* tracked in sumSNExp */ }
+                else if (catId === 'account_ac') sumAC += amt;
+                else if (catId === 'receivables') sumReceivables += amt;
+                else if (catId === 'partner_kh') sumKH += amt;
+                else if (catId === 'partner_zk') sumZK += amt;
+                else if (catId === 'partner_bp') sumBP += amt;
+                else if (catId === 'total_cash_available') { /* Cash row */ }
                 else {
                     sumOthersDebit += amt;
                 }
             });
 
             (data.credits || []).forEach(c => {
-                const name = (c.name || '').toLowerCase().trim();
+                const catId = this.identifyCreditCategoryId(c);
                 const amt = parseFloat(c.amount) || 0;
-                if (name.includes('clinic pt') || name.includes('dispensary inc') || name === 'cpdi') sumDispInc += amt;
-                else if (name === 'lb' || name.includes('lb inc') || name === 'lbi') sumLBInc += amt;
-                else if (name === 'us' || name.includes('us inc') || name === 'usi') sumUSInc += amt;
-                else if (name === 'st s' || name.includes('store sale') || name === 'sts') sumStSaleThisMonth += amt;
-                else if (name === 'ecg' || name.includes('ecg')) sumECG += amt;
-                else if (name.includes('daraz cash') || name === 'dc') { /* Daraz cash */ }
+                if (catId === 'clinic_pt_disp_inc') sumDispInc += amt;
+                else if (catId === 'lb_inc') sumLBInc += amt;
+                else if (catId === 'us_inc') sumUSInc += amt;
+                else if (catId === 'st_s') sumStSaleThisMonth += amt;
+                else if (catId === 'ecg') sumECG += amt;
+                else if (catId === 'daraz_cash') { /* Daraz cash */ }
                 else {
                     sumOthersCredit += amt;
                 }
