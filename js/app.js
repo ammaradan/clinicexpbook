@@ -2327,13 +2327,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.boxReconStatus) {
             if (Math.abs(diff) < 1) {
                 elements.boxReconStatus.className = 'recon-status-badge balanced';
-                elements.boxReconStatus.textContent = 'Balanced';
+                elements.boxReconStatus.textContent = 'Calculated: Balanced';
             } else if (diff > 0) {
-                elements.boxReconStatus.className = 'recon-status-badge balanced';
-                elements.boxReconStatus.textContent = `Surplus: +${formatNumber(diff)}`;
-            } else {
                 elements.boxReconStatus.className = 'recon-status-badge discrepancy';
-                elements.boxReconStatus.textContent = `Deficit: ${formatNumber(diff)}`;
+                elements.boxReconStatus.textContent = `Surplus: +${formatNumber(diff)} (Cash Short)`;
+            } else {
+                elements.boxReconStatus.className = 'recon-status-badge balanced';
+                elements.boxReconStatus.textContent = `Deficit: ${formatNumber(diff)} (Cash Excess)`;
             }
         }
     }
@@ -2902,6 +2902,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.querySelectorAll('.master-row').forEach(r => {
                 r.addEventListener('click', () => {
                     const dt = r.dataset.date;
+                    if (!confirm(`Open Daily Sheet for ${dt}?`)) return;
                     saveCurrentDay(false);
                     state.currentDate = dt;
                     elements.dateInput.value = dt;
@@ -3121,6 +3122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.querySelectorAll('.master-row').forEach(r => {
             r.addEventListener('click', () => {
                 const dt = r.dataset.date;
+                if (!confirm(`Open Daily Sheet for ${dt}?`)) return;
                 saveCurrentDay(false);
                 state.currentDate = dt;
                 elements.dateInput.value = dt;

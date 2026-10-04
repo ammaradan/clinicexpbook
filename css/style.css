@@ -1480,7 +1480,7 @@ input[type="number"] {
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 6.5pt !important;
+    font-size: 7.5pt !important;
     width: 100% !important;
     height: auto !important;
     max-height: 100% !important;
@@ -1537,15 +1537,15 @@ input[type="number"] {
 
   /* 1. Print Header Banner */
   .print-header-banner {
-    padding: 0 0 1px 0 !important;
-    margin-bottom: 1.5mm !important;
+    padding: 0 0 2px 0 !important;
+    margin-bottom: 2.5mm !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: flex-end !important;
-    border-bottom: 1.5px solid #000000 !important;
+    border-bottom: 1.8px solid #000000 !important;
   }
   .print-header-banner h2 {
-    font-size: 11pt !important;
+    font-size: 12.5pt !important;
     font-weight: 800 !important;
     color: #000000 !important;
     letter-spacing: 0.02em !important;
@@ -1553,12 +1553,12 @@ input[type="number"] {
     text-transform: uppercase !important;
   }
   .print-header-banner p {
-    font-size: 6.5pt !important;
-    color: #333333 !important;
+    font-size: 7pt !important;
+    color: #222222 !important;
     margin: 0 !important;
   }
   #print-sheet-date {
-    font-size: 9.5pt !important;
+    font-size: 10.5pt !important;
     font-weight: 800 !important;
     color: #000000 !important;
   }
@@ -1619,8 +1619,8 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     border-bottom: 1.2px solid #000000 !important;
-    padding: 1px 2.5px !important;
-    font-size: 6.8pt !important;
+    padding: 2px 3.5px !important;
+    font-size: 7.5pt !important;
     font-weight: 800 !important;
   }
 
@@ -1640,7 +1640,7 @@ input[type="number"] {
   }
 
   .sub-section-module {
-    margin-bottom: 1.5px !important;
+    margin-bottom: 2.5px !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -1671,9 +1671,9 @@ input[type="number"] {
     background: #ffffff !important;
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
-    font-size: 6pt !important;
+    font-size: 6.8pt !important;
     font-weight: 800 !important;
-    padding: 0.2px 2.5px !important;
+    padding: 0.5px 3.5px !important;
     border: 1px solid #000000 !important;
   }
 
@@ -1685,8 +1685,8 @@ input[type="number"] {
 
   .excel-table {
     width: 100% !important;
-    font-size: 6.3pt !important;
-    line-height: 1.1 !important;
+    font-size: 7.4pt !important;
+    line-height: 1.25 !important;
     border-collapse: collapse !important;
   }
 
@@ -1695,8 +1695,8 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     border: 1px solid #000000 !important;
-    padding: 0.8px 2px !important;
-    font-size: 6.2pt !important;
+    padding: 1.8px 3px !important;
+    font-size: 7pt !important;
     font-weight: 800 !important;
   }
 
@@ -1704,9 +1704,9 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     border: 1px solid #000000 !important;
-    padding: 0.6px 2px !important;
+    padding: 1.8px 3px !important;
     background: #ffffff !important;
-    font-size: 6.5pt !important;
+    font-size: 7.4pt !important;
     font-weight: 700 !important;
   }
 
@@ -1714,10 +1714,10 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     padding: 0 !important;
-    font-size: 6.5pt !important;
+    font-size: 7.4pt !important;
     height: auto !important;
     min-height: 0 !important;
-    line-height: 1.1 !important;
+    line-height: 1.25 !important;
     border: none !important;
     background: transparent !important;
     font-weight: 700 !important;
@@ -1739,11 +1739,11 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     font-weight: 800 !important;
-    padding: 1px 2px !important;
+    padding: 2.2px 3px !important;
     border: 1px solid #000000 !important;
     border-top: 1.5px solid #000000 !important;
     border-bottom: 1.5px solid #000000 !important;
-    font-size: 6.8pt !important;
+    font-size: 7.8pt !important;
   }
 
   .excel-subtotal-row td {
@@ -1751,9 +1751,9 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     font-weight: 800 !important;
-    padding: 0.8px 2px !important;
+    padding: 1.8px 3px !important;
     border: 1px solid #000000 !important;
-    font-size: 6.5pt !important;
+    font-size: 7.4pt !important;
   }
 
   /* 3. Reconciliation Bar */
@@ -1761,11 +1761,11 @@ input[type="number"] {
     background: #ffffff !important;
     border: 1.5px solid #000000 !important;
     box-shadow: none !important;
-    padding: 1.5px 5px !important;
-    margin-top: 1.2mm !important;
-    margin-bottom: 0.8mm !important;
+    padding: 2.5px 8px !important;
+    margin-top: 2.5mm !important;
+    margin-bottom: 1.5mm !important;
     height: auto !important;
-    gap: 6px !important;
+    gap: 8px !important;
     display: flex !important;
     flex-direction: row !important;
     justify-content: space-between !important;
@@ -1785,7 +1785,7 @@ input[type="number"] {
   }
 
   .recon-cell-label {
-    font-size: 6.2pt !important;
+    font-size: 6.8pt !important;
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     font-weight: 800 !important;
@@ -1798,20 +1798,21 @@ input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     padding: 0 !important;
-    font-size: 8pt !important;
+    font-size: 8.8pt !important;
     font-weight: 800 !important;
     height: auto !important;
     min-height: 0 !important;
   }
 
   .recon-status-badge {
-    padding: 0.5px 4px !important;
-    font-size: 7pt !important;
+    padding: 1.5px 6px !important;
+    font-size: 7.2pt !important;
     font-weight: 800 !important;
     border: 1.5px solid #000000 !important;
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     background: #ffffff !important;
+    white-space: nowrap !important;
   }
 
   /* 4. Signature Block across bottom */
@@ -1820,9 +1821,9 @@ input[type="number"] {
     flex-direction: row !important;
     justify-content: space-between !important;
     align-items: flex-end !important;
-    margin-top: 1.2mm !important;
+    margin-top: 2.5mm !important;
     height: auto !important;
-    padding: 1.5mm 15mm 0 15mm !important;
+    padding: 2mm 15mm 0 15mm !important;
     border-top: 1.5px solid #000000 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -1834,7 +1835,7 @@ input[type="number"] {
 
   .sig-col p {
     margin: 0 !important;
-    font-size: 6.8pt !important;
+    font-size: 7.2pt !important;
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
     font-weight: 800 !important;
@@ -1842,7 +1843,7 @@ input[type="number"] {
 
   .sig-line {
     margin-bottom: 2px !important;
-    font-size: 6.8pt !important;
+    font-size: 7.2pt !important;
     letter-spacing: -0.05em !important;
     font-weight: 800 !important;
     color: #000000 !important;
