@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Expense Book - Clinic & Store Accounting</title>
   <meta name="description" content="Excel-accurate daily accounting, bookkeeping, and multi-category financial reporting for Clinic and Medical Store.">
-  <link rel="stylesheet" href="css/style.css?v=2.0.2">
+  <link rel="stylesheet" href="css/style.css?v=2.0.3">
 </head>
 <body>
   <div class="app-layout">
@@ -23,24 +23,35 @@
         <button type="button" class="tab-btn active" data-view="view-daily" id="tab-daily">
           <span>📋</span> Daily Sheet
         </button>
-        <button type="button" class="tab-btn" data-view="view-master" id="tab-master">
-          <span>📊</span> Master Grid (Data)
-        </button>
-        <button type="button" class="tab-btn" data-view="view-staff" id="tab-staff">
-          <span>👥</span> Staff Ledger
-        </button>
-        <button type="button" class="tab-btn" data-view="view-pnl" id="tab-pnl">
-          <span>📈</span> Total P&L
-        </button>
-        <button type="button" class="tab-btn" data-view="view-stock" id="tab-stock">
-          <span>📦</span> Stock Reconciliation
-        </button>
-        <button type="button" class="tab-btn" data-view="view-reports" id="tab-reports">
-          <span>📑</span> Category Reports
-        </button>
-        <button type="button" class="tab-btn" data-view="view-settings" id="tab-settings">
-          <span>⚙️</span> Categories & Setup
-        </button>
+
+        <!-- Collapsible Dropdown for Other Tabs -->
+        <div class="nav-dropdown" id="nav-modules-dropdown">
+          <button type="button" class="tab-btn nav-dropdown-toggle" id="nav-dropdown-btn" aria-haspopup="true" aria-expanded="false" title="Other Ledgers & Reports">
+            <span id="nav-dropdown-active-label"><span>📊</span> More Ledgers</span>
+            <span class="dropdown-caret">▼</span>
+          </button>
+          <div class="nav-dropdown-menu" id="nav-dropdown-menu">
+            <button type="button" class="tab-btn dropdown-item" data-view="view-master" id="tab-master">
+              <span>📊</span> Master Grid (Data)
+            </button>
+            <button type="button" class="tab-btn dropdown-item" data-view="view-staff" id="tab-staff">
+              <span>👥</span> Staff Ledger
+            </button>
+            <button type="button" class="tab-btn dropdown-item" data-view="view-pnl" id="tab-pnl">
+              <span>📈</span> Total P&L
+            </button>
+            <button type="button" class="tab-btn dropdown-item" data-view="view-stock" id="tab-stock">
+              <span>📦</span> Stock Reconciliation
+            </button>
+            <button type="button" class="tab-btn dropdown-item" data-view="view-reports" id="tab-reports">
+              <span>📑</span> Category Reports
+            </button>
+            <div class="dropdown-separator"></div>
+            <button type="button" class="tab-btn dropdown-item" data-view="view-settings" id="tab-settings">
+              <span>⚙️</span> Categories & Setup
+            </button>
+          </div>
+        </div>
       </nav>
 
       <!-- Quick Action Buttons -->
@@ -1017,8 +1028,8 @@
   <script src="js/firebase-config.js"></script>
 
   <!-- Application Scripts -->
-  <script src="js/seedData.js?v=2.0.2"></script>
-  <script src="js/data.js?v=2.0.2"></script>
-  <script src="js/app.js?v=2.0.2"></script>
+  <script src="js/seedData.js?v=2.0.3"></script>
+  <script src="js/data.js?v=2.0.3"></script>
+  <script src="js/app.js?v=2.0.3"></script>
 </body>
 </html>

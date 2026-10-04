@@ -646,15 +646,27 @@ class ClinicDataManager {
     getStockReconciliation(periodKey) {
         if (!this.settings) this.settings = {};
         if (!this.settings.stockReconciliation) this.settings.stockReconciliation = {};
-        return this.settings.stockReconciliation[periodKey] || { prevStockTP: 0, presentStockTP: 0 };
+        const rec = this.settings.stockReconciliation[periodKey] || {};
+        const prev = rec.prevStockRetail !== undefined ? rec.prevStockRetail : (rec.prevStockTP || 0);
+        const pres = rec.presentStockRetail !== undefined ? rec.presentStockRetail : (rec.presentStockTP || 0);
+        return {
+            prevStockRetail: prev,
+            presentStockRetail: pres,
+            prevStockTP: prev,
+            presentStockTP: pres
+        };
     }
 
     saveStockReconciliation(periodKey, data) {
         if (!this.settings) this.settings = {};
         if (!this.settings.stockReconciliation) this.settings.stockReconciliation = {};
+        const prev = parseFloat(data.prevStockRetail !== undefined ? data.prevStockRetail : (data.prevStockTP || 0)) || 0;
+        const present = parseFloat(data.presentStockRetail !== undefined ? data.presentStockRetail : (data.presentStockTP || 0)) || 0;
         this.settings.stockReconciliation[periodKey] = {
-            prevStockTP: parseFloat(data.prevStockTP) || 0,
-            presentStockTP: parseFloat(data.presentStockTP) || 0
+            prevStockRetail: prev,
+            presentStockRetail: present,
+            prevStockTP: prev,
+            presentStockTP: present
         };
         this.saveAll();
         if (window.cloudSync && typeof window.cloudSync.saveMetaToCloud === 'function') {
