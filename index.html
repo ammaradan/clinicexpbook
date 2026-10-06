@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Expense Book - Clinic & Store Accounting</title>
-  <meta name="description" content="Excel-accurate daily accounting, bookkeeping, and multi-category financial reporting for Clinic and Medical Store.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="stylesheet" href="css/style.css?v=2.0.5">
 </head>
 <body>
@@ -205,15 +206,16 @@
             <div class="excel-col-panel col-disp-store col-subsections-container" data-col-id="col-2" data-col="2">
               
               <!-- 3A: Dispensary Purchases -->
-              <div class="sub-section-module" id="mod-disp-purch" data-sec-id="sec-disp-purch" data-title="Dispensary Purchases" draggable="true">
+              <div class="sub-section-module" id="mod-disp-purch" data-sec-id="sec-disp-purch" data-title="Dispensary Purchases">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-disp-purch" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Dispensary Purchases</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-disp-purch-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-disp-purch">👁️</button>
@@ -244,15 +246,16 @@
               </div>
 
               <!-- 3B: Store Purchases -->
-              <div class="sub-section-module" id="mod-store-purch" data-sec-id="sec-store-purch" data-title="Store Purchases" draggable="true">
+              <div class="sub-section-module" id="mod-store-purch" data-sec-id="sec-store-purch" data-title="Store Purchases">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-store-purch" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Store Purchases</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-store-purch-tp">TP: 0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-store-purch">👁️</button>
@@ -285,15 +288,16 @@
               </div>
 
               <!-- 3C: Clinic Expenses Details -->
-              <div class="sub-section-module" id="mod-clinic-exp" data-sec-id="sec-clinic-exp" data-title="Clinic Petty Expenses" draggable="true">
+              <div class="sub-section-module" id="mod-clinic-exp" data-sec-id="sec-clinic-exp" data-title="Clinic Petty Expenses">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-clinic-exp" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Clinic Expenses Details</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-clinic-exp-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-clinic-exp">👁️</button>
@@ -329,15 +333,16 @@
             <div class="excel-col-panel col-us-cash col-subsections-container" data-col-id="col-3" data-col="3">
               
               <!-- 4A: US Total -->
-              <div class="sub-section-module" id="mod-us-total" data-sec-id="sec-us-total" data-title="US Total" draggable="true">
+              <div class="sub-section-module" id="mod-us-total" data-sec-id="sec-us-total" data-title="US Total">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-us-total" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">US Total</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-us-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-us-total">👁️</button>
@@ -371,15 +376,16 @@
               </div>
 
               <!-- 4B: Cash Breakdown -->
-              <div class="sub-section-module" id="mod-cash-breakdown" data-sec-id="sec-cash-breakdown" data-title="Cash Breakdown" draggable="true">
+              <div class="sub-section-module" id="mod-cash-breakdown" data-sec-id="sec-cash-breakdown" data-title="Cash Breakdown">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-cash-breakdown" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Cash Breakdown</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-cash-breakdown-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-cash-breakdown">👁️</button>
@@ -410,15 +416,16 @@
               </div>
 
               <!-- 4C: Home X Details -->
-              <div class="sub-section-module" id="mod-home-x" data-sec-id="sec-home-x" data-title="Home X (Expenses)" draggable="true">
+              <div class="sub-section-module" id="mod-home-x" data-sec-id="sec-home-x" data-title="Home X (Expenses)">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-home-x" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Home X (Expenses)</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-home-x-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-home-x">👁️</button>
@@ -454,15 +461,16 @@
             <div class="excel-col-panel col-staff col-subsections-container" data-col-id="col-4" data-col="4">
               
               <!-- 5A: Staff & Vendors with Reason Column -->
-              <div class="sub-section-module" id="mod-staff-vendors" data-sec-id="sec-staff-vendors" data-title="Staff & Vendors" draggable="true">
+              <div class="sub-section-module" id="mod-staff-vendors" data-sec-id="sec-staff-vendors" data-title="Staff & Vendors">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-staff-vendors" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Staff & Vendors (Name & Reason)</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-staff-vendors-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-staff-vendors">👁️</button>
@@ -491,15 +499,16 @@
               </div>
 
               <!-- 5B: Receivables -->
-              <div class="sub-section-module" id="mod-receivables" data-sec-id="sec-receivables" data-title="Receivables" draggable="true">
+              <div class="sub-section-module" id="mod-receivables" data-sec-id="sec-receivables" data-title="Receivables">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-receivables" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Receivables (Pending / Due)</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-receivables-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-receivables">👁️</button>
@@ -536,15 +545,16 @@
             <div class="excel-col-panel col-dental-misc col-subsections-container" data-col-id="col-5" data-col="5">
               
               <!-- 6A: Dental Exp -->
-              <div class="sub-section-module" id="mod-dental-exp" data-sec-id="sec-dental-exp" data-title="Dental Exp" draggable="true">
+              <div class="sub-section-module" id="mod-dental-exp" data-sec-id="sec-dental-exp" data-title="Dental Exp">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-dental-exp" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Dental Exp</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-dental-exp-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-dental-exp">👁️</button>
@@ -606,15 +616,16 @@
               </div>
 
               <!-- 6B: Store Exp -->
-              <div class="sub-section-module" id="mod-store-exp" data-sec-id="sec-store-exp" data-title="Store Exp" draggable="true">
+              <div class="sub-section-module" id="mod-store-exp" data-sec-id="sec-store-exp" data-title="Store Exp">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-store-exp" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Store Exp</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-store-exp-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-store-exp">👁️</button>
@@ -676,15 +687,16 @@
               </div>
 
               <!-- 6C: US Exp -->
-              <div class="sub-section-module" id="mod-us-exp" data-sec-id="sec-us-exp" data-title="US Exp" draggable="true">
+              <div class="sub-section-module" id="mod-us-exp" data-sec-id="sec-us-exp" data-title="US Exp">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-us-exp" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">US Exp</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-us-exp-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-us-exp">👁️</button>
@@ -719,15 +731,16 @@
             <!-- COLUMN BLOCK 7: CLINIC BILLS -->
             <div class="excel-col-panel col-bills col-subsections-container" data-col-id="col-6" data-col="6">
               
-              <div class="sub-section-module" id="mod-clinic-bills" data-sec-id="sec-clinic-bills" data-title="Clinic Bills" draggable="true">
+              <div class="sub-section-module" id="mod-clinic-bills" data-sec-id="sec-clinic-bills" data-title="Clinic Bills">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-clinic-bills" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">Clinic Bills</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-clinic-bills-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-clinic-bills">👁️</button>
@@ -763,15 +776,16 @@
               </div>
 
               <!-- 7B: SN Expenses (Special Tracked Expense Category) -->
-              <div class="sub-section-module" id="mod-sn-exp" data-sec-id="sec-sn-exp" data-title="SN Expenses" draggable="true">
+              <div class="sub-section-module" id="mod-sn-exp" data-sec-id="sec-sn-exp" data-title="SN Expenses">
                 <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-sn-exp" title="Click to collapse / expand">
                   <div class="header-title-box">
-                    <span class="drag-handle no-print" title="Drag to reorder / move">⋮⋮</span>
                     <span class="collapse-icon">▾</span>
                     <span class="section-title-text">SN Expenses</span>
                   </div>
                   <div class="header-actions-box">
                     <span class="panel-header-badge" id="badge-sn-exp-total">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
                     <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
                     <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
                     <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-sn-exp">👁️</button>

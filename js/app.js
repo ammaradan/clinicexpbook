@@ -114,6 +114,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (viewerBanner) {
             viewerBanner.style.display = 'none';
         }
+
+        // Hide Categories & Setup and Organize Sections in dropdown for Viewer
+        const tabSettings = document.getElementById('tab-settings');
+        const btnOrganize = document.getElementById('btn-organize-sections');
+        const sepDropdown = document.querySelector('.nav-dropdown-menu .dropdown-separator');
+        if (tabSettings) tabSettings.style.display = isViewer ? 'none' : '';
+        if (btnOrganize) btnOrganize.style.display = isViewer ? 'none' : '';
+        if (sepDropdown) sepDropdown.style.display = isViewer ? 'none' : '';
+
+        // If currently viewing settings in Viewer mode, redirect to daily sheet
+        if (isViewer && state.activeTab === 'settings') {
+            switchTab('view-daily');
+        }
     }
 
     function checkAppLock() {
@@ -1389,14 +1402,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const organizeBtn = document.getElementById('btn-organize-sections');
         if (organizeBtn && dropdown) {
-            organizeBtn.addEventListener('click', () => {
+            organizeBtn.addEventListener('click', (e) => {
                 dropdown.classList.remove('open');
                 if (dropdownBtn) dropdownBtn.setAttribute('aria-expanded', 'false');
+                if (isViewerRole()) {
+                    e.preventDefault();
+                    showToast('🔒 Organize Sections is restricted to Administrators.', 'warning');
+                }
             });
         }
     }
 
     function switchTab(viewId) {
+        if (viewId === 'view-settings' && isViewerRole()) {
+            showToast('🔒 Categories & Setup is restricted to Administrators.', 'warning');
+            return;
+        }
         if (state.activeTab === 'daily') {
             saveCurrentDay(false);
         }
@@ -1767,10 +1788,59 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initial layout application
         applySectionsLayout();
 
-        // 1. Module Move Left / Right buttons
+        // 1. Module Move Up / Down buttons within column
+        document.querySelectorAll('.btn-move-up').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isViewerRole()) {
+                    showToast('🔒 Reordering is locked in Viewer mode.', 'warning');
+                    return;
+                }
+                const mod = btn.closest('.sub-section-module');
+                if (!mod) return;
+                const secTitle = mod.dataset.title || 'Section';
+                const prevMod = mod.previousElementSibling;
+                if (prevMod && prevMod.classList.contains('sub-section-module')) {
+                    mod.parentElement.insertBefore(mod, prevMod);
+                    recordCurrentDomLayout();
+                    applySectionsLayout();
+                    showToast(`Moved "${secTitle}" up!`, 'info');
+                } else {
+                    showToast('Already at the top of this column!', 'info');
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-move-down').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isViewerRole()) {
+                    showToast('🔒 Reordering is locked in Viewer mode.', 'warning');
+                    return;
+                }
+                const mod = btn.closest('.sub-section-module');
+                if (!mod) return;
+                const secTitle = mod.dataset.title || 'Section';
+                const nextMod = mod.nextElementSibling;
+                if (nextMod && nextMod.classList.contains('sub-section-module')) {
+                    nextMod.after(mod);
+                    recordCurrentDomLayout();
+                    applySectionsLayout();
+                    showToast(`Moved "${secTitle}" down!`, 'info');
+                } else {
+                    showToast('Already at the bottom of this column!', 'info');
+                }
+            });
+        });
+
+        // 2. Module Move Left / Right buttons
         document.querySelectorAll('.btn-move-left').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (isViewerRole()) {
+                    showToast('🔒 Reordering is locked in Viewer mode.', 'warning');
+                    return;
+                }
                 const mod = btn.closest('.sub-section-module');
                 if (!mod) return;
                 const parentCol = mod.closest('.col-subsections-container');
@@ -1795,6 +1865,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.btn-move-right').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (isViewerRole()) {
+                    showToast('🔒 Reordering is locked in Viewer mode.', 'warning');
+                    return;
+                }
                 const mod = btn.closest('.sub-section-module');
                 if (!mod) return;
                 const parentCol = mod.closest('.col-subsections-container');
@@ -1816,10 +1890,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // 2. Module Hide Button (Eye icon)
+        // 3. Module Hide Button (Eye icon)
         document.querySelectorAll('.btn-hide-sec').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (isViewerRole()) {
+                    showToast('🔒 Layout editing is locked in Viewer mode.', 'warning');
+                    return;
+                }
                 const mod = btn.closest('.sub-section-module');
                 if (!mod) return;
                 const secTitle = mod.dataset.title || 'Section';
@@ -1831,86 +1909,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveSectionsLayout(layout);
                 applySectionsLayout();
                 showToast(`Hidden "${secTitle}". Restore anytime from "🗂️ Organize Sections".`, 'info');
-            });
-        });
-
-        // 3. Drag and Drop between and within columns
-        const modules = document.querySelectorAll('.sub-section-module');
-        const containers = document.querySelectorAll('.col-subsections-container');
-
-        modules.forEach(mod => {
-            mod.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', mod.id);
-                e.dataTransfer.effectAllowed = 'move';
-                mod.classList.add('is-dragging');
-            });
-
-            mod.addEventListener('dragend', () => {
-                mod.classList.remove('is-dragging');
-                document.querySelectorAll('.drag-over-top, .drag-over-bottom, .col-drag-over').forEach(el => {
-                    el.classList.remove('drag-over-top', 'drag-over-bottom', 'col-drag-over');
-                });
-            });
-
-            mod.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const rect = mod.getBoundingClientRect();
-                const isTop = (e.clientY - rect.top) < (rect.height / 2);
-                if (isTop) {
-                    mod.classList.add('drag-over-top');
-                    mod.classList.remove('drag-over-bottom');
-                } else {
-                    mod.classList.add('drag-over-bottom');
-                    mod.classList.remove('drag-over-top');
-                }
-            });
-
-            mod.addEventListener('dragleave', () => {
-                mod.classList.remove('drag-over-top', 'drag-over-bottom');
-            });
-
-            mod.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                mod.classList.remove('drag-over-top', 'drag-over-bottom');
-                const draggedId = e.dataTransfer.getData('text/plain');
-                const draggedEl = document.getElementById(draggedId);
-                if (!draggedEl || draggedEl === mod) return;
-
-                const rect = mod.getBoundingClientRect();
-                const isTop = (e.clientY - rect.top) < (rect.height / 2);
-                if (isTop) {
-                    mod.parentNode.insertBefore(draggedEl, mod);
-                } else {
-                    mod.parentNode.insertBefore(draggedEl, mod.nextSibling);
-                }
-                recordCurrentDomLayout();
-                showToast(`Section reordered!`, 'info');
-            });
-        });
-
-        containers.forEach(col => {
-            col.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                col.classList.add('col-drag-over');
-            });
-
-            col.addEventListener('dragleave', (e) => {
-                if (e.relatedTarget && col.contains(e.relatedTarget)) return;
-                col.classList.remove('col-drag-over');
-            });
-
-            col.addEventListener('drop', (e) => {
-                col.classList.remove('col-drag-over');
-                const draggedId = e.dataTransfer.getData('text/plain');
-                const draggedEl = document.getElementById(draggedId);
-                if (!draggedEl) return;
-                if (e.target === col || !e.target.closest('.sub-section-module')) {
-                    col.appendChild(draggedEl);
-                    recordCurrentDomLayout();
-                    showToast(`Moved section to column!`, 'info');
-                }
             });
         });
 

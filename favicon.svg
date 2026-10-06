@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="favGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="50%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="crossGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+    <filter id="favShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Badge -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#favGrad)" filter="url(#favShadow)" stroke="#38bdf8" stroke-width="1.2"/>
+  
+  <!-- Subtle Ledger Book Page Corner -->
+  <path d="M12 18 C12 14, 14 12, 18 12 L46 12 C50 12, 52 14, 52 18 L52 46 C52 50, 50 52, 46 52 L18 52 C14 52, 12 50, 12 46 Z" fill="#ffffff" opacity="0.12"/>
+  
+  <!-- Bold Medical Cross -->
+  <path d="M26 15 h12 v11 h11 v12 h-11 v11 h-12 v-11 h-11 v-12 h11 Z" fill="url(#crossGrad)"/>
+  
+  <!-- Medical Pulse / Stethoscope Accent Line in Center -->
+  <path d="M21 32 h4.5 l2.2 -6.5 l3.6 13 l3.2 -9.5 l2 3 h6.5" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
