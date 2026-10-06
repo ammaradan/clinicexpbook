@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 roleBadge.style.color = '#b45309';
                 roleBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
                 roleBadge.innerHTML = '👁️ Viewer (Read-Only)';
-                roleBadge.title = 'Logged in with passcode 1963. Data entry and modification are disabled.';
+                roleBadge.title = 'Logged in as Viewer. Data entry and modification are disabled.';
             } else {
                 roleBadge.style.display = 'inline-flex';
                 roleBadge.style.background = 'rgba(37, 99, 235, 0.12)';
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     viewerBanner.innerHTML = `
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span style="font-size: 1rem;">🔒</span>
-                            <span><strong>Read-Only Mode:</strong> Logged in via Viewer Passcode (1963). Full visibility & report generation enabled; data editing is locked.</span>
+                            <span><strong>Read-Only Mode:</strong> Logged in as Viewer. Full visibility & report generation enabled; data editing is locked.</span>
                         </div>
                     `;
                     sheetContainer.insertBefore(viewerBanner, sheetContainer.firstChild);
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyUserRole('viewer');
             if (lockOverlay) lockOverlay.style.display = 'none';
             if (errorMsg) errorMsg.style.display = 'none';
-            showToast('👁️ Viewer access granted (Passcode: 1963) — Read-Only Mode!', 'info');
+            showToast('👁️ Viewer access granted — Read-Only Mode!', 'info');
             return true;
         } else {
             if (errorMsg) errorMsg.style.display = 'block';
@@ -1349,17 +1349,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (dropdownBtn && dropdown) {
             dropdownBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                dropdown.classList.toggle('open');
-                dropdownBtn.setAttribute('aria-expanded', dropdown.classList.contains('open'));
+                const isOpen = dropdown.classList.toggle('open');
+                dropdownBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             });
 
-            document.addEventListener('click', (e) => {
+            // Close when tapping or clicking outside
+            const handleOutside = (e) => {
                 if (!dropdown.contains(e.target)) {
                     dropdown.classList.remove('open');
                     dropdownBtn.setAttribute('aria-expanded', 'false');
                 }
-            });
+            };
+            document.addEventListener('click', handleOutside);
+            document.addEventListener('touchend', handleOutside, { passive: true });
 
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && dropdown.classList.contains('open')) {
@@ -1382,6 +1386,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        const organizeBtn = document.getElementById('btn-organize-sections');
+        if (organizeBtn && dropdown) {
+            organizeBtn.addEventListener('click', () => {
+                dropdown.classList.remove('open');
+                if (dropdownBtn) dropdownBtn.setAttribute('aria-expanded', 'false');
+            });
+        }
     }
 
     function switchTab(viewId) {
