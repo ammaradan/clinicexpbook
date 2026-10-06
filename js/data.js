@@ -436,6 +436,17 @@ class ClinicDataManager {
         }
 
         if (!dayData.snExpenseDetails) dayData.snExpenseDetails = [];
+        if (!dayData.dentalStaffPayments) {
+            dayData.dentalStaffPayments = {
+                'Shakila': { amount: 0, reason: '' },
+                'Aleesha': { amount: 0, reason: '' }
+            };
+        }
+        if (!dayData.storeStaffPayments) {
+            dayData.storeStaffPayments = {
+                'Amir Shah': { amount: 0, reason: '' }
+            };
+        }
         this.ensureStandardDebits(dayData);
         this.syncStaffPaymentsWithDebits(dayData);
         return dayData;
@@ -700,10 +711,17 @@ class ClinicDataManager {
                 { item: '', amount: 0 },
                 { item: '', amount: 0 }
             ],
+            dentalStaffPayments: {
+                'Shakila': { amount: 0, reason: '' },
+                'Aleesha': { amount: 0, reason: '' }
+            },
             storeExpenseDetails: [
                 { item: '', amount: 0 },
                 { item: '', amount: 0 }
             ],
+            storeStaffPayments: {
+                'Amir Shah': { amount: 0, reason: '' }
+            },
             usExpenseDetails: [
                 { item: '', amount: 0 },
                 { item: '', amount: 0 }
@@ -759,6 +777,7 @@ class ClinicDataManager {
         if (!dateKey) {
             dateKey = new Date().toISOString().split('T')[0];
         }
+        dateKey = String(dateKey);
         let res = null;
         if (this.days[dateKey]) {
             res = JSON.parse(JSON.stringify(this.days[dateKey]));
@@ -1190,6 +1209,7 @@ class ClinicDataManager {
             // 3. Specific Staff Member
             else if (catKeyLower.startsWith('staff:')) {
                 const targetStaff = categoryKey.replace(/^staff:/i, '').trim().toLowerCase();
+                // Check in General Staff Payments
                 if (dayData.staffPayments) {
                     Object.entries(dayData.staffPayments).forEach(([staffName, pObj]) => {
                         if (staffName.toLowerCase() === targetStaff) {
@@ -1201,6 +1221,46 @@ class ClinicDataManager {
                                     category: `Staff: ${staffName}`,
                                     item: staffName,
                                     description: reason || `Payment to ${staffName}`,
+                                    type: 'Debit (Expense)',
+                                    amount
+                                });
+                                grandTotal += amount;
+                            }
+                        }
+                    });
+                }
+                // Check in Dental Staff Payments
+                if (dayData.dentalStaffPayments) {
+                    Object.entries(dayData.dentalStaffPayments).forEach(([staffName, pObj]) => {
+                        if (staffName.toLowerCase() === targetStaff) {
+                            const amount = typeof pObj === 'number' ? pObj : (pObj?.amount || 0);
+                            const reason = typeof pObj === 'object' && pObj?.reason ? pObj.reason : 'Dental Staff Pay';
+                            if (amount > 0) {
+                                rows.push({
+                                    date: formattedDate,
+                                    category: `Dental Staff: ${staffName}`,
+                                    item: staffName,
+                                    description: reason ? `Dental Staff Pay: ${reason}` : `Dental Staff Payment: ${staffName}`,
+                                    type: 'Debit (Expense)',
+                                    amount
+                                });
+                                grandTotal += amount;
+                            }
+                        }
+                    });
+                }
+                // Check in Store Staff Payments
+                if (dayData.storeStaffPayments) {
+                    Object.entries(dayData.storeStaffPayments).forEach(([staffName, pObj]) => {
+                        if (staffName.toLowerCase() === targetStaff) {
+                            const amount = typeof pObj === 'number' ? pObj : (pObj?.amount || 0);
+                            const reason = typeof pObj === 'object' && pObj?.reason ? pObj.reason : 'Store Staff Pay';
+                            if (amount > 0) {
+                                rows.push({
+                                    date: formattedDate,
+                                    category: `Store Staff: ${staffName}`,
+                                    item: staffName,
+                                    description: reason ? `Store Staff Pay: ${reason}` : `Store Staff Payment: ${staffName}`,
                                     type: 'Debit (Expense)',
                                     amount
                                 });
@@ -1362,6 +1422,24 @@ class ClinicDataManager {
                         }
                     });
                 }
+                if (dayData.dentalStaffPayments) {
+                    Object.entries(dayData.dentalStaffPayments).forEach(([sName, pObj]) => {
+                        const amt = typeof pObj === 'number' ? pObj : (parseFloat(pObj?.amount) || 0);
+                        const reason = typeof pObj === 'object' && pObj?.reason ? pObj.reason : '';
+                        if (amt > 0) {
+                            hadDd = true;
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Dental Exp',
+                                item: `Staff Pay: ${sName}`,
+                                description: reason ? `Dental Staff Pay (${sName}): ${reason}` : `Dental Staff Pay (${sName})`,
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    });
+                }
                 if (!hadDd) {
                     const match = (dayData.debits || []).find(d => {
                         const n = (d.name || '').toLowerCase();
@@ -1379,6 +1457,26 @@ class ClinicDataManager {
                         });
                         grandTotal += amt;
                     }
+                }
+            }
+            // 6b. Dental Staff Pay Only
+            else if (catKeyLower === 'dental_staff' || catKeyLower === 'dental_staff_pay') {
+                if (dayData.dentalStaffPayments) {
+                    Object.entries(dayData.dentalStaffPayments).forEach(([sName, pObj]) => {
+                        const amt = typeof pObj === 'number' ? pObj : (parseFloat(pObj?.amount) || 0);
+                        const reason = typeof pObj === 'object' && pObj?.reason ? pObj.reason : '';
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Dental Staff Pay',
+                                item: sName,
+                                description: reason ? `Dental Staff Payment (${sName}): ${reason}` : `Dental Staff Payment: ${sName}`,
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    });
                 }
             }
             // 7. Ultrasound (US) Expense
@@ -1800,6 +1898,24 @@ class ClinicDataManager {
                         }
                     });
                 }
+                if (dayData.storeStaffPayments) {
+                    Object.entries(dayData.storeStaffPayments).forEach(([sName, pObj]) => {
+                        const amt = typeof pObj === 'number' ? pObj : (parseFloat(pObj?.amount) || 0);
+                        const reason = typeof pObj === 'object' && pObj?.reason ? pObj.reason : '';
+                        if (amt > 0) {
+                            hadSe = true;
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Store Exp',
+                                item: `Staff Pay: ${sName}`,
+                                description: reason ? `Store Staff Pay (${sName}): ${reason}` : `Store Staff Pay (${sName})`,
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    });
+                }
                 if (!hadSe) {
                     const match = (dayData.debits || []).find(d => {
                         const n = (d.name || '').toLowerCase();
@@ -1817,6 +1933,26 @@ class ClinicDataManager {
                         });
                         grandTotal += amt;
                     }
+                }
+            }
+            // 20b. Store Staff Pay Only
+            else if (catKeyLower === 'store_staff' || catKeyLower === 'store_staff_pay') {
+                if (dayData.storeStaffPayments) {
+                    Object.entries(dayData.storeStaffPayments).forEach(([sName, pObj]) => {
+                        const amt = typeof pObj === 'number' ? pObj : (parseFloat(pObj?.amount) || 0);
+                        const reason = typeof pObj === 'object' && pObj?.reason ? pObj.reason : '';
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Store Staff Pay',
+                                item: sName,
+                                description: reason ? `Store Staff Payment (${sName}): ${reason}` : `Store Staff Payment: ${sName}`,
+                                type: 'Debit (Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    });
                 }
             }
             // 21. Dispensary Purchases

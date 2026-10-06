@@ -2639,3 +2639,141 @@ input[type="number"] {
   border-color: #0284c7;
   color: #ffffff;
 }
+
+/* ==========================================================
+   SUB-SECTION TABS (Dental & Store Staff Pay Tabs)
+   ========================================================== */
+.module-subtabs {
+  display: flex;
+  gap: 6px;
+  padding: 5px 8px;
+  background: rgba(15, 23, 42, 0.04);
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+}
+
+.btn-subtab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-subtab:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text-main);
+}
+
+.btn-subtab.active {
+  background: #ffffff;
+  color: var(--color-primary);
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.subtab-badge {
+  font-size: 0.65rem;
+  background: rgba(15, 23, 42, 0.08);
+  color: #334155;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.btn-subtab.active .subtab-badge {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--color-primary);
+}
+
+/* ==========================================================
+   VIEWER / READ-ONLY ROLE SYSTEM (PASSCODE: 1963)
+   ========================================================== */
+body.role-viewer .del-debit-row-btn,
+body.role-viewer .del-credit-row-btn,
+body.role-viewer .del-detail-row-btn,
+body.role-viewer .btn-clear-staff-pay,
+body.role-viewer .btn-clear-detail-staff,
+body.role-viewer #save-day-btn,
+body.role-viewer #btn-add-debit-row,
+body.role-viewer #btn-add-credit-row,
+body.role-viewer #btn-add-dental-row,
+body.role-viewer #btn-add-store-exp-row,
+body.role-viewer #btn-add-disp-purch-row,
+body.role-viewer #btn-add-store-purch-row,
+body.role-viewer #btn-add-clinic-exp-row,
+body.role-viewer #btn-add-us-detail-row,
+body.role-viewer #btn-add-cash-item-row,
+body.role-viewer #btn-add-home-exp-row,
+body.role-viewer #btn-add-us-exp-row,
+body.role-viewer #btn-add-clinic-bill-row,
+body.role-viewer #btn-add-receivable-row,
+body.role-viewer #btn-add-sn-exp-row,
+body.role-viewer #btn-add-expense-cat,
+body.role-viewer #btn-add-income-cat,
+body.role-viewer #btn-add-staff,
+body.role-viewer #btn-save-settings,
+body.role-viewer #btn-change-password,
+body.role-viewer .edit-cat-btn,
+body.role-viewer .del-cat-btn,
+body.role-viewer .del-inc-btn,
+body.role-viewer .del-staff-btn {
+  display: none !important;
+}
+
+body.role-viewer .excel-table input.cell-input,
+body.role-viewer .excel-table input.num-input,
+body.role-viewer .excel-table input[type="text"],
+body.role-viewer .excel-table input[type="number"],
+body.role-viewer .debit-amt-input,
+body.role-viewer .credit-amt-input,
+body.role-viewer .dp-item,
+body.role-viewer .dp-amt,
+body.role-viewer .sp-vendor,
+body.role-viewer .sp-tp,
+body.role-viewer .sp-retail,
+body.role-viewer .ce-item,
+body.role-viewer .ce-amt,
+body.role-viewer .us-rec-amt,
+body.role-viewer .cb-item,
+body.role-viewer .cb-amt,
+body.role-viewer .hx-item,
+body.role-viewer .hx-amt,
+body.role-viewer .staff-reason-input,
+body.role-viewer .staff-pay-amt,
+body.role-viewer .dental-staff-reason,
+body.role-viewer .dental-staff-amt,
+body.role-viewer .store-staff-reason,
+body.role-viewer .store-staff-amt,
+body.role-viewer .rec-party,
+body.role-viewer .rec-detail,
+body.role-viewer .rec-amt,
+body.role-viewer .de-item,
+body.role-viewer .de-amt,
+body.role-viewer .se-item,
+body.role-viewer .se-amt,
+body.role-viewer .use-item,
+body.role-viewer .use-amt,
+body.role-viewer .sn-item,
+body.role-viewer .sn-amt,
+body.role-viewer .bill-amt-input,
+body.role-viewer #settings-clinic-name,
+body.role-viewer #settings-currency,
+body.role-viewer #settings-stock-rec-mode,
+body.role-viewer #setting-input-prev-stock,
+body.role-viewer #setting-input-present-stock,
+body.role-viewer #input-prev-stock-retail,
+body.role-viewer #input-present-stock-retail {
+  pointer-events: none !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  user-select: text;
+}

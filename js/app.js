@@ -28,10 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ==========================================================
-    // SECURITY AUTHENTICATION / APP LOCK SYSTEM
+    // SECURITY AUTHENTICATION / APP LOCK SYSTEM (ADMIN & VIEWER ROLES)
     // ==========================================================
     const SECURITY_STORAGE_KEY = 'clinic_app_security_pin';
     const DEFAULT_PIN = '266270';
+    const VIEWER_PIN = '1963';
+    const ROLE_STORAGE_KEY = 'clinic_app_user_role';
 
     function getStoredPassword() {
         return localStorage.getItem(SECURITY_STORAGE_KEY) || DEFAULT_PIN;
@@ -39,6 +41,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setStoredPassword(newPin) {
         localStorage.setItem(SECURITY_STORAGE_KEY, newPin);
+    }
+
+    function getUserRole() {
+        return sessionStorage.getItem(ROLE_STORAGE_KEY) || 'admin';
+    }
+
+    function isViewerRole() {
+        return getUserRole() === 'viewer';
+    }
+
+    function applyUserRole(role) {
+        sessionStorage.setItem(ROLE_STORAGE_KEY, role);
+        const isViewer = role === 'viewer';
+
+        if (isViewer) {
+            document.body.classList.add('role-viewer');
+        } else {
+            document.body.classList.remove('role-viewer');
+        }
+
+        // Header role indicator badge
+        let roleBadge = document.getElementById('user-role-badge');
+        if (!roleBadge) {
+            const navActions = document.querySelector('.nav-actions');
+            if (navActions) {
+                roleBadge = document.createElement('span');
+                roleBadge.id = 'user-role-badge';
+                roleBadge.className = 'auto-save-pill';
+                roleBadge.style.cssText = 'font-weight: 700; padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;';
+                navActions.insertBefore(roleBadge, navActions.firstChild);
+            }
+        }
+        if (roleBadge) {
+            if (isViewer) {
+                roleBadge.style.display = 'inline-flex';
+                roleBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+                roleBadge.style.color = '#b45309';
+                roleBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+                roleBadge.innerHTML = '👁️ Viewer (Read-Only)';
+                roleBadge.title = 'Logged in with passcode 1963. Data entry and modification are disabled.';
+            } else {
+                roleBadge.style.display = 'inline-flex';
+                roleBadge.style.background = 'rgba(37, 99, 235, 0.12)';
+                roleBadge.style.color = '#1d4ed8';
+                roleBadge.style.border = '1px solid rgba(37, 99, 235, 0.25)';
+                roleBadge.innerHTML = '👑 Admin (Full Access)';
+                roleBadge.title = 'Full administrator privileges.';
+            }
+        }
+
+        // Daily sheet banner for viewer mode
+        let viewerBanner = document.getElementById('viewer-readonly-banner');
+        if (isViewer) {
+            if (!viewerBanner) {
+                const sheetContainer = document.querySelector('.daily-sheet-container');
+                if (sheetContainer) {
+                    viewerBanner = document.createElement('div');
+                    viewerBanner.id = 'viewer-readonly-banner';
+                    viewerBanner.style.cssText = 'background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 0.45rem 0.9rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;';
+                    viewerBanner.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 1rem;">🔒</span>
+                            <span><strong>Read-Only Mode:</strong> Logged in via Viewer Passcode (1963). Full visibility & report generation enabled; data editing is locked.</span>
+                        </div>
+                    `;
+                    sheetContainer.insertBefore(viewerBanner, sheetContainer.firstChild);
+                }
+            } else {
+                viewerBanner.style.display = 'flex';
+            }
+        } else if (viewerBanner) {
+            viewerBanner.style.display = 'none';
+        }
     }
 
     function checkAppLock() {
@@ -56,21 +131,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errorMsg) errorMsg.style.display = 'none';
         } else {
             if (lockOverlay) lockOverlay.style.display = 'none';
+            applyUserRole(getUserRole());
         }
     }
 
     function unlockApp(enteredPassword) {
-        const correct = getStoredPassword();
+        const adminPin = getStoredPassword();
+        const cleanPwd = (enteredPassword || '').trim();
         const lockOverlay = document.getElementById('app-lock-screen');
         const pwdInput = document.getElementById('lock-password-input');
         const errorMsg = document.getElementById('lock-error-msg');
         const lockCard = document.querySelector('.lock-card');
 
-        if (enteredPassword === correct) {
+        if (cleanPwd === adminPin) {
             sessionStorage.setItem('clinic_app_unlocked', 'true');
+            applyUserRole('admin');
             if (lockOverlay) lockOverlay.style.display = 'none';
             if (errorMsg) errorMsg.style.display = 'none';
-            showToast('System unlocked successfully!', 'success');
+            showToast('🔓 Admin access granted — Full editing enabled!', 'success');
+            return true;
+        } else if (cleanPwd === VIEWER_PIN) {
+            sessionStorage.setItem('clinic_app_unlocked', 'true');
+            applyUserRole('viewer');
+            if (lockOverlay) lockOverlay.style.display = 'none';
+            if (errorMsg) errorMsg.style.display = 'none';
+            showToast('👁️ Viewer access granted (Passcode: 1963) — Read-Only Mode!', 'info');
             return true;
         } else {
             if (errorMsg) errorMsg.style.display = 'block';
@@ -117,6 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnLockApp) {
             btnLockApp.addEventListener('click', () => {
                 sessionStorage.removeItem('clinic_app_unlocked');
+                sessionStorage.removeItem(ROLE_STORAGE_KEY);
+                applyUserRole('admin');
                 checkAppLock();
                 showToast('Application locked.', 'info');
             });
@@ -716,7 +803,21 @@ document.addEventListener('DOMContentLoaded', () => {
         tbodyStaffVendors: document.getElementById('tbody-staff-vendors'),
         tbodyReceivables: document.getElementById('tbody-receivables'),
         tbodyDental: document.getElementById('tbody-dental-details'),
+        tbodyDentalStaff: document.getElementById('tbody-dental-staff'),
+        badgeDentalStaffSum: document.getElementById('badge-dental-staff-sum'),
+        btnTabDentalItems: document.getElementById('btn-tab-dental-items'),
+        btnTabDentalStaff: document.getElementById('btn-tab-dental-staff'),
+        panelDentalItems: document.getElementById('panel-dental-items'),
+        panelDentalStaff: document.getElementById('panel-dental-staff'),
+
         tbodyStoreExp: document.getElementById('tbody-store-exp-details'),
+        tbodyStoreStaff: document.getElementById('tbody-store-staff'),
+        badgeStoreStaffSum: document.getElementById('badge-store-staff-sum'),
+        btnTabStoreItems: document.getElementById('btn-tab-store-items'),
+        btnTabStoreStaff: document.getElementById('btn-tab-store-staff'),
+        panelStoreItems: document.getElementById('panel-store-items'),
+        panelStoreStaff: document.getElementById('panel-store-staff'),
+
         tbodyUSExp: document.getElementById('tbody-us-exp-details'),
         tbodyClinicBills: document.getElementById('tbody-clinic-bills'),
         tbodySNExp: document.getElementById('tbody-sn-exp-details'),
@@ -802,6 +903,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveCurrentDay(showToastMsg = true) {
+        if (isViewerRole()) {
+            if (showToastMsg) {
+                showToast('🔒 Viewer Mode: Changes are read-only and cannot be saved.', 'warning');
+            }
+            return;
+        }
         if (autoSaveTimeout) {
             clearTimeout(autoSaveTimeout);
             autoSaveTimeout = null;
@@ -819,6 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function scheduleAutoSave() {
+        if (isViewerRole()) return;
         updateAutoSaveIndicator('saving');
         if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
         autoSaveTimeout = setTimeout(() => {
@@ -2108,11 +2216,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // 10. Receivables
         renderReceivablesTable(data);
 
-        // 11. Dental Exp Details
+        // 11. Dental Exp Details & Staff Pay
         renderDentalDetailsTable(data);
+        renderDentalStaffTable(data);
 
-        // 12. Store Exp Details
+        // 12. Store Exp Details & Staff Pay
         renderStoreExpDetailsTable(data);
+        renderStoreStaffTable(data);
 
         // 13. US Exp Details
         renderUSExpDetailsTable(data);
@@ -2656,6 +2766,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- PANEL 6A-2: DENTAL STAFF PAY (Shakila & Aleesha) ---
+    function renderDentalStaffTable(data) {
+        if (!elements.tbodyDentalStaff) return;
+        elements.tbodyDentalStaff.innerHTML = '';
+        if (!data.dentalStaffPayments) data.dentalStaffPayments = {};
+        const staffList = ['Shakila', 'Aleesha'];
+        staffList.forEach(name => {
+            if (!data.dentalStaffPayments[name]) {
+                data.dentalStaffPayments[name] = { amount: 0, reason: '' };
+            }
+            const info = data.dentalStaffPayments[name];
+            const amt = typeof info === 'object' && info !== null ? (info.amount || 0) : (parseFloat(info) || 0);
+            const rsn = typeof info === 'object' && info !== null ? (info.reason || '') : '';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight: 600; color: var(--text-primary); vertical-align: middle;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 0.8rem;">👩‍⚕️</span>
+                        <span>${escapeHtml(name)}</span>
+                    </div>
+                </td>
+                <td>
+                    <input type="text" class="cell-input de-staff-note dental-staff-reason" value="${escapeHtml(rsn)}" placeholder="Salary / Advance / Note">
+                </td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <input type="number" step="any" class="cell-input num-input de-staff-amt dental-staff-amt" value="${amt}">
+                </td>
+            `;
+            const noteInp = tr.querySelector('.de-staff-note');
+            const amtInp = tr.querySelector('.de-staff-amt');
+            if (noteInp) {
+                noteInp.oninput = (e) => {
+                    if (typeof data.dentalStaffPayments[name] !== 'object' || data.dentalStaffPayments[name] === null) {
+                        data.dentalStaffPayments[name] = { amount: amt, reason: '' };
+                    }
+                    data.dentalStaffPayments[name].reason = e.target.value;
+                    scheduleAutoSave();
+                };
+            }
+            if (amtInp) {
+                amtInp.oninput = (e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    if (typeof data.dentalStaffPayments[name] !== 'object' || data.dentalStaffPayments[name] === null) {
+                        data.dentalStaffPayments[name] = { amount: 0, reason: rsn };
+                    }
+                    data.dentalStaffPayments[name].amount = val;
+                    recalculateAll();
+                    scheduleAutoSave();
+                };
+            }
+            elements.tbodyDentalStaff.appendChild(tr);
+        });
+    }
+
     // --- PANEL 6B: STORE EXP DETAILS ---
     function renderStoreExpDetailsTable(data) {
         elements.tbodyStoreExp.innerHTML = '';
@@ -2691,6 +2856,61 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
             elements.tbodyStoreExp.appendChild(tr);
+        });
+    }
+
+    // --- PANEL 6B-2: STORE STAFF PAY (Amir Shah) ---
+    function renderStoreStaffTable(data) {
+        if (!elements.tbodyStoreStaff) return;
+        elements.tbodyStoreStaff.innerHTML = '';
+        if (!data.storeStaffPayments) data.storeStaffPayments = {};
+        const staffList = ['Amir Shah'];
+        staffList.forEach(name => {
+            if (!data.storeStaffPayments[name]) {
+                data.storeStaffPayments[name] = { amount: 0, reason: '' };
+            }
+            const info = data.storeStaffPayments[name];
+            const amt = typeof info === 'object' && info !== null ? (info.amount || 0) : (parseFloat(info) || 0);
+            const rsn = typeof info === 'object' && info !== null ? (info.reason || '') : '';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight: 600; color: var(--text-primary); vertical-align: middle;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 0.8rem;">👨‍⚕️</span>
+                        <span>${escapeHtml(name)}</span>
+                    </div>
+                </td>
+                <td>
+                    <input type="text" class="cell-input se-staff-note store-staff-reason" value="${escapeHtml(rsn)}" placeholder="Salary / Advance / Note">
+                </td>
+                <td class="num-cell" style="padding: 1px 4px;">
+                    <input type="number" step="any" class="cell-input num-input se-staff-amt store-staff-amt" value="${amt}">
+                </td>
+            `;
+            const noteInp = tr.querySelector('.se-staff-note');
+            const amtInp = tr.querySelector('.se-staff-amt');
+            if (noteInp) {
+                noteInp.oninput = (e) => {
+                    if (typeof data.storeStaffPayments[name] !== 'object' || data.storeStaffPayments[name] === null) {
+                        data.storeStaffPayments[name] = { amount: amt, reason: '' };
+                    }
+                    data.storeStaffPayments[name].reason = e.target.value;
+                    scheduleAutoSave();
+                };
+            }
+            if (amtInp) {
+                amtInp.oninput = (e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    if (typeof data.storeStaffPayments[name] !== 'object' || data.storeStaffPayments[name] === null) {
+                        data.storeStaffPayments[name] = { amount: 0, reason: rsn };
+                    }
+                    data.storeStaffPayments[name].amount = val;
+                    recalculateAll();
+                    scheduleAutoSave();
+                };
+            }
+            elements.tbodyStoreStaff.appendChild(tr);
         });
     }
 
@@ -2881,16 +3101,38 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.badgeReceivablesTotal.textContent = formatNumber(sumReceivables);
         setDebitAutoAmount('receivables', sumReceivables);
 
-        // 9. Dental Exp Details -> Auto updates Debit C12
-        let sumDental = (data.dentalDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+        // 9. Dental Exp Details + Staff Payments -> Auto updates Debit C12
+        let sumDentalItems = (data.dentalDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+        let sumDentalStaff = 0;
+        if (data.dentalStaffPayments) {
+            Object.values(data.dentalStaffPayments).forEach(info => {
+                const amt = typeof info === 'object' && info !== null ? (parseFloat(info.amount) || 0) : (parseFloat(info) || 0);
+                sumDentalStaff += amt;
+            });
+        }
+        let sumDental = sumDentalItems + sumDentalStaff;
         elements.subtotalDentalExp.textContent = formatNumber(sumDental);
         elements.badgeDentalExpTotal.textContent = formatNumber(sumDental);
+        if (elements.badgeDentalStaffSum) {
+            elements.badgeDentalStaffSum.textContent = formatNumber(sumDentalStaff);
+        }
         setDebitAutoAmount('dental_expenses', sumDental);
 
-        // 10. Store Exp Details -> Auto updates Debit C13
-        let sumStoreExp = (data.storeExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+        // 10. Store Exp Details + Staff Payments -> Auto updates Debit C13
+        let sumStoreItems = (data.storeExpenseDetails || []).reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+        let sumStoreStaff = 0;
+        if (data.storeStaffPayments) {
+            Object.values(data.storeStaffPayments).forEach(info => {
+                const amt = typeof info === 'object' && info !== null ? (parseFloat(info.amount) || 0) : (parseFloat(info) || 0);
+                sumStoreStaff += amt;
+            });
+        }
+        let sumStoreExp = sumStoreItems + sumStoreStaff;
         elements.subtotalStoreExp.textContent = formatNumber(sumStoreExp);
         elements.badgeStoreExpTotal.textContent = formatNumber(sumStoreExp);
+        if (elements.badgeStoreStaffSum) {
+            elements.badgeStoreStaffSum.textContent = formatNumber(sumStoreStaff);
+        }
         setDebitAutoAmount('store_expenses', sumStoreExp);
 
         // 11. US Exp Details -> Auto updates Debit C11
@@ -3230,6 +3472,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 recalculateAll();
                 scheduleAutoSave();
                 showToast('Added row to SN Expenses', 'info');
+            });
+        }
+
+        // Subtabs: Dental Expense (Items vs Staff Pay)
+        if (elements.btnTabDentalItems && elements.btnTabDentalStaff) {
+            elements.btnTabDentalItems.addEventListener('click', () => {
+                elements.btnTabDentalItems.classList.add('active');
+                elements.btnTabDentalStaff.classList.remove('active');
+                if (elements.panelDentalItems) elements.panelDentalItems.style.display = 'block';
+                if (elements.panelDentalStaff) elements.panelDentalStaff.style.display = 'none';
+            });
+            elements.btnTabDentalStaff.addEventListener('click', () => {
+                elements.btnTabDentalStaff.classList.add('active');
+                elements.btnTabDentalItems.classList.remove('active');
+                if (elements.panelDentalStaff) elements.panelDentalStaff.style.display = 'block';
+                if (elements.panelDentalItems) elements.panelDentalItems.style.display = 'none';
+            });
+        }
+
+        // Subtabs: Store Expense (Items vs Staff Pay)
+        if (elements.btnTabStoreItems && elements.btnTabStoreStaff) {
+            elements.btnTabStoreItems.addEventListener('click', () => {
+                elements.btnTabStoreItems.classList.add('active');
+                elements.btnTabStoreStaff.classList.remove('active');
+                if (elements.panelStoreItems) elements.panelStoreItems.style.display = 'block';
+                if (elements.panelStoreStaff) elements.panelStoreStaff.style.display = 'none';
+            });
+            elements.btnTabStoreStaff.addEventListener('click', () => {
+                elements.btnTabStoreStaff.classList.add('active');
+                elements.btnTabStoreItems.classList.remove('active');
+                if (elements.panelStoreStaff) elements.panelStoreStaff.style.display = 'block';
+                if (elements.panelStoreItems) elements.panelStoreItems.style.display = 'none';
             });
         }
     }
@@ -4539,8 +4813,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="ecg">${escapeHtml(clinicDB.getCategoryName('income', 'ecg', 'ECG Income'))}</option>
                     <option value="us_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'us_expenses', 'US (Ultrasound) Expense'))}</option>
                     <option value="us_inc">${escapeHtml(clinicDB.getCategoryName('income', 'us_inc', 'US (Ultrasound) Income'))}</option>
-                    <option value="dental_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'dental_expenses', 'Dental Expense'))}</option>
-                    <option value="store_exp">${escapeHtml(clinicDB.getCategoryName('expense', 'store_expenses', 'Store Exp'))}</option>
+                    <option value="dental_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'dental_expenses', 'Dental Expense'))} (Combined Items + Staff)</option>
+                    <option value="dental_staff">Dental Staff Pay (Shakila, Aleesha)</option>
+                    <option value="store_exp">${escapeHtml(clinicDB.getCategoryName('expense', 'store_expenses', 'Store Exp'))} (Combined Items + Staff)</option>
+                    <option value="store_staff">Store Staff Pay (Amir Shah)</option>
                     <option value="sn_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'sn_expenses', 'SN Expenses (Breakdown)'))}</option>
                     <option value="account_ac">${escapeHtml(clinicDB.getCategoryName('expense', 'account_ac', 'A/C (Account Transfers / Deposits)'))}</option>
                     <option value="daraz_cash">${escapeHtml(clinicDB.getCategoryName('income', 'daraz_cash', 'Daraz Cash (Opening Balance)'))}</option>
@@ -4553,7 +4829,12 @@ document.addEventListener('DOMContentLoaded', () => {
             staffList.forEach(s => {
                 optHtml += `<option value="staff:${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`;
             });
-            optHtml += `</optgroup>`;
+            optHtml += `</optgroup>
+                <optgroup label="Dental & Store Staff">
+                    <option value="staff:Shakila">Shakila (Dental Staff)</option>
+                    <option value="staff:Aleesha">Aleesha (Dental Staff)</option>
+                    <option value="staff:Amir Shah">Amir Shah (Store Staff)</option>
+                </optgroup>`;
 
             const customExpenses = (clinicDB.categories?.expense || []).filter(c => !c.system);
             const customIncomes = (clinicDB.categories?.income || []).filter(c => !c.system);

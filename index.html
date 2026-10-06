@@ -551,26 +551,57 @@
                   </div>
                 </div>
                 <div class="collapsible-body" id="sec-dental-exp">
-                  <table class="excel-table">
-                    <thead>
-                      <tr>
-                        <th style="width: 55%;">Dental Item / Note</th>
-                        <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tbody-dental-details"></tbody>
+                  <!-- Dental Subtabs: Items vs Staff Pay -->
+                  <div class="module-subtabs no-print">
+                    <button type="button" class="btn-subtab active" id="btn-tab-dental-items">
+                      <span>📋</span> Items
+                    </button>
+                    <button type="button" class="btn-subtab" id="btn-tab-dental-staff">
+                      <span>👥</span> Staff Pay <span class="subtab-badge" id="badge-dental-staff-sum">0</span>
+                    </button>
+                  </div>
+
+                  <!-- Tab 1: Dental Expense Items -->
+                  <div id="panel-dental-items">
+                    <table class="excel-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 55%;">Dental Item / Note</th>
+                          <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-dental-details"></tbody>
+                    </table>
+                    <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                        + Add Dental Item
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tab 2: Dental Staff Pay (Shakila & Aleesha) -->
+                  <div id="panel-dental-staff" style="display: none;">
+                    <table class="excel-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 36%;">Staff Member</th>
+                          <th style="width: 38%;">Reason / Note</th>
+                          <th class="num-cell" style="width: 26%;">Amount (Rs.)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-dental-staff"></tbody>
+                    </table>
+                  </div>
+
+                  <!-- Combined Total Footer -->
+                  <table class="excel-table" style="margin-top: 0; border-top: 1px solid var(--border-color);">
                     <tfoot>
                       <tr class="excel-subtotal-row">
-                        <td>Total Dental Exp</td>
-                        <td class="num-cell" id="subtotal-dental-exp">0</td>
+                        <td style="font-weight: 700;">Total Dental Exp</td>
+                        <td class="num-cell" id="subtotal-dental-exp" style="font-weight: 700;">0</td>
                       </tr>
                     </tfoot>
                   </table>
-                  <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-dental-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                      + Add Dental Item
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -590,26 +621,57 @@
                   </div>
                 </div>
                 <div class="collapsible-body" id="sec-store-exp">
-                  <table class="excel-table">
-                    <thead>
-                      <tr>
-                        <th style="width: 55%;">Store Exp Item</th>
-                        <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tbody-store-exp-details"></tbody>
+                  <!-- Store Subtabs: Items vs Staff Pay -->
+                  <div class="module-subtabs no-print">
+                    <button type="button" class="btn-subtab active" id="btn-tab-store-items">
+                      <span>📋</span> Items
+                    </button>
+                    <button type="button" class="btn-subtab" id="btn-tab-store-staff">
+                      <span>👥</span> Staff Pay <span class="subtab-badge" id="badge-store-staff-sum">0</span>
+                    </button>
+                  </div>
+
+                  <!-- Tab 1: Store Expense Items -->
+                  <div id="panel-store-items">
+                    <table class="excel-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 55%;">Store Exp Item</th>
+                          <th class="num-cell" style="width: 45%;">Amount (Rs.)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-store-exp-details"></tbody>
+                    </table>
+                    <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
+                        + Add Store Exp Item
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tab 2: Store Staff Pay (Amir Shah) -->
+                  <div id="panel-store-staff" style="display: none;">
+                    <table class="excel-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 36%;">Staff Member</th>
+                          <th style="width: 38%;">Reason / Note</th>
+                          <th class="num-cell" style="width: 26%;">Amount (Rs.)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-store-staff"></tbody>
+                    </table>
+                  </div>
+
+                  <!-- Combined Total Footer -->
+                  <table class="excel-table" style="margin-top: 0; border-top: 1px solid var(--border-color);">
                     <tfoot>
                       <tr class="excel-subtotal-row">
-                        <td>Total Store Exp</td>
-                        <td class="num-cell" id="subtotal-store-exp">0</td>
+                        <td style="font-weight: 700;">Total Store Exp</td>
+                        <td class="num-cell" id="subtotal-store-exp" style="font-weight: 700;">0</td>
                       </tr>
                     </tfoot>
                   </table>
-                  <div class="no-print" style="padding: 0.2rem 0.3rem; background: rgba(15, 23, 42, 0.05);">
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-store-exp-row" style="width: 100%; font-size: 0.65rem; padding: 0.18rem;">
-                      + Add Store Exp Item
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -971,7 +1033,7 @@
               <h3 style="font-family: var(--font-heading); font-size: 1.15rem;">🔐 App Security & Password</h3>
             </div>
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-              Change the password required to open and access the application. Default password is <strong>266270</strong>.
+              Admin password provides full editing access (Default: <strong>266270</strong>). Dedicated Viewer password is <strong>1963</strong> (Read-Only access).
             </p>
             <div style="display: flex; flex-direction: column; gap: 0.65rem; max-width: 360px;">
               <div>
@@ -1007,7 +1069,7 @@
         <span style="font-size: 1.8rem;">🔒</span>
       </div>
       <h2 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 0.75rem;">Expense Book</h2>
-      <p style="font-size: 0.82rem; color: #64748b; margin-top: 0.25rem; margin-bottom: 1.35rem;">Enter security password to access accounts</p>
+      <p style="font-size: 0.82rem; color: #64748b; margin-top: 0.25rem; margin-bottom: 1.35rem;">Enter Admin Password or Viewer Password (1963)</p>
       
       <form id="app-login-form" style="width: 100%;">
         <div style="position: relative; margin-bottom: 0.85rem;">
