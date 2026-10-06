@@ -136,6 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnStaffDebit = document.getElementById('btn-add-staff-debit-btn');
         if (btnStaffDebit) btnStaffDebit.style.display = isViewer ? 'none' : '';
 
+        // Hide Scratchpad Calculator for Viewer (Admin Only feature)
+        const modCalc = document.getElementById('mod-calculator');
+        if (modCalc) modCalc.style.display = isViewer ? 'none' : '';
+
         // If currently viewing a disallowed tab in Viewer mode, redirect to daily sheet
         if (isViewer && state.activeTab !== 'daily' && state.activeTab !== 'reports') {
             switchTab('view-daily');
@@ -1420,6 +1424,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupAddRowButtons();
         setupAutoZeroNumberInputs();
         setupSpreadsheetArrowNavigation();
+        setupQuickCalculator();
         setupCloudSyncUI();
         loadDay(state.currentDate);
         renderSettings();
@@ -1653,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'col-3': ['mod-us-total', 'mod-cash-breakdown'],
             'col-4': ['mod-home-x', 'mod-staff-vendors'],
             'col-5': ['mod-receivables', 'mod-dental-exp'],
-            'col-6': ['mod-store-exp', 'mod-us-exp', 'mod-clinic-bills', 'mod-sn-exp']
+            'col-6': ['mod-store-exp', 'mod-us-exp', 'mod-clinic-bills', 'mod-sn-exp', 'mod-calculator']
         },
         hidden: []
     };
@@ -1673,7 +1678,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'mod-store-exp': 'Store Exp',
         'mod-us-exp': 'US Exp',
         'mod-clinic-bills': 'Clinic Bills',
-        'mod-sn-exp': 'SN Expenses'
+        'mod-sn-exp': 'SN Expenses',
+        'mod-calculator': '🧮 Calculator'
     };
 
     function getCustomSectionTitles() {
@@ -1728,7 +1734,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'mod-store-exp', title: 'Store Exp Details', code: 'SE' },
         { id: 'mod-us-exp', title: 'US Exp Details', code: 'UE' },
         { id: 'mod-clinic-bills', title: 'Clinic Bills (Dispensary/PT)', code: 'CB' },
-        { id: 'mod-sn-exp', title: 'SN Expenses', code: 'SN' }
+        { id: 'mod-sn-exp', title: 'SN Expenses', code: 'SN' },
+        { id: 'mod-calculator', title: 'Quick Calculator', code: 'QC' }
     ];
 
     function getSectionsLayout() {
@@ -1741,11 +1748,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 parsed = clinicDB.settings.sectionsLayout;
             }
             if (parsed && parsed.columns && Array.isArray(parsed.hidden)) {
-                // Ensure mod-sn-exp is accounted for
+                // Ensure mod-sn-exp and mod-calculator are accounted for
                 const allPlaced = Object.values(parsed.columns).flat();
                 if (!allPlaced.includes('mod-sn-exp')) {
                     if (!parsed.columns['col-6']) parsed.columns['col-6'] = [];
                     parsed.columns['col-6'].push('mod-sn-exp');
+                }
+                if (!allPlaced.includes('mod-calculator') && !parsed.hidden.includes('mod-calculator')) {
+                    if (!parsed.columns['col-6']) parsed.columns['col-6'] = [];
+                    parsed.columns['col-6'].push('mod-calculator');
                 }
                 return parsed;
             }
@@ -2108,6 +2119,207 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+    }
+
+    // ==========================================================
+    // QUICK IN-APP SCRATCHPAD CALCULATOR (ADMIN ONLY)
+    // ==========================================================
+    function setupQuickCalculator() {
+        const exprEl = document.getElementById('calc-expr-display');
+        const valEl = document.getElementById('calc-val-display');
+        const badgeEl = document.getElementById('badge-calc-result');
+        const copyBtn = document.getElementById('btn-calc-copy');
+        const container = document.getElementById('sec-calculator');
+        if (!exprEl || !valEl) return;
+
+        let currentInput = '0';
+        let expression = '';
+        let shouldResetOnNextNumber = false;
+
+        function updateDisplay() {
+            valEl.textContent = currentInput;
+            exprEl.textContent = expression;
+            if (badgeEl) {
+                badgeEl.textContent = currentInput;
+            }
+        }
+
+        function safeEval(expr) {
+            let clean = expr
+                .replace(/×/g, '*')
+                .replace(/÷/g, '/')
+                .replace(/−/g, '-');
+            
+            clean = clean.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+
+            if (!/^[0-9+\-*/().\s]+$/.test(clean)) {
+                return null;
+            }
+
+            try {
+                const res = Function(`"use strict"; return (${clean})`)();
+                if (typeof res === 'number' && !isNaN(res) && isFinite(res)) {
+                    return Math.round(res * 1000000) / 1000000;
+                }
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function handleNumber(numStr) {
+            if (shouldResetOnNextNumber) {
+                currentInput = numStr;
+                expression = '';
+                shouldResetOnNextNumber = false;
+            } else if (currentInput === '0' && numStr !== '.') {
+                currentInput = numStr;
+            } else if (currentInput.length < 16) {
+                currentInput += numStr;
+            }
+            updateDisplay();
+        }
+
+        function handleDecimal() {
+            if (shouldResetOnNextNumber) {
+                currentInput = '0.';
+                expression = '';
+                shouldResetOnNextNumber = false;
+            } else if (!currentInput.includes('.')) {
+                currentInput += '.';
+            }
+            updateDisplay();
+        }
+
+        function handleOperator(op) {
+            const sym = op === '*' ? '×' : (op === '/' ? '÷' : (op === '-' ? '−' : '+'));
+            shouldResetOnNextNumber = false;
+
+            if (expression && (currentInput === '0' || !currentInput)) {
+                expression = expression.slice(0, -1) + sym;
+            } else {
+                expression = `${expression} ${currentInput} ${sym}`.trim();
+                currentInput = '0';
+            }
+            updateDisplay();
+        }
+
+        function handlePercent() {
+            const val = parseFloat(currentInput) || 0;
+            currentInput = String(val / 100);
+            updateDisplay();
+        }
+
+        function handleBackspace() {
+            if (shouldResetOnNextNumber) {
+                currentInput = '0';
+                expression = '';
+                shouldResetOnNextNumber = false;
+            } else if (currentInput.length > 1) {
+                currentInput = currentInput.slice(0, -1);
+            } else {
+                currentInput = '0';
+            }
+            updateDisplay();
+        }
+
+        function handleClear() {
+            currentInput = '0';
+            expression = '';
+            shouldResetOnNextNumber = false;
+            updateDisplay();
+        }
+
+        function handleEquals() {
+            if (!expression && !currentInput) return;
+            const fullExpr = `${expression} ${currentInput}`.trim();
+            const res = safeEval(fullExpr);
+            if (res !== null) {
+                expression = `${fullExpr} =`;
+                currentInput = String(res);
+                shouldResetOnNextNumber = true;
+            } else {
+                currentInput = 'Error';
+                shouldResetOnNextNumber = true;
+            }
+            updateDisplay();
+        }
+
+        if (container) {
+            container.addEventListener('click', (e) => {
+                const btn = e.target.closest('.calc-btn');
+                if (!btn) return;
+                const action = btn.dataset.action;
+                const val = btn.dataset.val;
+
+                if (action === 'num') {
+                    handleNumber(val);
+                } else if (action === 'decimal') {
+                    handleDecimal();
+                } else if (action === 'op') {
+                    handleOperator(val);
+                } else if (action === 'clear') {
+                    handleClear();
+                } else if (action === 'backspace') {
+                    handleBackspace();
+                } else if (action === 'percent') {
+                    handlePercent();
+                } else if (action === 'equals') {
+                    handleEquals();
+                }
+            });
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const text = currentInput;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast(`📋 Copied "${text}" to clipboard!`, 'info');
+                    }).catch(() => {
+                        showToast(`Copied: ${text}`, 'info');
+                    });
+                } else {
+                    showToast(`Value: ${text}`, 'info');
+                }
+            });
+        }
+
+        let isCalcHovered = false;
+        if (container) {
+            container.addEventListener('mouseenter', () => { isCalcHovered = true; });
+            container.addEventListener('mouseleave', () => { isCalcHovered = false; });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!isCalcHovered) return;
+            if (e.target.matches('input, textarea, select') && !e.target.closest('#sec-calculator')) return;
+
+            if (e.key >= '0' && e.key <= '9') {
+                e.preventDefault();
+                handleNumber(e.key);
+            } else if (e.key === '.') {
+                e.preventDefault();
+                handleDecimal();
+            } else if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') {
+                e.preventDefault();
+                handleOperator(e.key);
+            } else if (e.key === 'Enter' || e.key === '=') {
+                e.preventDefault();
+                handleEquals();
+            } else if (e.key === 'Backspace') {
+                e.preventDefault();
+                handleBackspace();
+            } else if (e.key === 'Escape' || e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                handleClear();
+            } else if (e.key === '%') {
+                e.preventDefault();
+                handlePercent();
+            }
+        });
+
+        updateDisplay();
     }
 
     // Date Controls

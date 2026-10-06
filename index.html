@@ -815,6 +815,64 @@
                 </div>
               </div>
 
+              <!-- 7C: Scratchpad Quick Calculator (Admin Only, Independent, Collapsible, No-Print) -->
+              <div class="sub-section-module no-print" id="mod-calculator" data-sec-id="sec-calculator" data-title="Quick Calculator">
+                <div class="excel-panel-header header-lavender collapsible-header" data-collapse="sec-calculator" title="Click to collapse / expand">
+                  <div class="header-title-box">
+                    <span class="collapse-icon">▾</span>
+                    <span class="section-title-text">🧮 Calculator</span>
+                  </div>
+                  <div class="header-actions-box">
+                    <span class="panel-header-badge" id="badge-calc-result" title="Current calculation value">0</span>
+                    <button type="button" class="btn-module-action btn-move-up no-print" title="Move Up within column">▲</button>
+                    <button type="button" class="btn-module-action btn-move-down no-print" title="Move Down within column">▼</button>
+                    <button type="button" class="btn-module-action btn-move-left no-print" title="Move to Previous Column">◀</button>
+                    <button type="button" class="btn-module-action btn-move-right no-print" title="Move to Next Column">▶</button>
+                    <button type="button" class="btn-module-action btn-hide-sec no-print" title="Hide this section" data-section="sec-calculator">👁️</button>
+                  </div>
+                </div>
+                <div class="collapsible-body" id="sec-calculator">
+                  <div class="calc-container">
+                    <div class="calc-display-wrap">
+                      <div class="calc-expr" id="calc-expr-display"></div>
+                      <div class="calc-current" id="calc-val-display">0</div>
+                    </div>
+                    <div class="calc-toolbar">
+                      <span style="font-size: 0.65rem; color: #64748b; font-weight: 700;">Scratchpad</span>
+                      <button type="button" class="calc-toolbar-btn" id="btn-calc-copy" title="Copy result to clipboard">
+                        📋 Copy Result
+                      </button>
+                    </div>
+                    <div class="calc-grid">
+                      <button type="button" class="calc-btn calc-btn-clear" data-action="clear" title="Clear (C / Esc)">C</button>
+                      <button type="button" class="calc-btn calc-btn-fn" data-action="backspace" title="Backspace (⌫)">⌫</button>
+                      <button type="button" class="calc-btn calc-btn-fn" data-action="percent" title="Percent (%)">%</button>
+                      <button type="button" class="calc-btn calc-btn-op" data-action="op" data-val="/" title="Divide (÷)">÷</button>
+
+                      <button type="button" class="calc-btn" data-action="num" data-val="7">7</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="8">8</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="9">9</button>
+                      <button type="button" class="calc-btn calc-btn-op" data-action="op" data-val="*" title="Multiply (×)">×</button>
+
+                      <button type="button" class="calc-btn" data-action="num" data-val="4">4</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="5">5</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="6">6</button>
+                      <button type="button" class="calc-btn calc-btn-op" data-action="op" data-val="-" title="Subtract (−)">−</button>
+
+                      <button type="button" class="calc-btn" data-action="num" data-val="1">1</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="2">2</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="3">3</button>
+                      <button type="button" class="calc-btn calc-btn-op" data-action="op" data-val="+" title="Add (+)">+</button>
+
+                      <button type="button" class="calc-btn" data-action="num" data-val="0">0</button>
+                      <button type="button" class="calc-btn" data-action="num" data-val="00">00</button>
+                      <button type="button" class="calc-btn" data-action="decimal" data-val=".">.</button>
+                      <button type="button" class="calc-btn calc-btn-equals" data-action="equals" title="Calculate (= / Enter)">=</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
           </div>
