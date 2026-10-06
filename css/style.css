@@ -2748,9 +2748,17 @@ body.role-viewer .del-detail-row-btn,
 body.role-viewer .btn-clear-staff-pay,
 body.role-viewer .btn-clear-detail-staff,
 body.role-viewer #save-day-btn,
+body.role-viewer #tab-master,
+body.role-viewer #tab-staff,
+body.role-viewer #tab-pnl,
+body.role-viewer #tab-stock,
 body.role-viewer #tab-settings,
 body.role-viewer #btn-organize-sections,
 body.role-viewer .dropdown-separator,
+body.role-viewer #view-master,
+body.role-viewer #view-staff,
+body.role-viewer #view-pnl,
+body.role-viewer #view-stock,
 body.role-viewer #view-settings,
 body.role-viewer #organize-sections-modal,
 body.role-viewer .btn-module-action,
@@ -2760,6 +2768,7 @@ body.role-viewer .btn-move-left,
 body.role-viewer .btn-move-right,
 body.role-viewer .btn-hide-sec,
 body.role-viewer #btn-add-debit-row,
+body.role-viewer #btn-add-staff-debit-btn,
 body.role-viewer #btn-add-credit-row,
 body.role-viewer #btn-add-dental-row,
 body.role-viewer #btn-add-store-exp-row,
@@ -2782,6 +2791,11 @@ body.role-viewer .edit-cat-btn,
 body.role-viewer .del-cat-btn,
 body.role-viewer .del-inc-btn,
 body.role-viewer .del-staff-btn {
+  display: none !important;
+}
+
+body.role-viewer .col-debit > .no-print,
+body.role-viewer .col-credit > .no-print {
   display: none !important;
 }
 
@@ -2827,10 +2841,13 @@ body.role-viewer #settings-stock-rec-mode,
 body.role-viewer #setting-input-prev-stock,
 body.role-viewer #setting-input-present-stock,
 body.role-viewer #input-prev-stock-retail,
-body.role-viewer #input-present-stock-retail {
+body.role-viewer #input-present-stock-retail,
+body.role-viewer #input-cash-taken,
+body.role-viewer #input-daraz {
   pointer-events: none !important;
   background-color: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
   user-select: text;
+  cursor: default !important;
 }

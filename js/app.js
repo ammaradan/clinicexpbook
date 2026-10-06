@@ -115,17 +115,83 @@ document.addEventListener('DOMContentLoaded', () => {
             viewerBanner.style.display = 'none';
         }
 
-        // Hide Categories & Setup and Organize Sections in dropdown for Viewer
+        // In Viewer mode, ONLY Category Reports is available under More Ledgers. All other tabs are hidden.
+        const tabMaster = document.getElementById('tab-master');
+        const tabStaff = document.getElementById('tab-staff');
+        const tabPnl = document.getElementById('tab-pnl');
+        const tabStock = document.getElementById('tab-stock');
         const tabSettings = document.getElementById('tab-settings');
         const btnOrganize = document.getElementById('btn-organize-sections');
         const sepDropdown = document.querySelector('.nav-dropdown-menu .dropdown-separator');
+
+        if (tabMaster) tabMaster.style.display = isViewer ? 'none' : '';
+        if (tabStaff) tabStaff.style.display = isViewer ? 'none' : '';
+        if (tabPnl) tabPnl.style.display = isViewer ? 'none' : '';
+        if (tabStock) tabStock.style.display = isViewer ? 'none' : '';
         if (tabSettings) tabSettings.style.display = isViewer ? 'none' : '';
         if (btnOrganize) btnOrganize.style.display = isViewer ? 'none' : '';
         if (sepDropdown) sepDropdown.style.display = isViewer ? 'none' : '';
 
-        // If currently viewing settings in Viewer mode, redirect to daily sheet
-        if (isViewer && state.activeTab === 'settings') {
+        // Hide Staff Pay button under Debit Expenses in Daily Sheet for Viewer
+        const btnStaffDebit = document.getElementById('btn-add-staff-debit-btn');
+        if (btnStaffDebit) btnStaffDebit.style.display = isViewer ? 'none' : '';
+
+        // If currently viewing a disallowed tab in Viewer mode, redirect to daily sheet
+        if (isViewer && state.activeTab !== 'daily' && state.activeTab !== 'reports') {
             switchTab('view-daily');
+        }
+
+        // Toggle reconciliation inputs editable / read-only state
+        const inputCashTaken = document.getElementById('input-cash-taken');
+        const inputDaraz = document.getElementById('input-daraz');
+        if (inputCashTaken) {
+            inputCashTaken.readOnly = isViewer;
+            if (isViewer) {
+                inputCashTaken.setAttribute('tabindex', '-1');
+                inputCashTaken.title = 'Read-Only (Viewer Mode)';
+                if (state.currentDayData) {
+                    inputCashTaken.type = 'text';
+                    inputCashTaken.value = formatNumber(state.currentDayData.summary?.cashTakenAway || 0);
+                    inputCashTaken.oninput = null;
+                }
+            } else {
+                inputCashTaken.removeAttribute('tabindex');
+                inputCashTaken.title = '';
+                if (state.currentDayData) {
+                    inputCashTaken.type = 'number';
+                    inputCashTaken.value = state.currentDayData.summary?.cashTakenAway || 0;
+                    inputCashTaken.oninput = (e) => {
+                        state.currentDayData.summary.cashTakenAway = parseFloat(e.target.value) || 0;
+                        recalculateAll();
+                    };
+                }
+            }
+        }
+        if (inputDaraz) {
+            inputDaraz.readOnly = isViewer;
+            if (isViewer) {
+                inputDaraz.setAttribute('tabindex', '-1');
+                inputDaraz.title = 'Read-Only (Viewer Mode)';
+                if (state.currentDayData) {
+                    inputDaraz.type = 'text';
+                    inputDaraz.value = formatNumber(state.currentDayData.summary?.darazCash || 0);
+                    inputDaraz.oninput = null;
+                }
+            } else {
+                inputDaraz.removeAttribute('tabindex');
+                inputDaraz.title = '';
+                if (state.currentDayData) {
+                    inputDaraz.type = 'number';
+                    inputDaraz.value = state.currentDayData.summary?.darazCash || 0;
+                    inputDaraz.oninput = (e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        state.currentDayData.summary.darazCash = val;
+                        recalculateAll();
+                        clinicDB.syncNextDayDarazCash(state.currentDate, val);
+                        scheduleAutoSave();
+                    };
+                }
+            }
         }
     }
 
@@ -480,6 +546,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Dedicated Interactive Staff & Vendor Payment Modal
         openStaffPayModal() {
+            if (isViewerRole()) {
+                showToast('🔒 Staff Pay is restricted in Viewer mode.', 'warning');
+                return;
+            }
             this.init();
             const staffList = clinicDB.getStaffList() || [];
 
@@ -1414,8 +1484,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchTab(viewId) {
-        if (viewId === 'view-settings' && isViewerRole()) {
-            showToast('🔒 Categories & Setup is restricted to Administrators.', 'warning');
+        if (isViewerRole() && viewId !== 'view-daily' && viewId !== 'view-reports') {
+            showToast('🔒 Only Daily Sheet & Category Reports are accessible in Viewer mode.', 'warning');
             return;
         }
         if (state.activeTab === 'daily') {
@@ -2244,21 +2314,45 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSNExpensesTable(data);
 
         // 16. Reconciliation Inputs
-        elements.inputCashTaken.value = data.summary?.cashTakenAway || 0;
-        elements.inputDaraz.value = data.summary?.darazCash || 0;
+        const isViewer = isViewerRole();
+        if (isViewer) {
+            elements.inputCashTaken.type = 'text';
+            elements.inputCashTaken.readOnly = true;
+            elements.inputCashTaken.value = formatNumber(data.summary?.cashTakenAway || 0);
+            elements.inputCashTaken.setAttribute('tabindex', '-1');
+            elements.inputCashTaken.title = 'Read-Only (Viewer Mode)';
+            elements.inputCashTaken.oninput = null;
 
-        elements.inputCashTaken.oninput = (e) => {
-            data.summary.cashTakenAway = parseFloat(e.target.value) || 0;
-            recalculateAll();
-        };
+            elements.inputDaraz.type = 'text';
+            elements.inputDaraz.readOnly = true;
+            elements.inputDaraz.value = formatNumber(data.summary?.darazCash || 0);
+            elements.inputDaraz.setAttribute('tabindex', '-1');
+            elements.inputDaraz.title = 'Read-Only (Viewer Mode)';
+            elements.inputDaraz.oninput = null;
+        } else {
+            elements.inputCashTaken.type = 'number';
+            elements.inputCashTaken.readOnly = false;
+            elements.inputCashTaken.removeAttribute('tabindex');
+            elements.inputCashTaken.title = '';
+            elements.inputCashTaken.value = data.summary?.cashTakenAway || 0;
+            elements.inputCashTaken.oninput = (e) => {
+                data.summary.cashTakenAway = parseFloat(e.target.value) || 0;
+                recalculateAll();
+            };
 
-        elements.inputDaraz.oninput = (e) => {
-            const val = parseFloat(e.target.value) || 0;
-            data.summary.darazCash = val;
-            recalculateAll();
-            clinicDB.syncNextDayDarazCash(state.currentDate, val);
-            scheduleAutoSave();
-        };
+            elements.inputDaraz.type = 'number';
+            elements.inputDaraz.readOnly = false;
+            elements.inputDaraz.removeAttribute('tabindex');
+            elements.inputDaraz.title = '';
+            elements.inputDaraz.value = data.summary?.darazCash || 0;
+            elements.inputDaraz.oninput = (e) => {
+                const val = parseFloat(e.target.value) || 0;
+                data.summary.darazCash = val;
+                recalculateAll();
+                clinicDB.syncNextDayDarazCash(state.currentDate, val);
+                scheduleAutoSave();
+            };
+        }
     }
 
     function confirmDeletion(itemName, onConfirm) {
@@ -3350,9 +3444,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // 2. Add Staff Payment directly into Debit with Selection + Reason (Inserted ABOVE ZK)
-        elements.btnAddStaffDebitBtn.addEventListener('click', () => {
-            appModal.openStaffPayModal();
-        });
+        if (elements.btnAddStaffDebitBtn) {
+            elements.btnAddStaffDebitBtn.addEventListener('click', () => {
+                if (isViewerRole()) return;
+                appModal.openStaffPayModal();
+            });
+        }
 
         // 3. Add Custom Income Line in Credit
         elements.btnAddCreditRow.addEventListener('click', () => {
