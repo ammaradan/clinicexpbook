@@ -5786,6 +5786,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        const btnForceCloudPush = document.getElementById('btn-force-cloud-push');
+        if (btnForceCloudPush) {
+            btnForceCloudPush.onclick = async () => {
+                if (!window.cloudSync) {
+                    showToast('Cloud sync is not active.', 'warning');
+                    return;
+                }
+                const days = clinicDB.days || {};
+                const keys = Object.keys(days);
+                let count = 0;
+                btnForceCloudPush.disabled = true;
+                btnForceCloudPush.textContent = '⏳ Uploading to Cloud...';
+                try {
+                    for (const k of keys) {
+                        const dayData = days[k];
+                        const shouldUpload = typeof hasMeaningfulDayData === 'function' ? hasMeaningfulDayData(dayData) : true;
+                        if (shouldUpload) {
+                            await window.cloudSync.saveDayToCloud(k, dayData);
+                            count++;
+                        }
+                    }
+                    if (typeof window.cloudSync.saveMetaToCloud === 'function') {
+                        await window.cloudSync.saveMetaToCloud(clinicDB.categories, clinicDB.staffList, clinicDB.settings);
+                    }
+                    showToast(`☁️ Successfully uploaded ${count} active days to Cloud!`, 'success');
+                } catch (err) {
+                    showToast('Upload error: ' + err.message, 'error');
+                } finally {
+                    btnForceCloudPush.disabled = false;
+                    btnForceCloudPush.textContent = '☁️ Force Upload All Local Data to Cloud';
+                }
+            };
+        }
 
         const btnResetSeed = document.getElementById('reset-seed-btn');
         if (btnResetSeed) {

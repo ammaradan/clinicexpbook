@@ -13,6 +13,47 @@ const FIREBASE_CONFIG = {
   measurementId: "G-K4ENZZVEDV"
 };
 
+function hasMeaningfulDayData(dayData) {
+    if (!dayData || typeof dayData !== 'object') return false;
+    // Check if debits have any amount > 0
+    if (Array.isArray(dayData.debits)) {
+        if (dayData.debits.some(d => (parseFloat(d?.amount) || 0) > 0)) return true;
+    }
+    // Check expense sub-tables
+    const listKeys = [
+        'dispPurchases', 'storePurchases', 'clinicExpenseDetails',
+        'homeExpenseDetails', 'dentalDetails', 'storeExpenseDetails',
+        'usExpenseDetails', 'snExpenseDetails', 'receivables', 'cashItems', 'clinicBills'
+    ];
+    for (const k of listKeys) {
+        if (Array.isArray(dayData[k])) {
+            for (const item of dayData[k]) {
+                if (item && ((parseFloat(item.amount) || 0) > 0 || (parseFloat(item.tp) || 0) > 0 || (parseFloat(item.retail) || 0) > 0 || (item.item && String(item.item).trim() !== '') || (item.vendor && String(item.vendor).trim() !== ''))) {
+                    return true;
+                }
+            }
+        }
+    }
+    // Check summary debit total or cash taken
+    if (dayData.summary && ((parseFloat(dayData.summary.debitTotal) || 0) > 0 || (parseFloat(dayData.summary.totalCash) || 0) > 0 || (parseFloat(dayData.summary.cashTakenAway) || 0) > 0)) {
+        return true;
+    }
+    // Check credits beyond default daraz cash
+    if (Array.isArray(dayData.credits)) {
+        const nonDarazCredits = dayData.credits.filter(c => (c?.name || '').toLowerCase().trim() !== 'daraz cash');
+        if (nonDarazCredits.some(c => (parseFloat(c?.amount) || 0) > 0)) return true;
+    }
+    // Check staff payments
+    if (dayData.staffPayments && typeof dayData.staffPayments === 'object') {
+        const spVals = Object.values(dayData.staffPayments);
+        if (spVals.some(v => ((typeof v === 'number' && v > 0) || (v && v.amount > 0)))) return true;
+    }
+    return false;
+}
+if (typeof window !== 'undefined') {
+    window.hasMeaningfulDayData = hasMeaningfulDayData;
+}
+
 class FirebaseSyncManager {
     constructor(config) {
         this.config = config;
@@ -86,11 +127,25 @@ class FirebaseSyncManager {
                 let hasChanges = false;
                 snapshot.docs.forEach((doc) => {
                     const dateKey = doc.id;
-                    const data = doc.data();
-                    if (data && clinicDB) {
-                        clinicDB.days[dateKey] = data;
-                        hasChanges = true;
+                    const cloudData = doc.data();
+                    if (!cloudData || !clinicDB) return;
+
+                    const localData = clinicDB.days ? clinicDB.days[dateKey] : null;
+                    const localHasData = hasMeaningfulDayData(localData);
+                    const cloudHasData = hasMeaningfulDayData(cloudData);
+
+                    // DATA PRESERVATION SHIELD:
+                    // If local machine already has real entered transactions (expenses/debits)
+                    // but incoming cloud document is blank or empty, DO NOT let cloud wipe local entries!
+                    // Instead, re-sync local data back up to the cloud!
+                    if (localHasData && !cloudHasData) {
+                        console.warn(`[Firebase Shield] Preserving local entries for ${dateKey} against empty cloud overwrite. Re-uploading local entries...`);
+                        this.saveDayToCloud(dateKey, localData);
+                        return;
                     }
+
+                    clinicDB.days[dateKey] = cloudData;
+                    hasChanges = true;
                 });
 
                 if (hasChanges && clinicDB) {
@@ -157,6 +212,33 @@ class FirebaseSyncManager {
         try {
             // Clean object of any undefined values for Firestore
             const cleaned = JSON.parse(JSON.stringify(dayData));
+
+            // Safeguard: If local day is blank, check if remote document already has real transactions.
+            // Do not blindly wipe remote data with a blank sheet!
+            const localHasData = hasMeaningfulDayData(cleaned);
+            if (!localHasData) {
+                try {
+                    const existingRemote = await this.db.collection('days').doc(dateKey).get();
+                    if (existingRemote.exists) {
+                        const remoteData = existingRemote.data();
+                        if (hasMeaningfulDayData(remoteData)) {
+                            console.warn(`[Firebase Shield] Blocked blank overwrite of ${dateKey}! Remote has data. Adopting remote data instead.`);
+                            if (clinicDB) {
+                                clinicDB.days[dateKey] = remoteData;
+                                localStorage.setItem('clinic_exp_days_v6_clean', JSON.stringify(clinicDB.days));
+                                if (typeof this.dataChangeCallback === 'function') {
+                                    this.dataChangeCallback('days');
+                                }
+                            }
+                            this.updateStatus('connected');
+                            return;
+                        }
+                    }
+                } catch(checkErr) {
+                    console.warn('[Firebase Shield] Remote check failed, proceeding cautiously:', checkErr);
+                }
+            }
+
             await this.db.collection('days').doc(dateKey).set(cleaned, { merge: true });
             this.updateStatus('connected');
         } catch (e) {

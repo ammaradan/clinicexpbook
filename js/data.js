@@ -621,23 +621,23 @@ class ClinicDataManager {
 
         let nextDay = this.getExistingDay(nextDateKey);
         if (!nextDay) {
-            nextDay = this.createBlankDay(nextDateKey);
-            this.days[nextDateKey] = nextDay;
-        } else {
-            if (!Array.isArray(nextDay.credits)) nextDay.credits = [];
-            let credItem = nextDay.credits.find(c => (c.name || '').toLowerCase().trim() === 'daraz cash');
-            if (credItem) {
-                credItem.amount = parseFloat(darazCashAmount) || 0;
-            } else {
-                nextDay.credits.unshift({ name: 'Daraz Cash', amount: parseFloat(darazCashAmount) || 0, isAuto: false });
-            }
-            const totalDebit = (nextDay.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
-            const totalCredit = (nextDay.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-            if (!nextDay.summary) nextDay.summary = {};
-            nextDay.summary.debitTotal = totalDebit;
-            nextDay.summary.creditTotal = totalCredit;
-            nextDay.summary.difference = totalCredit - totalDebit;
+            // Do not create and upload blank day to cloud; only update if next day exists
+            return;
         }
+
+        if (!Array.isArray(nextDay.credits)) nextDay.credits = [];
+        let credItem = nextDay.credits.find(c => (c.name || '').toLowerCase().trim() === 'daraz cash');
+        if (credItem) {
+            credItem.amount = parseFloat(darazCashAmount) || 0;
+        } else {
+            nextDay.credits.unshift({ name: 'Daraz Cash', amount: parseFloat(darazCashAmount) || 0, isAuto: false });
+        }
+        const totalDebit = (nextDay.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+        const totalCredit = (nextDay.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+        if (!nextDay.summary) nextDay.summary = {};
+        nextDay.summary.debitTotal = totalDebit;
+        nextDay.summary.creditTotal = totalCredit;
+        nextDay.summary.difference = totalCredit - totalDebit;
 
         this.saveDay(nextDateKey, nextDay);
     }
@@ -771,6 +771,14 @@ class ClinicDataManager {
             }
         }
         localStorage.setItem(STORAGE_KEYS.DAYS, JSON.stringify(this.days));
+
+        // Create isolated daily backup if day has meaningful data
+        if (typeof hasMeaningfulDayData === 'function' && hasMeaningfulDayData(dayData)) {
+            try {
+                localStorage.setItem('clinic_backup_' + dateKey, JSON.stringify(dayData));
+            } catch(e) {}
+        }
+
         if (window.cloudSync && typeof window.cloudSync.saveDayToCloud === 'function') {
             window.cloudSync.saveDayToCloud(dateKey, dayData);
         }
@@ -792,9 +800,19 @@ class ClinicDataManager {
         }
 
         if (!res) {
+            // Check if there is an isolated backup for this date
+            try {
+                const bkp = localStorage.getItem('clinic_backup_' + dateKey);
+                if (bkp) {
+                    res = JSON.parse(bkp);
+                    this.days[dateKey] = res;
+                    return this.cleanDayItemNames(res);
+                }
+            } catch(e) {}
+
             res = this.createBlankDay(dateKey);
             this.days[dateKey] = res;
-            this.saveDay(dateKey, res);
+            // Note: Never call this.saveDay here. Getters must not write blank days to storage or cloud.
         }
         return this.cleanDayItemNames(res);
     }
