@@ -136,9 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnStaffDebit = document.getElementById('btn-add-staff-debit-btn');
         if (btnStaffDebit) btnStaffDebit.style.display = isViewer ? 'none' : '';
 
-        // Hide Scratchpad Calculator for Viewer (Admin Only feature)
+        // Hide Scratchpad Calculator & Force Sync for Viewer (Admin Only features)
         const modCalc = document.getElementById('mod-calculator');
         if (modCalc) modCalc.style.display = isViewer ? 'none' : '';
+        const headerForceBtn = document.getElementById('btn-force-cloud-push-header');
+        if (headerForceBtn) headerForceBtn.style.display = isViewer ? 'none' : 'inline-flex';
 
         // If currently viewing a disallowed tab in Viewer mode, redirect to daily sheet
         if (isViewer && state.activeTab !== 'daily' && state.activeTab !== 'reports') {
@@ -1430,6 +1432,51 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1200);
         } else {
             pill.textContent = '☁️ Local Storage';
+        }
+
+        const headerForceBtn = document.getElementById('btn-force-cloud-push-header');
+        if (headerForceBtn) {
+            headerForceBtn.onclick = () => executeForceCloudSync(headerForceBtn);
+        }
+    }
+
+    async function executeForceCloudSync(btn) {
+        if (!window.cloudSync) {
+            showToast('Cloud sync is not active.', 'warning');
+            return;
+        }
+        if (isViewerRole()) {
+            showToast('🔒 Viewer Mode: Cloud sync upload is restricted to Admin.', 'warning');
+            return;
+        }
+        const days = clinicDB.days || {};
+        const keys = Object.keys(days);
+        let count = 0;
+        const origHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> Syncing...';
+        }
+        try {
+            for (const k of keys) {
+                const dayData = days[k];
+                const shouldUpload = typeof hasMeaningfulDayData === 'function' ? hasMeaningfulDayData(dayData) : true;
+                if (shouldUpload) {
+                    await window.cloudSync.saveDayToCloud(k, dayData);
+                    count++;
+                }
+            }
+            if (typeof window.cloudSync.saveMetaToCloud === 'function') {
+                await window.cloudSync.saveMetaToCloud(clinicDB.categories, clinicDB.staffList, clinicDB.settings);
+            }
+            showToast(`☁️ Successfully uploaded ${count} active days to Cloud!`, 'success');
+        } catch (err) {
+            showToast('Upload error: ' + err.message, 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
         }
     }
 
@@ -5788,36 +5835,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btnForceCloudPush = document.getElementById('btn-force-cloud-push');
         if (btnForceCloudPush) {
-            btnForceCloudPush.onclick = async () => {
-                if (!window.cloudSync) {
-                    showToast('Cloud sync is not active.', 'warning');
-                    return;
-                }
-                const days = clinicDB.days || {};
-                const keys = Object.keys(days);
-                let count = 0;
-                btnForceCloudPush.disabled = true;
-                btnForceCloudPush.textContent = '⏳ Uploading to Cloud...';
-                try {
-                    for (const k of keys) {
-                        const dayData = days[k];
-                        const shouldUpload = typeof hasMeaningfulDayData === 'function' ? hasMeaningfulDayData(dayData) : true;
-                        if (shouldUpload) {
-                            await window.cloudSync.saveDayToCloud(k, dayData);
-                            count++;
-                        }
-                    }
-                    if (typeof window.cloudSync.saveMetaToCloud === 'function') {
-                        await window.cloudSync.saveMetaToCloud(clinicDB.categories, clinicDB.staffList, clinicDB.settings);
-                    }
-                    showToast(`☁️ Successfully uploaded ${count} active days to Cloud!`, 'success');
-                } catch (err) {
-                    showToast('Upload error: ' + err.message, 'error');
-                } finally {
-                    btnForceCloudPush.disabled = false;
-                    btnForceCloudPush.textContent = '☁️ Force Upload All Local Data to Cloud';
-                }
-            };
+            btnForceCloudPush.onclick = () => executeForceCloudSync(btnForceCloudPush);
         }
 
         const btnResetSeed = document.getElementById('reset-seed-btn');
