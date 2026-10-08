@@ -1052,9 +1052,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             });
             viewport.addEventListener('change', () => {
-                scheduleAutoSave();
+                // Immediate synchronous save on cell edit completion
+                saveCurrentDay(false);
             });
         }
+
+        // Instantly save whenever user switches tabs, minimizes browser, or closes window
+        window.addEventListener('beforeunload', () => {
+            saveCurrentDay(false);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                saveCurrentDay(false);
+            }
+        });
     }
 
     // ==========================================================
