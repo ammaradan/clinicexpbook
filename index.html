@@ -896,6 +896,21 @@
             <span class="recon-cell-label">Total Cash (Taken + Daraz)</span>
             <input type="text" class="recon-excel-input" id="input-total-cash" readonly value="0">
           </div>
+          <!-- ADMIN-ONLY DAY ADJUSTMENT RECONCILIATION (STRICTLY HIDDEN IN VIEWER / READ-ONLY MODE) -->
+          <div class="recon-cell-group admin-only-recon recon-adjustment-group no-print" id="recon-adjustment-group">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+              <span class="recon-cell-label" style="display: inline-flex; align-items: center; gap: 4px;">
+                <span>⚖️ Day Adjustment</span>
+                <span class="admin-badge-micro" style="background: rgba(37, 99, 235, 0.12); color: #1d4ed8; font-size: 0.62rem; padding: 1px 4px; border-radius: 4px; font-weight: 700;">Admin</span>
+              </span>
+              <button type="button" id="btn-auto-balance" class="btn-micro-recon" title="Auto-calculate adjustment to make difference 0 (Balanced)">⚡ Balance</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="number" step="any" class="recon-excel-input" id="input-day-adjustment" value="0" placeholder="0" style="min-width: 95px;" title="Enter positive or negative adjustment amount">
+              <button type="button" id="btn-clear-day-adj" class="btn-micro-recon btn-clear-adj" title="Reset adjustment to 0">✕</button>
+            </div>
+            <div id="recon-adj-feedback" class="recon-adj-feedback-text" style="font-size: 0.68rem; color: #64748b; margin-top: 2px;"></div>
+          </div>
           <div class="recon-cell-group">
             <span class="recon-cell-label">Reconciliation Status</span>
             <div id="box-recon-status" class="recon-status-badge">Balanced</div>
@@ -1063,6 +1078,69 @@
               <button type="button" class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff / Vendor</button>
             </div>
             <div class="settings-list" id="settings-staff-list"></div>
+          </div>
+
+          <!-- Day Adjustments & Reconciliation Card (Admin Only) -->
+          <div class="settings-card" id="card-settings-day-adjustments" style="grid-column: span 2;">
+            <div class="settings-card-header">
+              <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span style="font-size: 1.35rem;">⚖️</span>
+                <div>
+                  <h3 style="font-family: var(--font-heading); font-size: 1.15rem; margin: 0;">Day Adjustments Manager <span class="badge-tag" style="background: rgba(37,99,235,0.12); color: #1d4ed8; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Admin Only</span></h3>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Adjust day-wise discrepancy amounts. View-Only (Read-Only) users only see the adjusted final status without seeing adjustment details.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="background: rgba(248, 250, 252, 0.85); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #334155;">Select Date:</label>
+                  <input type="date" id="setting-adj-date" class="form-input" style="padding: 0.35rem 0.6rem; font-size: 0.85rem; font-weight: 600;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-setting-adj-today" style="padding: 0.35rem 0.65rem; font-size: 0.78rem;">Selected Day</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-setting-adj-prev" style="padding: 0.35rem 0.5rem; font-size: 0.78rem;" title="Previous Day">◀</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-setting-adj-next" style="padding: 0.35rem 0.5rem; font-size: 0.78rem;" title="Next Day">▶</button>
+                </div>
+                <div id="setting-adj-day-overview" style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.82rem; flex-wrap: wrap;">
+                  <!-- Dynamically populated summary stats -->
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem; align-items: end;">
+                <div>
+                  <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem; font-weight: 600;">Day Adjustment Amount (Rs.):</label>
+                  <input type="number" step="any" id="setting-adj-amount" class="form-input" placeholder="0" style="font-weight: 700;">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem; font-weight: 600;">Reason / Audit Note (Optional):</label>
+                  <input type="text" id="setting-adj-note" class="form-input" placeholder="e.g. Counter cash rounding, discrepancy match">
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-primary btn-sm" id="btn-save-setting-adj" style="font-weight: 700;">
+                    💾 Save Adjustment
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-auto-balance-setting-adj" style="color: #2563eb; font-weight: 700;">
+                    ⚡ Auto-Balance to 0
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-clear-setting-adj" style="color: #ef4444;">
+                    ✕ Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Table of all active adjustments -->
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                <h4 style="font-size: 0.88rem; font-weight: 700; color: #1e293b; margin: 0;">
+                  Recorded Day Adjustments
+                </h4>
+                <span id="badge-adj-count" style="font-size: 0.72rem; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 12px; font-weight: 700;">0 Days</span>
+              </div>
+              <div id="settings-adjustments-table-container" style="max-height: 280px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: #fff;">
+                <!-- Dynamically populated table -->
+              </div>
+            </div>
           </div>
 
           <!-- Sub-Sections & Headings Customizer -->

@@ -197,6 +197,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
+        // Hide Day Adjustment controls and details for Viewer (Admin Only feature)
+        const reconAdjGroup = document.getElementById('recon-adjustment-group');
+        if (reconAdjGroup) {
+            reconAdjGroup.style.display = isViewer ? 'none' : '';
+        }
+        const cardSettingsDayAdj = document.getElementById('card-settings-day-adjustments');
+        if (cardSettingsDayAdj) {
+            cardSettingsDayAdj.style.display = isViewer ? 'none' : '';
+        }
+
+        // Refresh calculations to update status badge in context of role
+        if (state.currentDayData) {
+            recalculateAll();
+        }
     }
 
     function checkAppLock() {
@@ -950,6 +965,13 @@ document.addEventListener('DOMContentLoaded', () => {
         inputDiff: document.getElementById('input-diff'),
         inputTotalCash: document.getElementById('input-total-cash'),
         boxReconStatus: document.getElementById('box-recon-status'),
+
+        // Day Adjustment Elements (Admin Only)
+        reconAdjGroup: document.getElementById('recon-adjustment-group'),
+        inputDayAdjustment: document.getElementById('input-day-adjustment'),
+        btnAutoBalance: document.getElementById('btn-auto-balance'),
+        btnClearDayAdj: document.getElementById('btn-clear-day-adj'),
+        reconAdjFeedback: document.getElementById('recon-adj-feedback'),
 
         // Add row buttons
         btnAddDebitRow: document.getElementById('btn-add-debit-row'),
@@ -2565,6 +2587,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
         }
+
+        // 17. Day Adjustment (Admin Only)
+        if (elements.reconAdjGroup) {
+            elements.reconAdjGroup.style.display = isViewer ? 'none' : '';
+        }
+        if (elements.inputDayAdjustment) {
+            if (isViewer) {
+                elements.inputDayAdjustment.value = '';
+                elements.inputDayAdjustment.oninput = null;
+            } else {
+                elements.inputDayAdjustment.value = data.summary?.dayAdjustment || 0;
+                elements.inputDayAdjustment.oninput = (e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    if (!data.summary) data.summary = {};
+                    data.summary.dayAdjustment = val;
+                    recalculateAll();
+                    scheduleAutoSave();
+                };
+            }
+        }
+        if (elements.btnAutoBalance) {
+            elements.btnAutoBalance.onclick = () => {
+                if (isViewerRole()) return;
+                const totalDebit = (data.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+                const totalCredit = (data.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+                const rawDiff = totalCredit - totalDebit;
+                const autoAdj = -rawDiff;
+                if (!data.summary) data.summary = {};
+                data.summary.dayAdjustment = autoAdj;
+                if (elements.inputDayAdjustment) {
+                    elements.inputDayAdjustment.value = autoAdj;
+                }
+                recalculateAll();
+                scheduleAutoSave();
+                showToast(`⚡ Auto-balanced ${formatDateKeyDisplay(state.currentDate)} to Rs. 0!`, 'success');
+            };
+        }
+        if (elements.btnClearDayAdj) {
+            elements.btnClearDayAdj.onclick = () => {
+                if (isViewerRole()) return;
+                if (!data.summary) data.summary = {};
+                data.summary.dayAdjustment = 0;
+                if (elements.inputDayAdjustment) {
+                    elements.inputDayAdjustment.value = 0;
+                }
+                recalculateAll();
+                scheduleAutoSave();
+                showToast('Adjustment reset to 0', 'info');
+            };
+        }
     }
 
     function confirmDeletion(itemName, onConfirm) {
@@ -3485,7 +3557,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.kpiCredit) elements.kpiCredit.textContent = `Rs. ${formatNumber(totalCredit)}`;
 
         // 15. Reconciliation & Bottom Footer
-        const diff = totalCredit - totalDebit;
+        const rawDiff = totalCredit - totalDebit;
+        const dayAdjustment = parseFloat(data.summary?.dayAdjustment) || 0;
+        const diff = rawDiff + dayAdjustment;
         const cashTaken = parseFloat(data.summary?.cashTakenAway) || 0;
         const darazCash = parseFloat(data.summary?.darazCash) || 0;
         const totalCash = cashTaken + darazCash;
@@ -3493,6 +3567,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!data.summary) data.summary = {};
         data.summary.debitTotal = totalDebit;
         data.summary.creditTotal = totalCredit;
+        data.summary.rawDifference = rawDiff;
+        data.summary.dayAdjustment = dayAdjustment;
         data.summary.difference = diff;
         data.summary.totalCash = totalCash;
 
@@ -3514,6 +3590,19 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elements.boxReconStatus.className = 'recon-status-badge balanced';
                 elements.boxReconStatus.textContent = `Deficit: ${formatNumber(diff)} (Cash Excess)`;
+            }
+        }
+
+        // Real-time admin feedback text
+        if (elements.reconAdjFeedback && !isViewerRole()) {
+            if (dayAdjustment !== 0) {
+                const rawSign = rawDiff >= 0 ? '+' : '';
+                const adjSign = dayAdjustment >= 0 ? '+' : '';
+                elements.reconAdjFeedback.innerHTML = `Raw: <strong>${rawSign}${formatNumber(rawDiff)}</strong> | Adj: <strong>${adjSign}${formatNumber(dayAdjustment)}</strong> | Net: <strong>${formatNumber(diff)}</strong>`;
+            } else if (Math.abs(rawDiff) >= 1) {
+                elements.reconAdjFeedback.innerHTML = `<span style="color: #94a3b8;">Unadjusted: ${rawDiff > 0 ? '+' : ''}${formatNumber(rawDiff)}</span>`;
+            } else {
+                elements.reconAdjFeedback.textContent = '';
             }
         }
     }
@@ -5760,6 +5849,253 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Password updated successfully! New password saved.', 'success');
             };
         }
+
+        // Day Adjustments Manager (Admin Only)
+        renderDayAdjustmentsSettings();
+    }
+
+    // ==========================================================
+    // DAY ADJUSTMENTS & RECONCILIATION MANAGER (ADMIN ONLY)
+    // ==========================================================
+    function renderDayAdjustmentsSettings() {
+        const card = document.getElementById('card-settings-day-adjustments');
+        if (!card) return;
+        if (isViewerRole()) {
+            card.style.display = 'none';
+            return;
+        } else {
+            card.style.display = '';
+        }
+
+        const dateInp = document.getElementById('setting-adj-date');
+        const overviewEl = document.getElementById('setting-adj-day-overview');
+        const amtInp = document.getElementById('setting-adj-amount');
+        const noteInp = document.getElementById('setting-adj-note');
+        const btnSave = document.getElementById('btn-save-setting-adj');
+        const btnAuto = document.getElementById('btn-auto-balance-setting-adj');
+        const btnClear = document.getElementById('btn-clear-setting-adj');
+        const btnToday = document.getElementById('btn-setting-adj-today');
+        const btnPrev = document.getElementById('btn-setting-adj-prev');
+        const btnNext = document.getElementById('btn-setting-adj-next');
+        const tableContainer = document.getElementById('settings-adjustments-table-container');
+        const badgeCount = document.getElementById('badge-adj-count');
+
+        if (!dateInp) return;
+        if (!dateInp.value) {
+            dateInp.value = state.currentDate || todayDateStr;
+        }
+
+        function updateSelectedDayView() {
+            const dtKey = dateInp.value;
+            if (!dtKey) return;
+            const dayData = clinicDB.getDay(dtKey);
+            const dr = (dayData.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+            const cr = (dayData.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+            const rawDiff = cr - dr;
+            const curAdj = parseFloat(dayData.summary?.dayAdjustment) || 0;
+            const curNote = dayData.summary?.dayAdjustmentNote || '';
+            const netDiff = rawDiff + curAdj;
+
+            if (amtInp) amtInp.value = curAdj;
+            if (noteInp) noteInp.value = curNote;
+
+            let statusHtml = '';
+            if (Math.abs(netDiff) < 1) {
+                statusHtml = '<span style="color: #059669; font-weight: 700; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0;">✓ Balanced</span>';
+            } else if (netDiff > 0) {
+                statusHtml = `<span style="color: #dc2626; font-weight: 700; background: #fef2f2; padding: 2px 8px; border-radius: 4px; border: 1px solid #fecaca;">+${formatNumber(netDiff)} (Cash Short)</span>`;
+            } else {
+                statusHtml = `<span style="color: #d97706; font-weight: 700; background: #fffbeb; padding: 2px 8px; border-radius: 4px; border: 1px solid #fde68a;">${formatNumber(netDiff)} (Cash Excess)</span>`;
+            }
+
+            if (overviewEl) {
+                overviewEl.innerHTML = `
+                    <span>Total Cr: <strong style="color: #10b981;">Rs. ${formatNumber(cr)}</strong></span>
+                    <span>Total Dr: <strong style="color: #ef4444;">Rs. ${formatNumber(dr)}</strong></span>
+                    <span>Raw Variance: <strong>${rawDiff >= 0 ? '+' : ''}${formatNumber(rawDiff)}</strong></span>
+                    <span>Net Result: ${statusHtml}</span>
+                `;
+            }
+        }
+
+        function renderAdjustmentsTable() {
+            if (!tableContainer) return;
+            const list = clinicDB.getAllAdjustedDays();
+            if (badgeCount) badgeCount.textContent = `${list.length} Day${list.length === 1 ? '' : 's'}`;
+
+            if (list.length === 0) {
+                tableContainer.innerHTML = `
+                    <div style="padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+                        No day adjustments recorded yet. When you balance or adjust any date, it will appear here.
+                    </div>
+                `;
+                return;
+            }
+
+            let tblHtml = `
+                <table class="excel-table" style="margin: 0; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 16%;">Date</th>
+                            <th class="num-cell" style="width: 17%;">Raw Diff (Cr - Dr)</th>
+                            <th class="num-cell" style="width: 17%;">Adjustment (Rs.)</th>
+                            <th class="num-cell" style="width: 18%;">Net Status</th>
+                            <th style="width: 20%;">Reason / Note</th>
+                            <th style="width: 12%; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            list.forEach(item => {
+                const net = item.netDifference;
+                let statusLabel = '';
+                if (Math.abs(net) < 1) {
+                    statusLabel = '<span style="color: #059669; font-weight: 700;">Balanced (Rs. 0)</span>';
+                } else if (net > 0) {
+                    statusLabel = `<span style="color: #dc2626; font-weight: 700;">+${formatNumber(net)} Short</span>`;
+                } else {
+                    statusLabel = `<span style="color: #d97706; font-weight: 700;">${formatNumber(net)} Excess</span>`;
+                }
+
+                tblHtml += `
+                    <tr>
+                        <td><strong>${formatDateKeyDisplay(item.dateKey)}</strong></td>
+                        <td class="num-cell">${item.rawDiff >= 0 ? '+' : ''}${formatNumber(item.rawDiff)}</td>
+                        <td class="num-cell" style="color: #2563eb; font-weight: 700;">${item.dayAdjustment >= 0 ? '+' : ''}${formatNumber(item.dayAdjustment)}</td>
+                        <td class="num-cell">${statusLabel}</td>
+                        <td style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(item.note || '—')}</td>
+                        <td style="text-align: center;">
+                            <div style="display: inline-flex; gap: 4px;">
+                                <button type="button" class="btn btn-secondary btn-sm btn-edit-adj-row" data-date="${item.dateKey}" style="padding: 2px 6px; font-size: 0.72rem;" title="Edit this day's adjustment">✏️</button>
+                                <button type="button" class="btn btn-secondary btn-sm btn-del-adj-row" data-date="${item.dateKey}" style="padding: 2px 6px; font-size: 0.72rem; color: #ef4444;" title="Reset adjustment to 0">✕</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tblHtml += `
+                    </tbody>
+                </table>
+            `;
+            tableContainer.innerHTML = tblHtml;
+
+            tableContainer.querySelectorAll('.btn-edit-adj-row').forEach(btn => {
+                btn.onclick = () => {
+                    const dt = btn.dataset.date;
+                    dateInp.value = dt;
+                    updateSelectedDayView();
+                    dateInp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                };
+            });
+
+            tableContainer.querySelectorAll('.btn-del-adj-row').forEach(btn => {
+                btn.onclick = () => {
+                    const dt = btn.dataset.date;
+                    clinicDB.deleteDayAdjustment(dt);
+                    if (state.currentDate === dt && state.currentDayData) {
+                        state.currentDayData.summary.dayAdjustment = 0;
+                        state.currentDayData.summary.dayAdjustmentNote = '';
+                        if (elements.inputDayAdjustment) elements.inputDayAdjustment.value = 0;
+                        recalculateAll();
+                    }
+                    updateSelectedDayView();
+                    renderAdjustmentsTable();
+                    showToast(`Adjustment cleared for ${formatDateKeyDisplay(dt)}`, 'info');
+                };
+            });
+        }
+
+        dateInp.onchange = updateSelectedDayView;
+        if (btnToday) {
+            btnToday.onclick = () => {
+                dateInp.value = state.currentDate || todayDateStr;
+                updateSelectedDayView();
+            };
+        }
+        if (btnPrev) {
+            btnPrev.onclick = () => {
+                const cur = new Date(dateInp.value);
+                cur.setDate(cur.getDate() - 1);
+                dateInp.value = formatDateToISO(cur);
+                updateSelectedDayView();
+            };
+        }
+        if (btnNext) {
+            btnNext.onclick = () => {
+                const cur = new Date(dateInp.value);
+                cur.setDate(cur.getDate() + 1);
+                dateInp.value = formatDateToISO(cur);
+                updateSelectedDayView();
+            };
+        }
+
+        if (btnSave) {
+            btnSave.onclick = () => {
+                const dt = dateInp.value;
+                if (!dt) return;
+                const amt = parseFloat(amtInp?.value) || 0;
+                const note = noteInp?.value || '';
+                clinicDB.setDayAdjustment(dt, amt, note);
+                if (state.currentDate === dt && state.currentDayData) {
+                    if (!state.currentDayData.summary) state.currentDayData.summary = {};
+                    state.currentDayData.summary.dayAdjustment = amt;
+                    state.currentDayData.summary.dayAdjustmentNote = note;
+                    if (elements.inputDayAdjustment) elements.inputDayAdjustment.value = amt;
+                    recalculateAll();
+                }
+                updateSelectedDayView();
+                renderAdjustmentsTable();
+                showToast(`Adjustment saved for ${formatDateKeyDisplay(dt)}!`, 'success');
+            };
+        }
+
+        if (btnAuto) {
+            btnAuto.onclick = () => {
+                const dt = dateInp.value;
+                if (!dt) return;
+                const dayData = clinicDB.getDay(dt);
+                const dr = (dayData.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+                const cr = (dayData.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+                const rawDiff = cr - dr;
+                const autoAdj = -rawDiff;
+                if (amtInp) amtInp.value = autoAdj;
+                clinicDB.setDayAdjustment(dt, autoAdj, noteInp?.value || 'Auto-balanced');
+                if (state.currentDate === dt && state.currentDayData) {
+                    if (!state.currentDayData.summary) state.currentDayData.summary = {};
+                    state.currentDayData.summary.dayAdjustment = autoAdj;
+                    if (elements.inputDayAdjustment) elements.inputDayAdjustment.value = autoAdj;
+                    recalculateAll();
+                }
+                updateSelectedDayView();
+                renderAdjustmentsTable();
+                showToast(`⚡ Auto-balanced ${formatDateKeyDisplay(dt)} to Rs. 0!`, 'success');
+            };
+        }
+
+        if (btnClear) {
+            btnClear.onclick = () => {
+                const dt = dateInp.value;
+                if (!dt) return;
+                if (amtInp) amtInp.value = 0;
+                if (noteInp) noteInp.value = '';
+                clinicDB.deleteDayAdjustment(dt);
+                if (state.currentDate === dt && state.currentDayData) {
+                    if (!state.currentDayData.summary) state.currentDayData.summary = {};
+                    state.currentDayData.summary.dayAdjustment = 0;
+                    state.currentDayData.summary.dayAdjustmentNote = '';
+                    if (elements.inputDayAdjustment) elements.inputDayAdjustment.value = 0;
+                    recalculateAll();
+                }
+                updateSelectedDayView();
+                renderAdjustmentsTable();
+                showToast(`Adjustment reset to 0 for ${formatDateKeyDisplay(dt)}`, 'info');
+            };
+        }
+
+        updateSelectedDayView();
+        renderAdjustmentsTable();
     }
 
     // Utilities

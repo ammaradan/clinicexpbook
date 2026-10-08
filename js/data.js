@@ -740,6 +740,9 @@ class ClinicDataManager {
             summary: {
                 debitTotal: 0,
                 creditTotal: initialDarazCash,
+                rawDifference: initialDarazCash,
+                dayAdjustment: 0,
+                dayAdjustmentNote: '',
                 difference: initialDarazCash,
                 cashTakenAway: 0,
                 darazCash: 0,
@@ -794,6 +797,78 @@ class ClinicDataManager {
             this.saveDay(dateKey, res);
         }
         return this.cleanDayItemNames(res);
+    }
+
+    getDayAdjustment(dateKey) {
+        const dayData = this.getDay(dateKey);
+        return {
+            amount: parseFloat(dayData?.summary?.dayAdjustment) || 0,
+            note: dayData?.summary?.dayAdjustmentNote || ''
+        };
+    }
+
+    setDayAdjustment(dateKey, amount, note = '') {
+        const day = this.getDay(dateKey);
+        if (!day) return false;
+        if (!day.summary) day.summary = {};
+        const adj = parseFloat(amount) || 0;
+        day.summary.dayAdjustment = adj;
+        if (note !== undefined) {
+            day.summary.dayAdjustmentNote = String(note || '').trim();
+        }
+        const dr = (day.summary && day.summary.debitTotal !== undefined)
+            ? (parseFloat(day.summary.debitTotal) || 0)
+            : (day.debits || []).reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
+        const cr = (day.summary && day.summary.creditTotal !== undefined)
+            ? (parseFloat(day.summary.creditTotal) || 0)
+            : (day.credits || []).reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+        const rawDiff = cr - dr;
+        day.summary.debitTotal = dr;
+        day.summary.creditTotal = cr;
+        day.summary.rawDifference = rawDiff;
+        day.summary.difference = rawDiff + adj;
+        this.saveDay(dateKey, day);
+        return true;
+    }
+
+    deleteDayAdjustment(dateKey) {
+        return this.setDayAdjustment(dateKey, 0, '');
+    }
+
+    getAllAdjustedDays() {
+        const allDateKeys = new Set();
+        Object.keys(this.days).forEach(k => {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(k)) {
+                if (k === '2026-09-31') return;
+                allDateKeys.add(k);
+            } else if (/^\d{1,2}$/.test(k)) {
+                const dayNum = parseInt(k, 10);
+                if (dayNum >= 1 && dayNum <= 30) {
+                    allDateKeys.add(`2026-09-${String(dayNum).padStart(2, '0')}`);
+                }
+            }
+        });
+
+        const result = [];
+        allDateKeys.forEach(dateKey => {
+            const dayData = this.getDay(dateKey);
+            const adj = parseFloat(dayData?.summary?.dayAdjustment) || 0;
+            if (adj !== 0) {
+                const dr = parseFloat(dayData?.summary?.debitTotal) || 0;
+                const cr = parseFloat(dayData?.summary?.creditTotal) || 0;
+                const rawDiff = cr - dr;
+                result.push({
+                    dateKey,
+                    rawDiff,
+                    dayAdjustment: adj,
+                    netDifference: rawDiff + adj,
+                    note: dayData?.summary?.dayAdjustmentNote || '',
+                    dayData
+                });
+            }
+        });
+        result.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+        return result;
     }
 
     getCategories() {
