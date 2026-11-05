@@ -61,6 +61,16 @@ const DEFAULT_CATEGORIES = {
     ]
 };
 
+const DEFAULT_HOUSE_EXPENSE_CATEGORIES = [
+    { id: 'he_groceries', name: 'Kitchen & Groceries' },
+    { id: 'he_utilities', name: 'Utilities & Bills (Electricity, Gas, Water)' },
+    { id: 'he_maintenance', name: 'Home Maintenance & Repairs' },
+    { id: 'he_servants', name: 'Domestic Staff & Help' },
+    { id: 'he_education', name: 'Children & Education' },
+    { id: 'he_medical', name: 'Personal & Family Medical' },
+    { id: 'he_other', name: 'General / Other Household' }
+];
+
 class ClinicDataManager {
     constructor() {
         this.days = {};
@@ -199,6 +209,75 @@ class ClinicDataManager {
         return this.updateCategory(type, id, { name: def.name, code: def.code });
     }
 
+    // ==========================================================
+    // HOUSE EXPENSE CATEGORY MANAGEMENT
+    // ==========================================================
+    getHouseExpenseCategories() {
+        if (!this.settings) this.settings = {};
+        if (!Array.isArray(this.settings.houseExpenseCategories) || this.settings.houseExpenseCategories.length === 0) {
+            this.settings.houseExpenseCategories = JSON.parse(JSON.stringify(DEFAULT_HOUSE_EXPENSE_CATEGORIES));
+            this.saveAll();
+        }
+        return this.settings.houseExpenseCategories;
+    }
+
+    addHouseExpenseCategory(name) {
+        const cleanName = (name || '').trim();
+        if (!cleanName) return false;
+        const cats = this.getHouseExpenseCategories();
+        if (cats.some(c => c.name.toLowerCase() === cleanName.toLowerCase())) {
+            return false;
+        }
+        const id = 'he_' + Date.now();
+        const newCat = { id, name: cleanName };
+        cats.push(newCat);
+        this.saveAll();
+        return newCat;
+    }
+
+    updateHouseExpenseCategory(id, newName) {
+        const cleanName = (newName || '').trim();
+        if (!cleanName) return false;
+        const cats = this.getHouseExpenseCategories();
+        const cat = cats.find(c => c.id === id);
+        if (!cat) return false;
+        const oldName = cat.name;
+        cat.name = cleanName;
+        // Keep historic entries consistent
+        Object.values(this.days).forEach(day => {
+            if (day && Array.isArray(day.homeExpenseDetails)) {
+                day.homeExpenseDetails.forEach(hed => {
+                    if (hed && hed.category === oldName) {
+                        hed.category = cleanName;
+                    }
+                });
+            }
+        });
+        this.saveAll();
+        return true;
+    }
+
+    deleteHouseExpenseCategory(id) {
+        let cats = this.getHouseExpenseCategories();
+        if (cats.length <= 1) return false; // Must retain at least one category
+        const cat = cats.find(c => c.id === id);
+        if (!cat) return false;
+        const fallbackName = cats.find(c => c.id !== id)?.name || 'General / Other Household';
+        // Reassign affected entries to fallback
+        Object.values(this.days).forEach(day => {
+            if (day && Array.isArray(day.homeExpenseDetails)) {
+                day.homeExpenseDetails.forEach(hed => {
+                    if (hed && hed.category === cat.name) {
+                        hed.category = fallbackName;
+                    }
+                });
+            }
+        });
+        this.settings.houseExpenseCategories = cats.filter(c => c.id !== id);
+        this.saveAll();
+        return true;
+    }
+
     clearToZero() {
         this.days = {};
         // Generate blank 0-days for 01 through 30 (September has 30 days)
@@ -214,6 +293,12 @@ class ClinicDataManager {
 
     identifyDebitCategoryId(item) {
         if (!item) return null;
+        if (item.isStaffPay || item.staffRef || item.catId === 'staff_vendors') {
+            return 'staff_vendors';
+        }
+        if (item.catId === 'other_expenses') {
+            return 'other_expenses';
+        }
         if (item.catId) {
             const sysCat = (this.categories?.expense || []).find(c => c.id === item.catId && c.system);
             if (sysCat) return sysCat.id;
@@ -237,7 +322,7 @@ class ClinicDataManager {
             'dispensary_purchases': ['dispensary purchases', 'dispensary purchase', 'dp'],
             'clinic_expenses': ['clinic expenses', 'clinic exp', 'ce'],
             'lb_expenses': ['lb expenses', 'lb exp', 'lbe'],
-            'home_expenses': ['home expenses', 'home exp', 'he'],
+            'home_expenses': ['home expenses', 'home exp', 'he', 'house expenses', 'house expense'],
             'us_expenses': ['us exp', 'us expenses', 'use'],
             'dental_expenses': ['dental exp', 'dental expenses', 'de'],
             'store_expenses': ['store exp', 'store expenses', 'se'],
@@ -247,13 +332,18 @@ class ClinicDataManager {
             'partner_zk': ['zk'],
             'partner_kh': ['kh'],
             'partner_bp': ['bp'],
-            'total_cash_available': ['total cash available']
+            'total_cash_available': ['total cash available'],
+            'other_expenses': ['other expense', 'other expenses', 'other']
         };
 
         for (const [catId, aliases] of Object.entries(exactDebitAliases)) {
             if (aliases.includes(nameLower)) {
                 return catId;
             }
+        }
+
+        if (item.isCustom && !item.isStaffPay && !item.staffRef) {
+            return 'other_expenses';
         }
 
         return null;
@@ -436,6 +526,17 @@ class ClinicDataManager {
         }
 
         if (!dayData.snExpenseDetails) dayData.snExpenseDetails = [];
+        if (Array.isArray(dayData.homeExpenseDetails)) {
+            const houseCats = this.getHouseExpenseCategories();
+            const generalCat = houseCats.find(c => c.name.toLowerCase().includes('general') || c.name.toLowerCase().includes('other'))?.name || houseCats[houseCats.length - 1]?.name || 'General / Other Household';
+            dayData.homeExpenseDetails.forEach(hed => {
+                if (hed && typeof hed === 'object') {
+                    if (!hed.category) {
+                        hed.category = generalCat;
+                    }
+                }
+            });
+        }
         if (!dayData.dentalStaffPayments) {
             dayData.dentalStaffPayments = {
                 'Shakila': { amount: 0, reason: '' },
@@ -461,12 +562,19 @@ class ClinicDataManager {
             const sName = staff.name.trim();
             const sNameLower = sName.toLowerCase();
 
-            // Find all matching debit rows
+            // Find all matching debit rows - MUST be explicitly a Staff Pay entry
+            // General / other expense items without staffRef / isStaffPay must NEVER be claimed
             const matchingDebits = (dayData.debits || []).filter(d => {
+                if (!d.isStaffPay && !d.staffRef && d.catId !== 'staff_vendors') {
+                    return false;
+                }
                 if (d.staffRef && d.staffRef.trim().toLowerCase() === sNameLower) return true;
-                const dName = (d.name || '').trim().toLowerCase();
-                if (dName === sNameLower) return true;
-                if (dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-') || dName.startsWith(sNameLower + ':')) return true;
+                if (d.isStaffPay) {
+                    const dName = (d.name || '').trim().toLowerCase();
+                    if (dName === sNameLower || dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-') || dName.startsWith(sNameLower + ':')) {
+                        return true;
+                    }
+                }
                 return false;
             });
 
@@ -514,8 +622,11 @@ class ClinicDataManager {
 
         let deb = dayData.debits.find(d => {
             if (d.staffRef && d.staffRef.trim().toLowerCase() === sNameLower) return true;
-            const dName = (d.name || '').trim().toLowerCase();
-            return dName === sNameLower || dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-');
+            if (d.isStaffPay) {
+                const dName = (d.name || '').trim().toLowerCase();
+                return dName === sNameLower || dName.startsWith(sNameLower + ' ') || dName.startsWith(sNameLower + '(') || dName.startsWith(sNameLower + '-');
+            }
+            return false;
         });
 
         if (newAmt > 0) {
@@ -525,6 +636,9 @@ class ClinicDataManager {
                 deb.name = displayName;
                 deb.staffRef = sName;
                 deb.isCustom = true;
+                deb.isStaffPay = true;
+                deb.catId = 'staff_vendors';
+                deb.reason = reason || 'Payment';
             } else {
                 let targetIdx = dayData.debits.findIndex(d => {
                     const n = (d.name || '').trim().toLowerCase();
@@ -541,6 +655,8 @@ class ClinicDataManager {
                     name: displayName,
                     amount: newAmt,
                     isCustom: true,
+                    isStaffPay: true,
+                    catId: 'staff_vendors',
                     staffRef: sName,
                     reason: reason || 'Payment'
                 });
@@ -700,8 +816,8 @@ class ClinicDataManager {
                 { item: '', amount: 0 }
             ],
             homeExpenseDetails: [
-                { item: '', amount: 0 },
-                { item: '', amount: 0 }
+                { category: 'Kitchen & Groceries', item: '', amount: 0 },
+                { category: 'Kitchen & Groceries', item: '', amount: 0 }
             ],
             staffPayments: {},
             receivables: [
@@ -1728,21 +1844,23 @@ class ClinicDataManager {
                     }
                 }
             }
-            // 11. Home Expenses
-            else if (catKeyLower === 'home_expenses' || catKeyLower === 'home_exp' || catKeyLower === 'he') {
+            // 11. Home Expenses / House Expenses (Category-Wise Breakdown)
+            else if (catKeyLower === 'home_expenses' || catKeyLower === 'home_exp' || catKeyLower === 'he' || catKeyLower === 'house_expenses') {
                 let hadHed = false;
                 if (dayData.homeExpenseDetails && dayData.homeExpenseDetails.length > 0) {
                     dayData.homeExpenseDetails.forEach(hed => {
                         const amt = parseFloat(hed.amount) || 0;
                         if (amt > 0) {
                             hadHed = true;
+                            const hCat = (hed.category || 'General / Other Household').trim();
                             rows.push({
                                 date: formattedDate,
-                                category: 'Home Expenses',
-                                item: hed.item || 'Household Item',
-                                description: hed.item ? `Home expense: ${hed.item}` : 'Home cash expense',
-                                type: 'Debit (Expense)',
-                                amount: amt
+                                category: hCat,
+                                item: hed.item || hCat,
+                                description: hed.item ? `${hCat}: ${hed.item}` : hCat,
+                                type: 'Debit (House Expense)',
+                                amount: amt,
+                                houseCategory: hCat
                             });
                             grandTotal += amt;
                         }
@@ -1751,21 +1869,66 @@ class ClinicDataManager {
                 if (!hadHed) {
                     const match = (dayData.debits || []).find(d => {
                         const n = (d.name || '').toLowerCase();
-                        return n.includes('home exp') || n === 'he';
+                        return n.includes('home exp') || n === 'he' || n.includes('house exp');
                     });
                     if (match && parseFloat(match.amount) > 0) {
                         const amt = parseFloat(match.amount);
                         rows.push({
                             date: formattedDate,
-                            category: 'Home Expenses',
-                            item: 'Home Expenses Total',
+                            category: 'General / Other Household',
+                            item: match.name || 'House Expense Total',
                             description: 'Daily household expenses',
-                            type: 'Debit (Expense)',
-                            amount: amt
+                            type: 'Debit (House Expense)',
+                            amount: amt,
+                            houseCategory: 'General / Other Household'
                         });
                         grandTotal += amt;
                     }
                 }
+            }
+            // 11b. Specific House Expense Category Drill-Down
+            else if (catKeyLower.startsWith('house_cat:')) {
+                const targetHouseCat = categoryKey.replace(/^house_cat:/i, '').trim().toLowerCase();
+                if (dayData.homeExpenseDetails && dayData.homeExpenseDetails.length > 0) {
+                    dayData.homeExpenseDetails.forEach(hed => {
+                        const hCat = (hed.category || 'General / Other Household').trim();
+                        if (hCat.toLowerCase() === targetHouseCat || (hed.catId && hed.catId.toLowerCase() === targetHouseCat)) {
+                            const amt = parseFloat(hed.amount) || 0;
+                            if (amt > 0) {
+                                rows.push({
+                                    date: formattedDate,
+                                    category: hCat,
+                                    item: hed.item || hCat,
+                                    description: hed.item ? `${hCat}: ${hed.item}` : hCat,
+                                    type: 'Debit (House Expense)',
+                                    amount: amt,
+                                    houseCategory: hCat
+                                });
+                                grandTotal += amt;
+                            }
+                        }
+                    });
+                }
+            }
+            // 11c. Other Expenses (General Debit items that are NOT staff pay and NOT system categories)
+            else if (catKeyLower === 'other_expenses' || catKeyLower === 'other_expense' || catKeyLower === 'other') {
+                (dayData.debits || []).forEach(d => {
+                    const catId = this.identifyDebitCategoryId(d);
+                    if (catId === 'other_expenses' || (d.isCustom && !d.isStaffPay && !d.staffRef && catId !== 'staff_vendors')) {
+                        const amt = parseFloat(d.amount) || 0;
+                        if (amt > 0) {
+                            rows.push({
+                                date: formattedDate,
+                                category: 'Other Expense',
+                                item: d.name || 'General Expense',
+                                description: d.reason || 'General non-salary expense',
+                                type: 'Debit (Other Expense)',
+                                amount: amt
+                            });
+                            grandTotal += amt;
+                        }
+                    }
+                });
             }
             // 12. SN Expenses (Collapsible category & breakdown)
             else if (catKeyLower === 'sn_expenses' || catKeyLower === 'sn_exp' || catKeyLower === 'sn' || catKeyLower === 'sne') {
@@ -2214,6 +2377,30 @@ class ClinicDataManager {
 
         rows.sort((a, b) => a.date.localeCompare(b.date));
 
+        let houseCategoryBreakdown = null;
+        const isHouseExpenseReport = catKeyLower === 'home_expenses' || catKeyLower === 'home_exp' || catKeyLower === 'he' || catKeyLower.startsWith('house_cat:');
+        if (isHouseExpenseReport) {
+            const catMap = {};
+            const knownCats = this.getHouseExpenseCategories();
+            knownCats.forEach(c => {
+                catMap[c.name] = { name: c.name, total: 0, count: 0 };
+            });
+            rows.forEach(r => {
+                const cName = r.houseCategory || r.category || 'General / Other Household';
+                if (!catMap[cName]) {
+                    catMap[cName] = { name: cName, total: 0, count: 0 };
+                }
+                catMap[cName].total += (r.amount || 0);
+                catMap[cName].count += 1;
+            });
+            houseCategoryBreakdown = Object.values(catMap).map(c => ({
+                name: c.name,
+                total: c.total,
+                count: c.count,
+                percentage: grandTotal > 0 ? parseFloat(((c.total / grandTotal) * 100).toFixed(1)) : 0
+            })).sort((a, b) => b.total - a.total);
+        }
+
         return {
             categoryKey,
             startDate: startDate || 'All',
@@ -2223,6 +2410,8 @@ class ClinicDataManager {
             tpTotal,
             retailTotal,
             isStorePurchasesCombined,
+            isHouseExpenseReport,
+            houseCategoryBreakdown,
             rows
         };
     }

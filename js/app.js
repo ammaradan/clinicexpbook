@@ -686,9 +686,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reason = (reasonInp.value || '').trim() || 'Payment';
                 const amount = parseFloat(amtInp.value) || 0;
 
-                // 1. Add to Debit list above ZK
+                // 1. Add to Debit list above ZK (strictly marked as staff pay)
                 const lineName = `${chosenStaff} (${reason})`;
-                insertDebitRowAboveZK(state.currentDayData, { name: lineName, amount, isCustom: true, staffRef: chosenStaff });
+                insertDebitRowAboveZK(state.currentDayData, { 
+                    name: lineName, 
+                    amount, 
+                    isCustom: true, 
+                    isStaffPay: true, 
+                    staffRef: chosenStaff, 
+                    catId: 'staff_vendors',
+                    reason: reason 
+                });
 
                 // 2. Link to Staff & Vendors Table
                 if (!state.currentDayData.staffPayments) state.currentDayData.staffPayments = {};
@@ -3030,14 +3038,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- PANEL 4C: HOME X DETAILS ---
+    // --- PANEL 4C: HOME X DETAILS (HOUSE EXPENSES WITH CATEGORIES) ---
     function renderHomeXTable(data) {
         elements.tbodyHomeX.innerHTML = '';
         const list = data.homeExpenseDetails || [];
+        const categories = clinicDB.getHouseExpenseCategories();
+        const fallbackCat = categories.length > 0 ? categories[0].name : 'Kitchen & Groceries';
+
         list.forEach((it, i) => {
+            if (!it.category) it.category = fallbackCat;
+            const currentCat = it.category || fallbackCat;
             const tr = document.createElement('tr');
+            
+            // Build options for categories
+            let catOptionsHtml = '';
+            categories.forEach(cat => {
+                const sel = cat.name.toLowerCase() === currentCat.toLowerCase() ? 'selected' : '';
+                catOptionsHtml += `<option value="${escapeHtml(cat.name)}" ${sel}>${escapeHtml(cat.name)}</option>`;
+            });
+            catOptionsHtml += `<option value="__add_new__">+ Add New Category...</option>`;
+
             tr.innerHTML = `
-                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}" placeholder="Home expense item"></td>
+                <td>
+                    <select class="cell-input home-x-cat" title="Category: ${escapeHtml(currentCat)}">
+                        ${catOptionsHtml}
+                    </select>
+                </td>
+                <td><input type="text" class="cell-input home-x-item" value="${escapeHtml(it.item || '')}" placeholder="Item / description"></td>
                 <td class="num-cell" style="padding: 1px 4px;">
                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
                         <input type="number" step="any" class="cell-input num-input home-x-amt" value="${it.amount || 0}">
@@ -3045,6 +3072,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
             `;
+
+            const catSelect = tr.querySelector('.home-x-cat');
+            catSelect.onchange = (e) => {
+                if (e.target.value === '__add_new__') {
+                    appModal.prompt({
+                        title: 'Add House Expense Category',
+                        message: 'Enter name for the new house expense category:',
+                        placeholder: 'e.g. Vehicle & Fuel, Entertainment',
+                        icon: '🏠',
+                        confirmText: 'Create Category',
+                        onConfirm: (newName) => {
+                            if (!newName || !newName.trim()) {
+                                catSelect.value = it.category;
+                                return;
+                            }
+                            const res = clinicDB.addHouseExpenseCategory(newName.trim());
+                            if (res) {
+                                it.category = res.name;
+                                showToast(`Created category "${res.name}"!`, 'success');
+                            } else {
+                                it.category = newName.trim();
+                                showToast(`Category "${newName.trim()}" already exists.`, 'info');
+                            }
+                            renderHomeXTable(data);
+                            scheduleAutoSave();
+                        },
+                        onCancel: () => {
+                            catSelect.value = it.category;
+                        }
+                    });
+                } else {
+                    it.category = e.target.value;
+                    scheduleAutoSave();
+                }
+            };
+
             tr.querySelector('.home-x-item').oninput = (e) => {
                 it.item = e.target.value;
                 scheduleAutoSave();
@@ -3055,7 +3118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 scheduleAutoSave();
             };
             tr.querySelector('.del-detail-row-btn').onclick = () => {
-                const name = it.item || 'Home Exp Item';
+                const name = it.item || it.category || 'House Expense Item';
                 confirmDeletion(name, () => {
                     list.splice(i, 1);
                     renderHomeXTable(data);
@@ -3782,22 +3845,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add Row Buttons
     function setupAddRowButtons() {
-        // 1. Add Custom Expense Line in Debit (Inserted ABOVE ZK)
+        // 1. Add Custom Expense Line in Debit (Inserted ABOVE ZK, classified as Other Expense)
         elements.btnAddDebitRow.addEventListener('click', () => {
             appModal.prompt({
-                title: 'Add Expense Item',
-                message: 'Enter description / name for new Debit (Expense) item:',
-                placeholder: 'e.g. Office Repair',
+                title: 'Add Other Expense',
+                message: 'Enter description / name for new Other Expense item:',
+                placeholder: 'e.g. Office Repair, Generator Fuel',
                 defaultValue: 'Other Expense',
                 icon: '💸',
-                confirmText: 'Add Item',
+                confirmText: 'Add Expense',
                 onConfirm: (name) => {
                     const finalName = (name || '').trim() || 'Other Expense';
-                    insertDebitRowAboveZK(state.currentDayData, { name: finalName, amount: 0, isCustom: true });
+                    insertDebitRowAboveZK(state.currentDayData, { 
+                        name: finalName, 
+                        amount: 0, 
+                        isCustom: true, 
+                        isStaffPay: false, 
+                        catId: 'other_expenses' 
+                    });
                     renderDebitTable(state.currentDayData);
                     recalculateAll();
                     scheduleAutoSave();
-                    showToast(`Added "${finalName}" to Debit!`, 'success');
+                    showToast(`Added "${finalName}" under Other Expense!`, 'success');
                 }
             });
         });
@@ -3878,11 +3947,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.btnAddHomeRow.addEventListener('click', () => {
             if (!state.currentDayData.homeExpenseDetails) state.currentDayData.homeExpenseDetails = [];
-            state.currentDayData.homeExpenseDetails.push({ item: '', amount: 0 });
+            const cats = clinicDB.getHouseExpenseCategories();
+            const defaultCat = cats.length > 0 ? cats[0].name : 'Kitchen & Groceries';
+            state.currentDayData.homeExpenseDetails.push({ category: defaultCat, item: '', amount: 0 });
             renderHomeXTable(state.currentDayData);
             recalculateAll();
             scheduleAutoSave();
-            showToast('Added row to Home Expenses', 'info');
+            showToast('Added row to House Expenses', 'info');
         });
 
         elements.btnAddRecRow.addEventListener('click', () => {
@@ -3938,6 +4009,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 recalculateAll();
                 scheduleAutoSave();
                 showToast('Added row to SN Expenses', 'info');
+            });
+        }
+
+        // House Expense Header Action Buttons
+        const btnManageHouseCats = document.getElementById('btn-manage-house-cats');
+        if (btnManageHouseCats) {
+            btnManageHouseCats.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openHouseCategoriesModal();
+            });
+        }
+
+        const btnQuickHouseReport = document.getElementById('btn-quick-house-report');
+        if (btnQuickHouseReport) {
+            btnQuickHouseReport.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                switchTab('view-reports');
+                const catSelect = document.getElementById('report-category-select');
+                if (catSelect) {
+                    catSelect.value = 'home_expenses';
+                }
+                const rangeSelect = document.getElementById('report-range-select');
+                if (rangeSelect) {
+                    rangeSelect.value = 'month';
+                    const monthYearGroup = document.getElementById('report-month-year-group');
+                    if (monthYearGroup) monthYearGroup.style.display = 'flex';
+                }
+                executeCategoryReport();
             });
         }
 
@@ -4732,16 +4833,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="grand-metrics">
                     <div class="grand-metric-item">
-                        <span class="grand-metric-label">Clinic Gross</span>
-                        <span class="grand-metric-val" style="color: #38bdf8;">Rs. ${formatNumber(summary.clinicGross)}</span>
+                        <span class="grand-metric-label" style="font-weight: 700; color: #000000;">Clinic Gross</span>
+                        <span class="grand-metric-val" style="color: #000000; font-weight: 800;">Rs. ${formatNumber(summary.clinicGross)}</span>
                     </div>
                     <div class="grand-metric-item">
-                        <span class="grand-metric-label">US Gross</span>
-                        <span class="grand-metric-val" style="color: #34d399;">Rs. ${formatNumber(summary.usGross)}</span>
+                        <span class="grand-metric-label" style="font-weight: 700; color: #000000;">US Gross</span>
+                        <span class="grand-metric-val" style="color: #000000; font-weight: 800;">Rs. ${formatNumber(summary.usGross)}</span>
                     </div>
                     <div class="grand-metric-item">
-                        <span class="grand-metric-label">Clinic + US Combined Gross</span>
-                        <span class="grand-metric-val" style="color: #60a5fa;">Rs. ${formatNumber(summary.overallGross)}</span>
+                        <span class="grand-metric-label" style="font-weight: 700; color: #000000;">Clinic + US Combined Gross</span>
+                        <span class="grand-metric-val" style="color: #000000; font-weight: 800;">Rs. ${formatNumber(summary.overallGross)}</span>
                     </div>
                 </div>
             </div>
@@ -4751,24 +4852,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">🏪 Medical Store Performance</div>
                     <div class="pnl-row">
-                        <span>Sale Price (TP) Med:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.sumStoreSalesRetail)}</span>
+                        <span style="font-weight: 600; color: #000000;">Sale Price (TP) Med:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumStoreSalesRetail)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>Purchase Price Med:</span>
-                        <span class="num-cell" style="color: #fb7185;">- Rs. ${formatNumber(summary.sumStoreMedPurchases)}</span>
+                        <span style="font-weight: 600; color: #000000;">Purchase Price Med:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.sumStoreMedPurchases)}</span>
                     </div>
                     <div class="pnl-row highlight primary">
-                        <span>Store Margin / Profit:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.storeProfit)}</span>
+                        <span style="font-weight: 700; color: #000000;">Store Margin / Profit:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.storeProfit)}</span>
                     </div>
                     <div class="pnl-row sub">
-                        <span>Store Running Expenses:</span>
-                        <span class="num-cell">- Rs. ${formatNumber(summary.sumStoreExp)}</span>
+                        <span style="font-weight: 600; color: #000000;">Store Running Expenses:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.sumStoreExp)}</span>
                     </div>
                     <div class="pnl-row highlight credit">
-                        <span>Store Gross Profit:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.storeGross)}</span>
+                        <span style="font-weight: 700; color: #000000;">Store Gross Profit:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.storeGross)}</span>
                     </div>
                 </div>
 
@@ -4776,16 +4877,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">🔬 Ultrasound (US) Department</div>
                     <div class="pnl-row">
-                        <span>US Patient Receipts:</span>
-                        <span class="num-cell" style="color: #34d399;">Rs. ${formatNumber(summary.sumUSInc)}</span>
+                        <span style="font-weight: 600; color: #000000;">US Patient Receipts:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumUSInc)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>US Expenses:</span>
-                        <span class="num-cell" style="color: #fb7185;">- Rs. ${formatNumber(summary.sumUSExp)}</span>
+                        <span style="font-weight: 600; color: #000000;">US Expenses:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.sumUSExp)}</span>
                     </div>
                     <div class="pnl-row highlight credit">
-                        <span>US Gross Profit:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.usGross)}</span>
+                        <span style="font-weight: 700; color: #000000;">US Gross Profit:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.usGross)}</span>
                     </div>
                 </div>
 
@@ -4793,16 +4894,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">🧪 Laboratory (LB) Department</div>
                     <div class="pnl-row">
-                        <span>LB Diagnostic Receipts:</span>
-                        <span class="num-cell" style="color: #34d399;">Rs. ${formatNumber(summary.sumLBInc)}</span>
+                        <span style="font-weight: 600; color: #000000;">LB Diagnostic Receipts:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumLBInc)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>LB Expenses:</span>
-                        <span class="num-cell" style="color: #fb7185;">- Rs. ${formatNumber(summary.sumLBExp)}</span>
+                        <span style="font-weight: 600; color: #000000;">LB Expenses:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.sumLBExp)}</span>
                     </div>
                     <div class="pnl-row highlight primary">
-                        <span>LB Net Profit:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.lbProfit)}</span>
+                        <span style="font-weight: 700; color: #000000;">LB Net Profit:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.lbProfit)}</span>
                     </div>
                 </div>
 
@@ -4810,28 +4911,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">🩺 Dispensary & Clinic Operations</div>
                     <div class="pnl-row">
-                        <span>Dispensary Income:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.sumDispInc)}</span>
+                        <span style="font-weight: 600; color: #000000;">Dispensary Income:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumDispInc)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>Dispensary Purchases:</span>
-                        <span class="num-cell" style="color: #fb7185;">- Rs. ${formatNumber(summary.sumDispPurchases)}</span>
+                        <span style="font-weight: 600; color: #000000;">Dispensary Purchases:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.sumDispPurchases)}</span>
                     </div>
                     <div class="pnl-row highlight primary">
-                        <span>Dispensary Gross:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.dispGross)}</span>
+                        <span style="font-weight: 700; color: #000000;">Dispensary Gross:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.dispGross)}</span>
                     </div>
                     <div class="pnl-row sub">
-                        <span>Clinic Petty Expenses:</span>
-                        <span class="num-cell">- Rs. ${formatNumber(summary.sumClinicExp)}</span>
+                        <span style="font-weight: 600; color: #000000;">Clinic Petty Expenses:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.sumClinicExp)}</span>
                     </div>
                     <div class="pnl-row sub">
-                        <span>Salaries / Staff Total:</span>
-                        <span class="num-cell">- Rs. ${formatNumber(summary.totalSalaries)}</span>
+                        <span style="font-weight: 600; color: #000000;">Salaries / Staff Total:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(summary.totalSalaries)}</span>
                     </div>
                     <div class="pnl-row highlight credit">
-                        <span>Clinic Net Gross:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.clinicGross)}</span>
+                        <span style="font-weight: 700; color: #000000;">Clinic Net Gross:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.clinicGross)}</span>
                     </div>
                 </div>
 
@@ -4839,20 +4940,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">🤝 Partner Withdrawals & Accounts</div>
                     <div class="pnl-row">
-                        <span>ZK Withdrawals:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.sumZK)}</span>
+                        <span style="font-weight: 600; color: #000000;">ZK Withdrawals:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumZK)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>KH Withdrawals:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.sumKH)}</span>
+                        <span style="font-weight: 600; color: #000000;">KH Withdrawals:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumKH)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>BP Withdrawals:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.sumBP)}</span>
+                        <span style="font-weight: 600; color: #000000;">BP Withdrawals:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumBP)}</span>
                     </div>
                     <div class="pnl-row highlight debit">
-                        <span>Total Partner Payouts:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.partnersTotal)}</span>
+                        <span style="font-weight: 700; color: #000000;">Total Partner Payouts:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.partnersTotal)}</span>
                     </div>
                 </div>
 
@@ -4860,28 +4961,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">🏠 Household & Other Withdrawals</div>
                     <div class="pnl-row">
-                        <span>Home Expenses:</span>
-                        <span class="num-cell" style="color: #fb7185;">Rs. ${formatNumber(summary.sumHomeExp)}</span>
+                        <span style="font-weight: 600; color: #000000;">House Expenses:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumHomeExp)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>Dental Clinic Exp:</span>
-                        <span class="num-cell">Rs. ${formatNumber(summary.sumDentalExp)}</span>
+                        <span style="font-weight: 600; color: #000000;">Dental Clinic Exp:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumDentalExp)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>A/C (Account):</span>
-                        <span class="num-cell" style="color: #0284c7;">Rs. ${formatNumber(summary.sumAC || 0)}</span>
+                        <span style="font-weight: 600; color: #000000;">A/C (Account):</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumAC || 0)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>SN Expenses:</span>
-                        <span class="num-cell" style="color: #a855f7;">Rs. ${formatNumber(summary.sumSNExp || 0)}</span>
+                        <span style="font-weight: 600; color: #000000;">SN Expenses:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumSNExp || 0)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>ECG Income:</span>
-                        <span class="num-cell" style="color: #34d399;">Rs. ${formatNumber(summary.sumECG)}</span>
+                        <span style="font-weight: 600; color: #000000;">ECG Income:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumECG)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>Cash Taken Away (Safe/Deposit):</span>
-                        <span class="num-cell" style="color: #f59e0b;">Rs. ${formatNumber(summary.sumCash)}</span>
+                        <span style="font-weight: 600; color: #000000;">Cash Taken Away (Safe/Deposit):</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(summary.sumCash)}</span>
                     </div>
                 </div>
 
@@ -4889,32 +4990,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pnl-card">
                     <div class="pnl-card-header">📦 Stock Reconciliation & Difference</div>
                     <div class="pnl-row">
-                        <span>Prev Month Stock (Retail):</span>
-                        <span class="num-cell">Rs. ${formatNumber(prevStockRetail)}</span>
+                        <span style="font-weight: 600; color: #000000;">Prev Month Stock (Retail):</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(prevStockRetail)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>Purchase This Month (Retail):</span>
-                        <span class="num-cell" style="color: #38bdf8;">+ Rs. ${formatNumber(purchaseThisMonthRetail)}</span>
+                        <span style="font-weight: 600; color: #000000;">Purchase This Month (Retail):</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">+ Rs. ${formatNumber(purchaseThisMonthRetail)}</span>
                     </div>
                     <div class="pnl-row highlight primary">
-                        <span>Total Stock (Retail):</span>
-                        <span class="num-cell">Rs. ${formatNumber(total1)}</span>
+                        <span style="font-weight: 700; color: #000000;">Total Stock (Retail):</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(total1)}</span>
                     </div>
                     <div class="pnl-row sub">
-                        <span>Store Sale This Month:</span>
-                        <span class="num-cell" style="color: #fb7185;">- Rs. ${formatNumber(stSaleThisMonth)}</span>
+                        <span style="font-weight: 600; color: #000000;">Store Sale This Month:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">- Rs. ${formatNumber(stSaleThisMonth)}</span>
                     </div>
                     <div class="pnl-row sub">
-                        <span>Present Month Stock (Count):</span>
-                        <span class="num-cell">Rs. ${formatNumber(presentStockRetail)}</span>
+                        <span style="font-weight: 600; color: #000000;">Present Month Stock (Count):</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(presentStockRetail)}</span>
                     </div>
                     <div class="pnl-row">
-                        <span>Total Accounted:</span>
-                        <span class="num-cell">Rs. ${formatNumber(total2)}</span>
+                        <span style="font-weight: 600; color: #000000;">Total Accounted:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(total2)}</span>
                     </div>
                     <div class="pnl-row highlight ${stockDiff > 0 ? 'debit' : stockDiff < 0 ? 'credit' : 'primary'}">
-                        <span>Stock Difference:</span>
-                        <span class="num-cell" style="font-weight: 800;">
+                        <span style="font-weight: 700; color: #000000;">Stock Difference:</span>
+                        <span class="num-cell" style="font-weight: 800; color: #000000;">
                             ${stockDiff > 0 
                                 ? `+Rs. ${formatNumber(stockDiff)} (Shortage)` 
                                 : stockDiff < 0 
@@ -5287,9 +5388,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="account_ac">${escapeHtml(clinicDB.getCategoryName('expense', 'account_ac', 'A/C (Account Transfers / Deposits)'))}</option>
                     <option value="daraz_cash">${escapeHtml(clinicDB.getCategoryName('income', 'daraz_cash', 'Daraz Cash (Opening Balance)'))}</option>
                     <option value="cash_breakdown">Cash Breakdown</option>
-                    <option value="home_expenses">${escapeHtml(clinicDB.getCategoryName('expense', 'home_expenses', 'Home Expenses (Home X)'))}</option>
+                    <option value="home_expenses">House Expenses (Monthly Category-Wise Breakdown)</option>
+                    <option value="other_expenses">Other Expenses (General Non-Staff Debits)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
                 </optgroup>
+                <optgroup label="House Expense Specific Categories">
+            `;
+            const houseCats = clinicDB.getHouseExpenseCategories();
+            houseCats.forEach(hc => {
+                optHtml += `<option value="house_cat:${escapeHtml(hc.name)}">House: ${escapeHtml(hc.name)}</option>`;
+            });
+            optHtml += `</optgroup>
                 <optgroup label="Staff & Vendors">
             `;
             staffList.forEach(s => {
@@ -5474,6 +5583,115 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        } else if (report.isHouseExpenseReport) {
+            html += `
+                <div class="category-summary-banner">
+                    <div>
+                        <h3>🏠 House Expenses: ${escapeHtml(selectedLabel)}</h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Period: ${report.startDate} to ${report.endDate} &bull; Total Items: ${report.count}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Overall Monthly House Expense</span>
+                        <div class="cat-banner-total" style="color: #4338ca; font-size: 1.35rem; font-weight: 800;">Rs. ${formatNumber(report.grandTotal)}</div>
+                    </div>
+                </div>
+            `;
+
+            // Category-Wise Breakdown Table
+            if (report.houseCategoryBreakdown && report.houseCategoryBreakdown.length > 0) {
+                html += `
+                    <div class="house-cat-breakdown-card">
+                        <h4>📊 Category-Wise Monthly House Expense Breakdown</h4>
+                        <div class="table-responsive">
+                            <table class="custom-table" style="margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 45%;">Expense Category</th>
+                                        <th class="num-cell" style="width: 15%;">Entries</th>
+                                        <th class="num-cell" style="width: 22%;">Total Spent (Rs.)</th>
+                                        <th class="num-cell" style="width: 18%;">Share (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                report.houseCategoryBreakdown.forEach(hc => {
+                    html += `
+                        <tr>
+                            <td>
+                                <strong>${escapeHtml(hc.name)}</strong>
+                                <div class="house-cat-progress-bg">
+                                    <div class="house-cat-progress-bar" style="width: ${Math.min(100, hc.percentage)}%;"></div>
+                                </div>
+                            </td>
+                            <td class="num-cell" style="font-weight: 600;">${hc.count}</td>
+                            <td class="num-cell" style="font-weight: 800; color: #1e293b;">Rs. ${formatNumber(hc.total)}</td>
+                            <td class="num-cell" style="font-weight: 700; color: #4338ca;">${hc.percentage}%</td>
+                        </tr>
+                    `;
+                });
+                html += `
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background: #f1f5f9; font-weight: 800;">
+                                        <td><strong>TOTAL MONTHLY HOUSE EXPENSE</strong></td>
+                                        <td class="num-cell">${report.count}</td>
+                                        <td class="num-cell" style="font-size: 1.05rem; color: #4338ca;">Rs. ${formatNumber(report.grandTotal)}</td>
+                                        <td class="num-cell">100%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Detailed Itemized Table
+            html += `
+                <div class="table-card">
+                    <div style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 0.9rem; color: #334155;">Detailed Itemized Transactions</strong>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">${report.count} entries</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table" id="category-report-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%;">Date</th>
+                                    <th style="width: 25%;">House Category</th>
+                                    <th style="width: 35%;">Item / Description</th>
+                                    <th class="num-cell" style="width: 25%;">Amount (Rs.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            if (report.rows.length === 0) {
+                html += `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">No house expense entries found for this date range.</td></tr>`;
+            } else {
+                report.rows.forEach(r => {
+                    html += `
+                        <tr>
+                            <td><strong>${r.date}</strong></td>
+                            <td><span class="report-cat-badge" style="background: rgba(99,102,241,0.12); color: #4338ca; border: 1px solid rgba(99,102,241,0.25);">${escapeHtml(r.houseCategory || r.category)}</span></td>
+                            <td><strong>${escapeHtml(r.item)}</strong></td>
+                            <td class="num-cell report-amount-cell dr" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(r.amount)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3"><strong>OVERALL HOUSE EXPENSE TOTAL</strong></td>
+                                    <td class="num-cell cat-grand-total" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(report.grandTotal)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
         } else {
             html += `
                 <div class="category-summary-banner">
@@ -5534,6 +5752,117 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         resultsContainer.innerHTML = html;
+    }
+
+    // ==========================================================
+    // HOUSE EXPENSE CATEGORIES MODAL (DAILY SHEET SHORTCUT)
+    // ==========================================================
+    function openHouseCategoriesModal() {
+        const modal = document.getElementById('modal-house-categories');
+        const listEl = document.getElementById('list-house-cats-modal');
+        const inputNew = document.getElementById('input-new-house-cat-modal');
+        const btnAdd = document.getElementById('btn-add-house-cat-modal');
+        const btnClose = document.getElementById('btn-close-house-cats-modal');
+        const btnDone = document.getElementById('btn-done-house-cats-modal');
+
+        if (!modal || !listEl) return;
+
+        function refreshList() {
+            listEl.innerHTML = '';
+            const cats = clinicDB.getHouseExpenseCategories();
+            cats.forEach(c => {
+                const itemDiv = document.createElement('div');
+                itemDiv.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;';
+                itemDiv.innerHTML = `
+                    <span style="font-weight: 600; font-size: 0.85rem; color: #1e293b;">${escapeHtml(c.name)}</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn-edit-c" style="padding: 3px 8px; font-size: 0.75rem; border-radius: 4px; background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.25); color: #2563eb; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                        <button type="button" class="btn-del-c" style="padding: 3px 8px; font-size: 0.75rem; border-radius: 4px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; cursor: pointer; font-weight: 600;">✕</button>
+                    </div>
+                `;
+                itemDiv.querySelector('.btn-edit-c').onclick = () => {
+                    appModal.prompt({
+                        title: 'Rename House Expense Category',
+                        message: `Rename "${c.name}" to:`,
+                        defaultValue: c.name,
+                        icon: '🏠',
+                        confirmText: 'Rename',
+                        onConfirm: (newName) => {
+                            if (newName && newName.trim()) {
+                                clinicDB.updateHouseExpenseCategory(c.id, newName.trim());
+                                refreshList();
+                                renderSettings();
+                                if (state.currentDayData) renderHomeXTable(state.currentDayData);
+                                showToast(`Renamed to "${newName.trim()}"`, 'success');
+                            }
+                        }
+                    });
+                };
+                itemDiv.querySelector('.btn-del-c').onclick = () => {
+                    if (cats.length <= 1) {
+                        showToast('Must keep at least one category.', 'warning');
+                        return;
+                    }
+                    appModal.confirm({
+                        title: 'Delete House Category',
+                        message: `Delete "${c.name}"? Existing entries will be moved to General Household.`,
+                        icon: '🗑️',
+                        confirmText: 'Delete',
+                        danger: true,
+                        onConfirm: () => {
+                            clinicDB.deleteHouseExpenseCategory(c.id);
+                            refreshList();
+                            renderSettings();
+                            if (state.currentDayData) renderHomeXTable(state.currentDayData);
+                            showToast(`Deleted "${c.name}"`, 'info');
+                        }
+                    });
+                };
+                listEl.appendChild(itemDiv);
+            });
+        }
+
+        function handleAdd() {
+            const val = (inputNew.value || '').trim();
+            if (!val) {
+                inputNew.focus();
+                return;
+            }
+            const res = clinicDB.addHouseExpenseCategory(val);
+            if (!res) {
+                showToast(`Category "${val}" already exists!`, 'warning');
+            } else {
+                inputNew.value = '';
+                refreshList();
+                renderSettings();
+                if (state.currentDayData) renderHomeXTable(state.currentDayData);
+                showToast(`Added category "${val}"!`, 'success');
+            }
+        }
+
+        btnAdd.onclick = handleAdd;
+        inputNew.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAdd();
+            }
+        };
+
+        const closeModal = () => {
+            modal.style.display = 'none';
+            if (state.currentDayData) renderHomeXTable(state.currentDayData);
+        };
+
+        btnClose.onclick = closeModal;
+        btnDone.onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        refreshList();
+        inputNew.value = '';
+        modal.style.display = 'flex';
+        inputNew.focus();
     }
 
     // ==========================================================
@@ -5684,6 +6013,63 @@ document.addEventListener('DOMContentLoaded', () => {
             staffListEl.appendChild(div);
         });
 
+        // House Expense Categories in Settings
+        const houseCatListEl = document.getElementById('settings-house-categories');
+        if (houseCatListEl) {
+            houseCatListEl.innerHTML = '';
+            const houseCats = clinicDB.getHouseExpenseCategories();
+            houseCats.forEach(hc => {
+                const div = document.createElement('div');
+                div.className = 'settings-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${escapeHtml(hc.name)}</strong>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button type="button" class="btn-icon btn-sm edit-house-cat-btn" data-id="${hc.id}" title="Rename Category" style="color: #38bdf8; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); cursor: pointer; font-size: 0.78rem;">✏️ Edit</button>
+                        <button type="button" class="btn-icon btn-sm del-house-cat-btn" style="color: #f43f5e; padding: 3px 8px;" data-id="${hc.id}">&times; Delete</button>
+                    </div>
+                `;
+                div.querySelector('.edit-house-cat-btn').addEventListener('click', () => {
+                    appModal.prompt({
+                        title: 'Rename House Expense Category',
+                        message: `Enter new name for "${hc.name}":`,
+                        defaultValue: hc.name,
+                        icon: '🏠',
+                        confirmText: 'Rename',
+                        onConfirm: (newName) => {
+                            if (newName && newName.trim()) {
+                                clinicDB.updateHouseExpenseCategory(hc.id, newName.trim());
+                                renderSettings();
+                                if (state.currentDayData) renderHomeXTable(state.currentDayData);
+                                showToast(`Renamed category to "${newName.trim()}"`, 'success');
+                            }
+                        }
+                    });
+                });
+                div.querySelector('.del-house-cat-btn').addEventListener('click', () => {
+                    if (houseCats.length <= 1) {
+                        showToast('Cannot delete the last remaining category.', 'warning');
+                        return;
+                    }
+                    appModal.confirm({
+                        title: 'Delete House Category',
+                        message: `Delete house category "${hc.name}"? Existing entries will be moved to General Household.`,
+                        icon: '🗑️',
+                        confirmText: 'Delete',
+                        danger: true,
+                        onConfirm: () => {
+                            clinicDB.deleteHouseExpenseCategory(hc.id);
+                            renderSettings();
+                            if (state.currentDayData) renderHomeXTable(state.currentDayData);
+                            showToast(`Deleted category "${hc.name}"`, 'info');
+                        }
+                    });
+                });
+                houseCatListEl.appendChild(div);
+            });
+        }
+
         // Sub-Sections & Headings Customizer
         const sectionTitlesContainer = document.getElementById('settings-section-titles-list');
         if (sectionTitlesContainer) {
@@ -5807,6 +6193,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         };
+
+        const addHouseCatBtn = document.getElementById('add-house-cat-btn');
+        if (addHouseCatBtn) {
+            addHouseCatBtn.onclick = () => {
+                appModal.prompt({
+                    title: 'Add House Expense Category',
+                    message: 'Enter name for the new house expense category:',
+                    placeholder: 'e.g. Vehicle & Fuel, Entertainment',
+                    icon: '🏠',
+                    confirmText: 'Add Category',
+                    onConfirm: (name) => {
+                        if (!name || !name.trim()) return;
+                        const res = clinicDB.addHouseExpenseCategory(name.trim());
+                        if (res) {
+                            renderSettings();
+                            if (state.currentDayData) renderHomeXTable(state.currentDayData);
+                            showToast(`House Category "${name.trim()}" added!`, 'success');
+                        } else {
+                            showToast(`Category "${name.trim()}" already exists!`, 'warning');
+                        }
+                    }
+                });
+            };
+        }
 
         document.getElementById('download-backup-btn').onclick = () => {
             const jsonStr = clinicDB.exportBackupJSON();

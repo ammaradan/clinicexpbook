@@ -1106,30 +1106,48 @@ input[type="number"] {
 }
 
 .pnl-card-header {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid #000000;
   padding-bottom: 0.5rem;
   font-family: var(--font-heading);
-  font-size: 1rem;
-  font-weight: 700;
-  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #000000;
 }
 
 .pnl-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.3rem 0;
-  font-size: 0.85rem;
+  padding: 0.35rem 0;
+  font-size: 0.88rem;
+  color: #000000;
+}
+.pnl-row span:first-child {
+  color: #000000;
+  font-weight: 600;
+}
+.pnl-row .num-cell {
+  color: #000000 !important;
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-family: var(--font-mono);
 }
 .pnl-row.highlight {
-  border-top: 1px dashed var(--border-color);
-  padding-top: 0.55rem;
-  font-weight: 700;
-  font-size: 0.95rem;
+  border-top: 1.5px solid #000000;
+  border-bottom: 1.5px solid #000000;
+  padding: 0.55rem 0.4rem;
+  font-weight: 800;
+  font-size: 0.98rem;
+  background: #f8fafc;
+  color: #000000 !important;
 }
-.pnl-row.highlight.credit { color: var(--color-credit); }
-.pnl-row.highlight.debit { color: var(--color-debit); }
-.pnl-row.highlight.primary { color: #2563eb; }
+.pnl-row.highlight span {
+  color: #000000 !important;
+  font-weight: 800;
+}
+.pnl-row.highlight.credit { color: #000000 !important; }
+.pnl-row.highlight.debit { color: #000000 !important; }
+.pnl-row.highlight.primary { color: #000000 !important; }
 
 .grand-statement {
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
@@ -2432,14 +2450,45 @@ input[type="number"] {
   }
   .pnl-grid {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 3mm !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 3.5mm !important;
   }
   .pnl-card {
-    border: 1px solid #333333 !important;
+    border: 1.5px solid #000000 !important;
     box-shadow: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    padding: 3mm !important;
+  }
+  .pnl-card-header {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    font-weight: 800 !important;
+    border-bottom: 1.5px solid #000000 !important;
+    font-size: 9.5pt !important;
+    padding-bottom: 1.5mm !important;
+  }
+  .pnl-row {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    font-size: 8pt !important;
+    padding: 1mm 0 !important;
+  }
+  .pnl-row span {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+  }
+  .pnl-row .num-cell {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    font-weight: 800 !important;
+    font-size: 8.5pt !important;
+  }
+  .pnl-row.highlight {
+    border-top: 1.5px solid #000000 !important;
+    border-bottom: 1.5px solid #000000 !important;
+    background: #f1f5f9 !important;
+    font-weight: 800 !important;
   }
 
   .stock-reconciliation-card {
@@ -3047,5 +3096,60 @@ body.role-viewer #input-daraz {
 .calc-btn.calc-btn-fn {
   background: #f8fafc;
   color: #475569;
+}
+
+/* ==========================================================
+   HOUSE EXPENSE CATEGORIES & REPORT STYLING
+   ========================================================== */
+.home-x-cat {
+  width: 100%;
+  font-size: 0.70rem;
+  font-weight: 600;
+  padding: 1px 3px;
+  background: #ffffff;
+  border: 1px solid var(--border-cell);
+  border-radius: 3px;
+  color: #1e293b;
+  cursor: pointer;
+  height: 22px;
+}
+.home-x-cat:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+.house-cat-breakdown-card {
+  background: #ffffff;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.15rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.house-cat-breakdown-card h4 {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.85rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.house-cat-progress-bg {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.house-cat-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed);
+  border-radius: 4px;
 }
 
