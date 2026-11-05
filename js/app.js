@@ -2761,7 +2761,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             renderDebitTable(data);
                             renderStaffVendorsTable(data);
                             recalculateAll();
-                            scheduleAutoSave();
+                            saveCurrentDay(false);
                             showToast(`Deleted "${rowName}"`, 'info');
                         });
                     });
@@ -2822,7 +2822,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             data.credits.splice(idx, 1);
                             renderCreditTable(data);
                             recalculateAll();
-                            scheduleAutoSave();
+                            saveCurrentDay(false);
                             showToast(`Deleted "${rowName}"`, 'info');
                         });
                     });
@@ -2871,7 +2871,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderDispPurchasesTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -2915,7 +2915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderStorePurchasesTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -2953,7 +2953,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderClinicExpDetailsTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -2992,7 +2992,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderUSTotalTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast('Deleted US Entry', 'info');
                 });
             };
@@ -3030,7 +3030,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderCashBreakdownTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -3123,7 +3123,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderHomeXTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -3229,7 +3229,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderReceivablesTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -3267,7 +3267,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderDentalDetailsTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -3360,7 +3360,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderStoreExpDetailsTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -3453,7 +3453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderUSExpDetailsTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };
@@ -3492,7 +3492,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderClinicBillsTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast('Deleted Clinic Bill Entry', 'info');
                 });
             };
@@ -3531,7 +3531,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     list.splice(i, 1);
                     renderSNExpensesTable(data);
                     recalculateAll();
-                    scheduleAutoSave();
+                    saveCurrentDay(false);
                     showToast(`Deleted "${name}"`, 'info');
                 });
             };

@@ -134,6 +134,18 @@ class FirebaseSyncManager {
                     const localHasData = hasMeaningfulDayData(localData);
                     const cloudHasData = hasMeaningfulDayData(cloudData);
 
+                    const localModified = localData?.lastModified || 0;
+                    const cloudModified = cloudData?.lastModified || 0;
+
+                    // TIMESTAMP SHIELD:
+                    // If local machine modified this day more recently than the incoming cloud data,
+                    // DO NOT let old cloud data revert local edits! Re-sync local data to cloud.
+                    if (localModified > cloudModified) {
+                        console.log(`[Firebase Shield] Local ${dateKey} is newer (${localModified} > ${cloudModified}). Preserving local and updating cloud.`);
+                        this.saveDayToCloud(dateKey, localData);
+                        return;
+                    }
+
                     // DATA PRESERVATION SHIELD:
                     // If local machine already has real entered transactions (expenses/debits)
                     // but incoming cloud document is blank or empty, DO NOT let cloud wipe local entries!
@@ -212,34 +224,10 @@ class FirebaseSyncManager {
         try {
             // Clean object of any undefined values for Firestore
             const cleaned = JSON.parse(JSON.stringify(dayData));
+            cleaned.lastModified = dayData.lastModified || Date.now();
 
-            // Safeguard: If local day is blank, check if remote document already has real transactions.
-            // Do not blindly wipe remote data with a blank sheet!
-            const localHasData = hasMeaningfulDayData(cleaned);
-            if (!localHasData) {
-                try {
-                    const existingRemote = await this.db.collection('days').doc(dateKey).get();
-                    if (existingRemote.exists) {
-                        const remoteData = existingRemote.data();
-                        if (hasMeaningfulDayData(remoteData)) {
-                            console.warn(`[Firebase Shield] Blocked blank overwrite of ${dateKey}! Remote has data. Adopting remote data instead.`);
-                            if (clinicDB) {
-                                clinicDB.days[dateKey] = remoteData;
-                                localStorage.setItem('clinic_exp_days_v6_clean', JSON.stringify(clinicDB.days));
-                                if (typeof this.dataChangeCallback === 'function') {
-                                    this.dataChangeCallback('days');
-                                }
-                            }
-                            this.updateStatus('connected');
-                            return;
-                        }
-                    }
-                } catch(checkErr) {
-                    console.warn('[Firebase Shield] Remote check failed, proceeding cautiously:', checkErr);
-                }
-            }
-
-            await this.db.collection('days').doc(dateKey).set(cleaned, { merge: true });
+            // Overwrite document directly so deleted items in arrays/lists are completely persisted to Firestore
+            await this.db.collection('days').doc(dateKey).set(cleaned);
             this.updateStatus('connected');
         } catch (e) {
             console.error(`[Firebase] Error saving day ${dateKey} to cloud:`, e);

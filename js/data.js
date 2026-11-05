@@ -453,8 +453,16 @@ class ClinicDataManager {
             const cleanedDebits = [];
 
             dayData.debits.forEach(d => {
+                // If it is an explicit custom row, staff pay row, or other expense, preserve it intact as a custom row!
+                if (d.isCustom || d.isStaffPay || d.staffRef || d.catId === 'other_expenses' || d.catId === 'staff_vendors') {
+                    d.isCustom = true;
+                    cleanedDebits.push(d);
+                    return;
+                }
+
                 const catId = this.identifyDebitCategoryId(d);
-                if (catId) {
+                // Only deduplicate singleton standard system categories (not custom/staff rows)
+                if (catId && catId !== 'staff_vendors' && catId !== 'other_expenses') {
                     if (seenCatIds.has(catId)) {
                         // Duplicate detected - preserve any positive amount into first row and drop this duplicate
                         const existing = cleanedDebits.find(it => it.catId === catId);
@@ -499,6 +507,13 @@ class ClinicDataManager {
             const cleanedCredits = [];
 
             dayData.credits.forEach(c => {
+                // If it is an explicit custom income row, preserve it intact!
+                if (c.isCustom) {
+                    c.isCustom = true;
+                    cleanedCredits.push(c);
+                    return;
+                }
+
                 const catId = this.identifyCreditCategoryId(c);
                 if (catId) {
                     if (seenCreditCatIds.has(catId)) {
@@ -879,6 +894,7 @@ class ClinicDataManager {
 
     saveDay(dateKey, dayData) {
         dayData = this.cleanDayItemNames(dayData);
+        dayData.lastModified = Date.now();
         this.days[dateKey] = dayData;
         if (String(dateKey).startsWith('2026-09-')) {
             const m = String(dateKey).match(/2026-09-(\d{2})/);
@@ -888,12 +904,10 @@ class ClinicDataManager {
         }
         localStorage.setItem(STORAGE_KEYS.DAYS, JSON.stringify(this.days));
 
-        // Create isolated daily backup if day has meaningful data
-        if (typeof hasMeaningfulDayData === 'function' && hasMeaningfulDayData(dayData)) {
-            try {
-                localStorage.setItem('clinic_backup_' + dateKey, JSON.stringify(dayData));
-            } catch(e) {}
-        }
+        // Always update isolated daily backup with the latest state
+        try {
+            localStorage.setItem('clinic_backup_' + dateKey, JSON.stringify(dayData));
+        } catch(e) {}
 
         if (window.cloudSync && typeof window.cloudSync.saveDayToCloud === 'function') {
             window.cloudSync.saveDayToCloud(dateKey, dayData);
