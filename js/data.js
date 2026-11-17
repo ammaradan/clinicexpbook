@@ -278,6 +278,118 @@ class ClinicDataManager {
         return true;
     }
 
+    // ==========================================================
+    // OTHER PERSONS / PAYEES MANAGEMENT (DEBIT & CREDIT ACCOUNTS)
+    // ==========================================================
+    getOtherPersons() {
+        if (!this.settings) this.settings = {};
+        if (!Array.isArray(this.settings.otherPersons)) {
+            this.settings.otherPersons = [];
+            this.saveAll();
+        }
+        return this.settings.otherPersons;
+    }
+
+    addOtherPerson(name) {
+        const cleanName = (name || '').trim();
+        if (!cleanName) return false;
+        const list = this.getOtherPersons();
+        const existing = list.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
+        if (existing) return existing;
+        const newPerson = { id: 'op_' + Date.now() + '_' + Math.floor(Math.random() * 1000), name: cleanName };
+        list.push(newPerson);
+        this.saveAll();
+        return newPerson;
+    }
+
+    updateOtherPerson(id, newName) {
+        const cleanName = (newName || '').trim();
+        if (!cleanName) return false;
+        const list = this.getOtherPersons();
+        const person = list.find(p => p.id === id);
+        if (!person) return false;
+        const oldName = person.name;
+        person.name = cleanName;
+        // Keep historic debit & credit references consistent
+        Object.values(this.days).forEach(day => {
+            if (day && Array.isArray(day.debits)) {
+                day.debits.forEach(d => {
+                    if (d && (d.otherPersonRef === oldName || (d.isOtherPersonPay && d.otherPersonRef && d.otherPersonRef.toLowerCase() === oldName.toLowerCase()))) {
+                        d.otherPersonRef = cleanName;
+                        const reason = d.reason || 'Payment';
+                        d.name = `${cleanName} (${reason})`;
+                    }
+                });
+            }
+            if (day && Array.isArray(day.credits)) {
+                day.credits.forEach(c => {
+                    if (c && (c.otherPersonRef === oldName || (c.isOtherPersonCredit && c.otherPersonRef && c.otherPersonRef.toLowerCase() === oldName.toLowerCase()))) {
+                        c.otherPersonRef = cleanName;
+                        const reason = c.reason || 'Return';
+                        c.name = `${cleanName} (${reason})`;
+                    }
+                });
+            }
+        });
+        this.saveAll();
+        return true;
+    }
+
+    deleteOtherPerson(id) {
+        const list = this.getOtherPersons();
+        if (!list.some(p => p.id === id)) return false;
+        this.settings.otherPersons = list.filter(p => p.id !== id);
+        this.saveAll();
+        return true;
+    }
+
+    getOtherPersonBalance(personName, startDate = '2000-01-01', endDate = '2099-12-31') {
+        const targetLower = (personName || '').trim().toLowerCase();
+        if (!targetLower) return { totalGiven: 0, totalReceived: 0, balance: 0 };
+        let totalGiven = 0;
+        let totalReceived = 0;
+        const sStr = startDate || '2000-01-01';
+        const eStr = endDate || '2099-12-31';
+
+        const allDateKeys = new Set();
+        Object.keys(this.days).forEach(k => {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(k) && k !== '2026-09-31') {
+                allDateKeys.add(k);
+            } else if (/^\d{1,2}$/.test(k)) {
+                const dayNum = parseInt(k, 10);
+                if (dayNum >= 1 && dayNum <= 30) allDateKeys.add(`2026-09-${String(dayNum).padStart(2, '0')}`);
+            }
+        });
+
+        allDateKeys.forEach(dateKey => {
+            if (dateKey < sStr || dateKey > eStr) return;
+            const dayData = this.getDay(dateKey);
+            if (!dayData) return;
+            (dayData.debits || []).forEach(d => {
+                if (d && (d.isOtherPersonPay || d.catId === 'other_person_pay')) {
+                    const ref = (d.otherPersonRef || '').trim().toLowerCase();
+                    if (ref === targetLower) {
+                        totalGiven += (parseFloat(d.amount) || 0);
+                    }
+                }
+            });
+            (dayData.credits || []).forEach(c => {
+                if (c && (c.isOtherPersonCredit || c.catId === 'other_person_credit')) {
+                    const ref = (c.otherPersonRef || '').trim().toLowerCase();
+                    if (ref === targetLower) {
+                        totalReceived += (parseFloat(c.amount) || 0);
+                    }
+                }
+            });
+        });
+
+        return {
+            totalGiven,
+            totalReceived,
+            balance: totalGiven - totalReceived
+        };
+    }
+
     clearToZero() {
         this.days = {};
         // Generate blank 0-days for 01 through 30 (September has 30 days)
@@ -453,16 +565,16 @@ class ClinicDataManager {
             const cleanedDebits = [];
 
             dayData.debits.forEach(d => {
-                // If it is an explicit custom row, staff pay row, or other expense, preserve it intact as a custom row!
-                if (d.isCustom || d.isStaffPay || d.staffRef || d.catId === 'other_expenses' || d.catId === 'staff_vendors') {
+                // If it is an explicit custom row, staff pay row, other person pay row, or other expense, preserve it intact as a custom row!
+                if (d.isCustom || d.isStaffPay || d.staffRef || d.isOtherPersonPay || d.otherPersonRef || d.catId === 'other_expenses' || d.catId === 'staff_vendors' || d.catId === 'other_person_pay') {
                     d.isCustom = true;
                     cleanedDebits.push(d);
                     return;
                 }
 
                 const catId = this.identifyDebitCategoryId(d);
-                // Only deduplicate singleton standard system categories (not custom/staff rows)
-                if (catId && catId !== 'staff_vendors' && catId !== 'other_expenses') {
+                // Only deduplicate singleton standard system categories (not custom/staff/other-person rows)
+                if (catId && catId !== 'staff_vendors' && catId !== 'other_expenses' && catId !== 'other_person_pay') {
                     if (seenCatIds.has(catId)) {
                         // Duplicate detected - preserve any positive amount into first row and drop this duplicate
                         const existing = cleanedDebits.find(it => it.catId === catId);
@@ -507,8 +619,8 @@ class ClinicDataManager {
             const cleanedCredits = [];
 
             dayData.credits.forEach(c => {
-                // If it is an explicit custom income row, preserve it intact!
-                if (c.isCustom) {
+                // If it is an explicit custom income row or other person credit row, preserve it intact!
+                if (c.isCustom || c.isOtherPersonCredit || c.otherPersonRef || c.catId === 'other_person_credit') {
                     c.isCustom = true;
                     cleanedCredits.push(c);
                     return;
@@ -1924,11 +2036,11 @@ class ClinicDataManager {
                     });
                 }
             }
-            // 11c. Other Expenses (General Debit items that are NOT staff pay and NOT system categories)
+            // 11c. Other Expenses (General Debit items that are NOT staff pay, NOT other person pay, and NOT system categories)
             else if (catKeyLower === 'other_expenses' || catKeyLower === 'other_expense' || catKeyLower === 'other') {
                 (dayData.debits || []).forEach(d => {
                     const catId = this.identifyDebitCategoryId(d);
-                    if (catId === 'other_expenses' || (d.isCustom && !d.isStaffPay && !d.staffRef && catId !== 'staff_vendors')) {
+                    if (catId === 'other_expenses' || (d.isCustom && !d.isStaffPay && !d.staffRef && !d.isOtherPersonPay && !d.otherPersonRef && catId !== 'staff_vendors' && catId !== 'other_person_pay')) {
                         const amt = parseFloat(d.amount) || 0;
                         if (amt > 0) {
                             rows.push({
@@ -1940,6 +2052,53 @@ class ClinicDataManager {
                                 amount: amt
                             });
                             grandTotal += amt;
+                        }
+                    }
+                });
+            }
+            // 11d. Other Persons / Accounts (Debit Given & Credit Returned)
+            else if (catKeyLower === 'other_persons_all' || catKeyLower.startsWith('other_person:')) {
+                const isSingle = catKeyLower.startsWith('other_person:');
+                const targetPerson = isSingle ? categoryKey.replace(/^other_person:/i, '').trim().toLowerCase() : null;
+
+                (dayData.debits || []).forEach(d => {
+                    if (d && (d.isOtherPersonPay || d.catId === 'other_person_pay')) {
+                        const pName = (d.otherPersonRef || d.name || 'Other Person').trim();
+                        if (!isSingle || pName.toLowerCase() === targetPerson) {
+                            const amt = parseFloat(d.amount) || 0;
+                            if (amt > 0) {
+                                rows.push({
+                                    date: formattedDate,
+                                    category: pName,
+                                    item: d.name || `${pName} (Payment)`,
+                                    description: d.reason || 'Payment Given (Debit)',
+                                    type: 'Debit (Paid / Given)',
+                                    isCredit: false,
+                                    personName: pName,
+                                    amount: amt
+                                });
+                            }
+                        }
+                    }
+                });
+
+                (dayData.credits || []).forEach(c => {
+                    if (c && (c.isOtherPersonCredit || c.catId === 'other_person_credit')) {
+                        const pName = (c.otherPersonRef || c.name || 'Other Person').trim();
+                        if (!isSingle || pName.toLowerCase() === targetPerson) {
+                            const amt = parseFloat(c.amount) || 0;
+                            if (amt > 0) {
+                                rows.push({
+                                    date: formattedDate,
+                                    category: pName,
+                                    item: c.name || `${pName} (Return)`,
+                                    description: c.reason || 'Payment Returned (Credit)',
+                                    type: 'Credit (Returned / Received)',
+                                    isCredit: true,
+                                    personName: pName,
+                                    amount: amt
+                                });
+                            }
                         }
                     }
                 });
@@ -2415,6 +2574,50 @@ class ClinicDataManager {
             })).sort((a, b) => b.total - a.total);
         }
 
+        let isOtherPersonsReport = false;
+        let isSingleOtherPerson = false;
+        let otherPersonName = '';
+        let otherTotalGiven = 0;
+        let otherTotalReceived = 0;
+        let otherNetBalance = 0;
+        let otherPersonsBreakdown = null;
+
+        if (catKeyLower === 'other_persons_all' || catKeyLower.startsWith('other_person:')) {
+            isOtherPersonsReport = true;
+            isSingleOtherPerson = catKeyLower.startsWith('other_person:');
+            if (isSingleOtherPerson) {
+                otherPersonName = categoryKey.replace(/^other_person:/i, '').trim();
+            }
+
+            const pMap = {};
+            const knownPersons = this.getOtherPersons();
+            if (!isSingleOtherPerson) {
+                knownPersons.forEach(p => {
+                    pMap[p.name] = { name: p.name, totalGiven: 0, totalReceived: 0, balance: 0, count: 0 };
+                });
+            }
+
+            rows.forEach(r => {
+                const pName = r.personName || r.category || 'Unknown';
+                if (!pMap[pName]) {
+                    pMap[pName] = { name: pName, totalGiven: 0, totalReceived: 0, balance: 0, count: 0 };
+                }
+                if (r.isCredit) {
+                    pMap[pName].totalReceived += r.amount;
+                    otherTotalReceived += r.amount;
+                } else {
+                    pMap[pName].totalGiven += r.amount;
+                    otherTotalGiven += r.amount;
+                }
+                pMap[pName].balance = pMap[pName].totalGiven - pMap[pName].totalReceived;
+                pMap[pName].count += 1;
+            });
+
+            otherNetBalance = otherTotalGiven - otherTotalReceived;
+            grandTotal = otherNetBalance;
+            otherPersonsBreakdown = Object.values(pMap).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+        }
+
         return {
             categoryKey,
             startDate: startDate || 'All',
@@ -2426,6 +2629,13 @@ class ClinicDataManager {
             isStorePurchasesCombined,
             isHouseExpenseReport,
             houseCategoryBreakdown,
+            isOtherPersonsReport,
+            isSingleOtherPerson,
+            otherPersonName,
+            otherTotalGiven,
+            otherTotalReceived,
+            otherNetBalance,
+            otherPersonsBreakdown,
             rows
         };
     }

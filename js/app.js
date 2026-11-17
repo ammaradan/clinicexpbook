@@ -132,9 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnOrganize) btnOrganize.style.display = isViewer ? 'none' : '';
         if (sepDropdown) sepDropdown.style.display = isViewer ? 'none' : '';
 
-        // Hide Staff Pay button under Debit Expenses in Daily Sheet for Viewer
+        // Hide Staff Pay & Other Payments buttons in Daily Sheet for Viewer
         const btnStaffDebit = document.getElementById('btn-add-staff-debit-btn');
         if (btnStaffDebit) btnStaffDebit.style.display = isViewer ? 'none' : '';
+        const btnOtherDebit = document.getElementById('btn-add-other-debit-btn');
+        if (btnOtherDebit) btnOtherDebit.style.display = isViewer ? 'none' : '';
+        const btnOtherCredit = document.getElementById('btn-add-other-credit-btn');
+        if (btnOtherCredit) btnOtherCredit.style.display = isViewer ? 'none' : '';
 
         // Hide Scratchpad Calculator & Force Sync for Viewer (Admin Only features)
         const modCalc = document.getElementById('mod-calculator');
@@ -316,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const appModal = {
         _dialogEl: null,
         _staffEl: null,
+        _otherPersonEl: null,
         _catEl: null,
         _activeResolve: null,
         _initialized: false,
@@ -324,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (this._initialized) return;
             this._dialogEl = document.getElementById('app-dialog-modal');
             this._staffEl = document.getElementById('staff-pay-modal');
+            this._otherPersonEl = document.getElementById('other-person-pay-modal');
             this._catEl = document.getElementById('category-edit-modal');
             if (!this._dialogEl || !this._staffEl) return;
 
@@ -349,6 +355,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.target === this._staffEl) this.closeStaffPay();
             });
 
+            // Other Person Pay Modal Close & Cancel
+            const opmClose = document.getElementById('opm-btn-close');
+            const opmCancel = document.getElementById('opm-btn-cancel');
+            if (opmClose) opmClose.addEventListener('click', () => this.closeOtherPersonPay());
+            if (opmCancel) opmCancel.addEventListener('click', () => this.closeOtherPersonPay());
+            if (this._otherPersonEl) {
+                this._otherPersonEl.addEventListener('click', (e) => {
+                    if (e.target === this._otherPersonEl) this.closeOtherPersonPay();
+                });
+            }
+
             // Category Edit Modal Close & Cancel
             const catClose = document.getElementById('cat-modal-btn-close');
             const catCancel = document.getElementById('cat-modal-btn-cancel');
@@ -366,6 +383,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.key === 'Escape') {
                     if (this._catEl && this._catEl.classList.contains('active')) {
                         this.closeCategoryEdit();
+                    } else if (this._otherPersonEl && this._otherPersonEl.classList.contains('active')) {
+                        this.closeOtherPersonPay();
                     } else if (this._staffEl && this._staffEl.classList.contains('active')) {
                         this.closeStaffPay();
                     } else if (this._dialogEl && this._dialogEl.classList.contains('active')) {
@@ -749,6 +768,274 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 180);
         },
 
+        // Dedicated Interactive Other Persons / Accounts Modal (Debit & Credit)
+        openOtherPersonPayModal(mode = 'debit') {
+            if (isViewerRole()) {
+                showToast('🔒 Other Payments are restricted in Viewer mode.', 'warning');
+                return;
+            }
+            this.init();
+            if (!this._otherPersonEl) return;
+
+            const isCredit = mode === 'credit';
+            const headerIcon = document.getElementById('opm-header-icon');
+            const titleEl = document.getElementById('opm-title');
+            const subtitleEl = document.getElementById('opm-subtitle');
+            const searchInp = document.getElementById('opm-search');
+            const quickAddBtn = document.getElementById('opm-btn-quick-add');
+            const gridEl = document.getElementById('opm-person-grid');
+            const countEl = document.getElementById('opm-person-count');
+            const nameInp = document.getElementById('opm-name');
+            const reasonInp = document.getElementById('opm-reason');
+            const chipsContainer = document.getElementById('opm-preset-chips');
+            const amtInp = document.getElementById('opm-amount');
+            const balanceBox = document.getElementById('opm-balance-box');
+            const previewCard = document.getElementById('opm-preview-card');
+            const previewLabel = document.getElementById('opm-preview-label');
+            const previewEl = document.getElementById('opm-preview-text');
+            const submitBtn = document.getElementById('opm-btn-submit');
+
+            // Configure UI theme for Debit vs Credit
+            if (isCredit) {
+                if (headerIcon) { headerIcon.style.background = '#d1fae5'; headerIcon.style.color = '#059669'; headerIcon.textContent = '💰'; }
+                if (titleEl) titleEl.textContent = 'Other Payment Received (Credit)';
+                if (subtitleEl) subtitleEl.textContent = 'Select person returning payment — automatically adjusts their remaining balance';
+                if (previewCard) previewCard.style.borderLeftColor = '#059669';
+                if (previewLabel) previewLabel.textContent = 'Daily Sheet Credit Preview:';
+                if (submitBtn) { submitBtn.style.background = '#059669'; submitBtn.style.borderColor = '#059669'; submitBtn.textContent = '✓ Add Credit to Sheet'; }
+            } else {
+                if (headerIcon) { headerIcon.style.background = '#ede9fe'; headerIcon.style.color = '#7c3aed'; headerIcon.textContent = '🤝'; }
+                if (titleEl) titleEl.textContent = 'Other Payment Given (Debit)';
+                if (subtitleEl) subtitleEl.textContent = 'Select person saved in Settings or add new, enter detail and amount';
+                if (previewCard) previewCard.style.borderLeftColor = '#7c3aed';
+                if (previewLabel) previewLabel.textContent = 'Daily Sheet Debit Preview:';
+                if (submitBtn) { submitBtn.style.background = '#7c3aed'; submitBtn.style.borderColor = '#7c3aed'; submitBtn.textContent = '✓ Add Payment to Sheet'; }
+            }
+
+            // Populate preset chips based on mode
+            const presets = isCredit
+                ? ['Return / Wapsi', 'Installment', 'Settlement', 'Advance Return', 'Payment Back', 'Other']
+                : ['Payment', 'Loan / Udhar', 'Advance', 'Bill', 'Work', 'Other'];
+            const defaultReason = presets[0];
+
+            chipsContainer.innerHTML = '';
+            presets.forEach(pText => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'spm-preset-chip' + (pText === defaultReason ? ' active' : '');
+                btn.textContent = pText;
+                btn.onclick = () => {
+                    reasonInp.value = pText;
+                    chipsContainer.querySelectorAll('.spm-preset-chip').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updatePreview();
+                    amtInp.focus();
+                };
+                chipsContainer.appendChild(btn);
+            });
+
+            let selectedPersonName = '';
+
+            const updatePreview = () => {
+                const name = (nameInp.value || '').trim();
+                const reason = (reasonInp.value || '').trim();
+                const amt = parseFloat(amtInp.value) || 0;
+
+                if (!name) {
+                    previewEl.innerHTML = '<span style="color: #94a3b8; font-style: italic;">Select a person or enter name above...</span>';
+                    if (balanceBox) balanceBox.style.display = 'none';
+                    return;
+                }
+
+                // Live balance calculation
+                const balInfo = clinicDB.getOtherPersonBalance(name);
+                const newBal = isCredit ? (balInfo.balance - amt) : (balInfo.balance + amt);
+                if (balanceBox) {
+                    balanceBox.style.display = 'block';
+                    balanceBox.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <span><strong>${escapeHtml(name)}</strong> Account: Given <strong>Rs. ${formatNumber(balInfo.totalGiven)}</strong> &bull; Returned <strong>Rs. ${formatNumber(balInfo.totalReceived)}</strong></span>
+                            <span>Current Remaining: <strong>Rs. ${formatNumber(balInfo.balance)}</strong> &rarr; After Entry: <strong style="color: ${newBal > 0 ? '#b91c1c' : '#047857'};">Rs. ${formatNumber(newBal)}</strong></span>
+                        </div>
+                    `;
+                }
+
+                const formattedAmt = amt > 0 ? `Rs. ${amt.toLocaleString()}` : 'Rs. 0';
+                const formattedReason = reason ? `(${reason})` : `(${defaultReason})`;
+                const amtColor = isCredit ? '#059669' : '#7c3aed';
+                previewEl.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="color: #64748b;">${escapeHtml(formattedReason)}</span> &nbsp;—&nbsp; <span style="color: ${amtColor}; font-weight: 800; font-size: 1rem;">${formattedAmt}</span>`;
+            };
+
+            const renderGrid = (filter = '') => {
+                const personsList = clinicDB.getOtherPersons() || [];
+                gridEl.innerHTML = '';
+                const query = (filter || '').toLowerCase().trim();
+                const filtered = personsList.filter(p => (p.name || '').toLowerCase().includes(query));
+                if (countEl) countEl.textContent = `${filtered.length} of ${personsList.length} persons`;
+
+                if (filtered.length === 0) {
+                    gridEl.innerHTML = `<div style="grid-column: 1 / -1; padding: 0.85rem; text-align: center; color: #64748b; font-size: 0.82rem;">No saved person found. Click "+ New Person" or type name below to save automatically.</div>`;
+                    return;
+                }
+
+                filtered.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'spm-staff-card' + (selectedPersonName.toLowerCase() === p.name.toLowerCase() ? ' selected' : '');
+
+                    const parts = p.name.trim().split(/\s+/);
+                    const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].substring(0, 2).toUpperCase();
+                    const pBal = clinicDB.getOtherPersonBalance(p.name);
+
+                    card.innerHTML = `
+                        <div class="spm-staff-avatar" style="${isCredit ? 'background: #d1fae5; color: #047857;' : 'background: #ede9fe; color: #6d28d9;'}">${initials}</div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="spm-staff-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+                            <div style="font-size: 0.65rem; color: ${pBal.balance > 0 ? '#dc2626' : '#059669'}; font-weight: 700;">Bal: Rs. ${formatNumber(pBal.balance)}</div>
+                        </div>
+                        ${selectedPersonName.toLowerCase() === p.name.toLowerCase() ? '<span style="color: #059669; font-weight: 800; font-size: 0.85rem;">✓</span>' : ''}
+                    `;
+
+                    card.addEventListener('click', () => {
+                        selectedPersonName = p.name;
+                        nameInp.value = p.name;
+                        renderGrid(searchInp.value);
+                        updatePreview();
+                        if (!reasonInp.value) {
+                            reasonInp.focus();
+                        } else {
+                            amtInp.focus();
+                        }
+                    });
+
+                    gridEl.appendChild(card);
+                });
+            };
+
+            if (quickAddBtn) {
+                quickAddBtn.onclick = () => {
+                    this.prompt({
+                        title: 'Add New Person / Account',
+                        message: 'Enter full name of the person to save in Settings (available on both Debit & Credit):',
+                        placeholder: 'e.g. Bilal Ahmed',
+                        icon: '🤝',
+                        confirmText: 'Save Person',
+                        onConfirm: (newName) => {
+                            if (!newName || !newName.trim()) return;
+                            const added = clinicDB.addOtherPerson(newName.trim());
+                            if (added) {
+                                selectedPersonName = added.name;
+                                nameInp.value = added.name;
+                                renderGrid(searchInp.value);
+                                updatePreview();
+                                renderSettings();
+                                showToast(`Saved "${added.name}" to Other Persons!`, 'success');
+                                amtInp.focus();
+                            }
+                        }
+                    });
+                };
+            }
+
+            searchInp.value = '';
+            searchInp.oninput = (e) => renderGrid(e.target.value);
+
+            nameInp.value = '';
+            reasonInp.value = defaultReason;
+            amtInp.value = '';
+
+            nameInp.oninput = () => {
+                selectedPersonName = nameInp.value.trim();
+                renderGrid(searchInp.value);
+                updatePreview();
+            };
+            reasonInp.oninput = () => updatePreview();
+            amtInp.oninput = () => updatePreview();
+
+            // Submit handler
+            const newSubmitBtn = submitBtn.cloneNode(true);
+            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+
+            const handleSubmit = () => {
+                const chosenPerson = (nameInp.value || '').trim();
+                if (!chosenPerson) {
+                    showToast('Please select or enter a Person name.', 'warning');
+                    nameInp.focus();
+                    return;
+                }
+                const reason = (reasonInp.value || '').trim() || defaultReason;
+                const amount = parseFloat(amtInp.value) || 0;
+
+                // Ensure person is saved in Settings list for both Debit & Credit consistency
+                const savedObj = clinicDB.addOtherPerson(chosenPerson);
+                const canonicalName = savedObj ? savedObj.name : chosenPerson;
+                const lineName = `${canonicalName} (${reason})`;
+
+                if (isCredit) {
+                    if (!state.currentDayData.credits) state.currentDayData.credits = [];
+                    state.currentDayData.credits.push({
+                        name: lineName,
+                        amount,
+                        isCustom: true,
+                        isOtherPersonCredit: true,
+                        otherPersonRef: canonicalName,
+                        catId: 'other_person_credit',
+                        reason: reason
+                    });
+                    renderCreditTable(state.currentDayData);
+                } else {
+                    insertDebitRowAboveZK(state.currentDayData, {
+                        name: lineName,
+                        amount,
+                        isCustom: true,
+                        isStaffPay: false,
+                        isOtherPersonPay: true,
+                        otherPersonRef: canonicalName,
+                        catId: 'other_person_pay',
+                        reason: reason
+                    });
+                    renderDebitTable(state.currentDayData);
+                }
+
+                recalculateAll();
+                saveCurrentDay(false);
+                renderSettings();
+                this.closeOtherPersonPay();
+                showToast(`Recorded Rs. ${amount.toLocaleString()} (${isCredit ? 'Credit' : 'Debit'}) for ${canonicalName}!`, 'success');
+            };
+
+            newSubmitBtn.addEventListener('click', handleSubmit);
+
+            amtInp.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSubmit();
+                }
+            };
+            reasonInp.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    amtInp.focus();
+                }
+            };
+
+            renderGrid();
+            updatePreview();
+
+            this._otherPersonEl.style.display = 'flex';
+            requestAnimationFrame(() => {
+                this._otherPersonEl.classList.add('active');
+                setTimeout(() => searchInp.focus(), 80);
+            });
+        },
+
+        closeOtherPersonPay() {
+            if (!this._otherPersonEl) return;
+            this._otherPersonEl.classList.remove('active');
+            setTimeout(() => {
+                this._otherPersonEl.style.display = 'none';
+            }, 180);
+        },
+
         openCategoryEditModal({ type, category, onSaved }) {
             this.init();
             if (!this._catEl || !category) return;
@@ -986,7 +1273,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add row buttons
         btnAddDebitRow: document.getElementById('btn-add-debit-row'),
         btnAddStaffDebitBtn: document.getElementById('btn-add-staff-debit-btn'),
+        btnAddOtherDebitBtn: document.getElementById('btn-add-other-debit-btn'),
         btnAddCreditRow: document.getElementById('btn-add-credit-row'),
+        btnAddOtherCreditBtn: document.getElementById('btn-add-other-credit-btn'),
         btnAddDispPurchRow: document.getElementById('btn-add-disp-purch-row'),
         btnAddStoreRow: document.getElementById('btn-add-store-row'),
         btnAddClinicExpRow: document.getElementById('btn-add-clinic-exp-row'),
@@ -3879,6 +4168,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // 2b. Add Other Person Payment into Debit (Inserted ABOVE ZK)
+        if (elements.btnAddOtherDebitBtn) {
+            elements.btnAddOtherDebitBtn.addEventListener('click', () => {
+                if (isViewerRole()) return;
+                appModal.openOtherPersonPayModal('debit');
+            });
+        }
+
         // 3. Add Custom Income Line in Credit
         elements.btnAddCreditRow.addEventListener('click', () => {
             appModal.prompt({
@@ -3898,6 +4195,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // 3b. Add Other Person Payment Received / Returned into Credit
+        if (elements.btnAddOtherCreditBtn) {
+            elements.btnAddOtherCreditBtn.addEventListener('click', () => {
+                if (isViewerRole()) return;
+                appModal.openOtherPersonPayModal('credit');
+            });
+        }
 
         // 4. Detail Panel Add Buttons
         elements.btnAddDispPurchRow.addEventListener('click', () => {
@@ -5390,8 +5695,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="cash_breakdown">Cash Breakdown</option>
                     <option value="home_expenses">House Expenses (Monthly Category-Wise Breakdown)</option>
                     <option value="other_expenses">Other Expenses (General Non-Staff Debits)</option>
+                    <option value="other_persons_all">Other Persons / Accounts (All Ledger & Balances)</option>
                     <option value="partners">Partner Payouts (ZK, KH, BP)</option>
                 </optgroup>
+                <optgroup label="Other Persons / Accounts (Individual)">
+            `;
+            const otherPersons = clinicDB.getOtherPersons();
+            if (otherPersons.length === 0) {
+                optHtml += `<option value="other_persons_all" disabled>-- No persons saved yet --</option>`;
+            } else {
+                otherPersons.forEach(p => {
+                    optHtml += `<option value="other_person:${escapeHtml(p.name)}">Person: ${escapeHtml(p.name)}</option>`;
+                });
+            }
+            optHtml += `</optgroup>
                 <optgroup label="House Expense Specific Categories">
             `;
             const houseCats = clinicDB.getHouseExpenseCategories();
@@ -5686,6 +6003,138 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <tr>
                                     <td colspan="3"><strong>OVERALL HOUSE EXPENSE TOTAL</strong></td>
                                     <td class="num-cell cat-grand-total" style="font-weight: 800; color: #000000;">Rs. ${formatNumber(report.grandTotal)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
+        } else if (report.isOtherPersonsReport) {
+            const balLabel = report.otherNetBalance > 0
+                ? 'Remaining Receivable / Balance'
+                : report.otherNetBalance < 0
+                    ? 'Net Excess Returned (Surplus)'
+                    : 'Settled (Balanced)';
+            const balColor = report.otherNetBalance > 0 ? '#dc2626' : '#059669';
+
+            html += `
+                <div class="category-summary-banner">
+                    <div>
+                        <h3>🤝 ${report.isSingleOtherPerson ? `Account Ledger: ${escapeHtml(report.otherPersonName)}` : 'Other Persons / Accounts Summary'}</h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Period: ${report.startDate} to ${report.endDate} &bull; Total Transactions: ${report.count}</span>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem; text-align: right; flex-wrap: wrap;">
+                        <div>
+                            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Given (Debit)</span>
+                            <div class="cat-banner-total" style="color: #7c3aed; font-size: 1.2rem; font-weight: 800;">Rs. ${formatNumber(report.otherTotalGiven)}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Returned (Credit)</span>
+                            <div class="cat-banner-total" style="color: #059669; font-size: 1.2rem; font-weight: 800;">Rs. ${formatNumber(report.otherTotalReceived)}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">${balLabel}</span>
+                            <div class="cat-banner-total" style="color: ${balColor}; font-size: 1.3rem; font-weight: 800;">Rs. ${formatNumber(Math.abs(report.otherNetBalance))}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (!report.isSingleOtherPerson && report.otherPersonsBreakdown && report.otherPersonsBreakdown.length > 0) {
+                html += `
+                    <div class="house-cat-breakdown-card">
+                        <h4>📊 Person-Wise Balance Summary (Debit vs Credit Difference)</h4>
+                        <div class="table-responsive">
+                            <table class="custom-table" style="margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 30%;">Person / Account</th>
+                                        <th class="num-cell" style="width: 12%;">Entries</th>
+                                        <th class="num-cell" style="width: 20%;">Given (Debit)</th>
+                                        <th class="num-cell" style="width: 20%;">Returned (Credit)</th>
+                                        <th class="num-cell" style="width: 18%;">Remaining Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                report.otherPersonsBreakdown.forEach(p => {
+                    const pColor = p.balance > 0 ? '#dc2626' : p.balance < 0 ? '#059669' : '#1e293b';
+                    html += `
+                        <tr>
+                            <td><strong>${escapeHtml(p.name)}</strong></td>
+                            <td class="num-cell" style="font-weight: 600;">${p.count}</td>
+                            <td class="num-cell" style="font-weight: 700; color: #7c3aed;">Rs. ${formatNumber(p.totalGiven)}</td>
+                            <td class="num-cell" style="font-weight: 700; color: #059669;">Rs. ${formatNumber(p.totalReceived)}</td>
+                            <td class="num-cell" style="font-weight: 800; color: ${pColor};">Rs. ${formatNumber(p.balance)}</td>
+                        </tr>
+                    `;
+                });
+                html += `
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background: #f1f5f9; font-weight: 800;">
+                                        <td><strong>TOTALS</strong></td>
+                                        <td class="num-cell">${report.count}</td>
+                                        <td class="num-cell" style="color: #7c3aed;">Rs. ${formatNumber(report.otherTotalGiven)}</td>
+                                        <td class="num-cell" style="color: #059669;">Rs. ${formatNumber(report.otherTotalReceived)}</td>
+                                        <td class="num-cell" style="color: ${balColor}; font-size: 1.05rem;">Rs. ${formatNumber(report.otherNetBalance)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="table-card">
+                    <div style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 0.9rem; color: #334155;">Detailed Debit & Credit Transactions</strong>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">${report.count} entries</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table" id="category-report-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 14%;">Date</th>
+                                    <th style="width: 22%;">Person / Account</th>
+                                    <th style="width: 22%;">Transaction Type</th>
+                                    <th style="width: 24%;">Detail / Reason</th>
+                                    <th class="num-cell" style="width: 18%;">Amount (Rs.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            if (report.rows.length === 0) {
+                html += `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No transactions found for this person/period.</td></tr>`;
+            } else {
+                report.rows.forEach(r => {
+                    const isCr = r.isCredit;
+                    html += `
+                        <tr>
+                            <td><strong>${r.date}</strong></td>
+                            <td><strong>${escapeHtml(r.personName || r.category)}</strong></td>
+                            <td>
+                                <span class="report-cat-badge" style="${isCr ? 'background: rgba(16,185,129,0.12); color: #047857; border: 1px solid rgba(16,185,129,0.3);' : 'background: rgba(124,58,237,0.12); color: #6d28d9; border: 1px solid rgba(124,58,237,0.3);'}">
+                                    ${escapeHtml(r.type)}
+                                </span>
+                            </td>
+                            <td class="report-desc-cell">${escapeHtml(r.description)}</td>
+                            <td class="num-cell report-amount-cell ${isCr ? 'cr' : 'dr'}" style="font-weight: 800;">
+                                ${isCr ? '+' : '-'} Rs. ${formatNumber(r.amount)}
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4"><strong>NET REMAINING BALANCE (GIVEN - RETURNED)</strong></td>
+                                    <td class="num-cell cat-grand-total" style="color: ${balColor}; font-weight: 800;">Rs. ${formatNumber(report.otherNetBalance)}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -6070,6 +6519,69 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Other Persons / Accounts in Settings
+        const otherPersonsListEl = document.getElementById('settings-other-persons-list');
+        if (otherPersonsListEl) {
+            otherPersonsListEl.innerHTML = '';
+            const persons = clinicDB.getOtherPersons();
+            if (persons.length === 0) {
+                otherPersonsListEl.innerHTML = `<div style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem; text-align: center;">No persons added yet. Click "+ Add Person" to save names for Debit & Credit Other Payments.</div>`;
+            } else {
+                persons.forEach(p => {
+                    const balInfo = clinicDB.getOtherPersonBalance(p.name);
+                    const div = document.createElement('div');
+                    div.className = 'settings-item';
+                    div.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <strong>${escapeHtml(p.name)}</strong>
+                            <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: ${balInfo.balance > 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}; color: ${balInfo.balance > 0 ? '#dc2626' : '#059669'};">
+                                Bal: Rs. ${formatNumber(balInfo.balance)}
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button type="button" class="btn-icon btn-sm edit-other-person-btn" data-id="${p.id}" title="Rename Person" style="color: #38bdf8; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); cursor: pointer; font-size: 0.78rem;">✏️ Edit</button>
+                            <button type="button" class="btn-icon btn-sm del-other-person-btn" style="color: #f43f5e; padding: 3px 8px;" data-id="${p.id}">&times; Delete</button>
+                        </div>
+                    `;
+                    div.querySelector('.edit-other-person-btn').addEventListener('click', () => {
+                        appModal.prompt({
+                            title: 'Rename Person / Account',
+                            message: `Enter new name for "${p.name}":`,
+                            defaultValue: p.name,
+                            icon: '🤝',
+                            confirmText: 'Rename',
+                            onConfirm: (newName) => {
+                                if (newName && newName.trim()) {
+                                    clinicDB.updateOtherPerson(p.id, newName.trim());
+                                    renderSettings();
+                                    if (state.currentDayData) {
+                                        renderDebitTable(state.currentDayData);
+                                        renderCreditTable(state.currentDayData);
+                                    }
+                                    showToast(`Renamed to "${newName.trim()}"`, 'success');
+                                }
+                            }
+                        });
+                    });
+                    div.querySelector('.del-other-person-btn').addEventListener('click', () => {
+                        appModal.confirm({
+                            title: 'Delete Person',
+                            message: `Remove "${p.name}" from Other Persons list? (Historic daily entries will remain intact.)`,
+                            icon: '🗑️',
+                            confirmText: 'Remove',
+                            danger: true,
+                            onConfirm: () => {
+                                clinicDB.deleteOtherPerson(p.id);
+                                renderSettings();
+                                showToast(`Removed "${p.name}"`, 'info');
+                            }
+                        });
+                    });
+                    otherPersonsListEl.appendChild(div);
+                });
+            }
+        }
+
         // Sub-Sections & Headings Customizer
         const sectionTitlesContainer = document.getElementById('settings-section-titles-list');
         if (sectionTitlesContainer) {
@@ -6212,6 +6724,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             showToast(`House Category "${name.trim()}" added!`, 'success');
                         } else {
                             showToast(`Category "${name.trim()}" already exists!`, 'warning');
+                        }
+                    }
+                });
+            };
+        }
+
+        const addOtherPersonBtn = document.getElementById('add-other-person-btn');
+        if (addOtherPersonBtn) {
+            addOtherPersonBtn.onclick = () => {
+                appModal.prompt({
+                    title: 'Add Person / Account',
+                    message: 'Enter name of person for Debit & Credit Other Payments:',
+                    placeholder: 'e.g. Bilal Ahmed, Supplier Ali',
+                    icon: '🤝',
+                    confirmText: 'Add Person',
+                    onConfirm: (name) => {
+                        if (!name || !name.trim()) return;
+                        const res = clinicDB.addOtherPerson(name.trim());
+                        if (res) {
+                            renderSettings();
+                            showToast(`Added "${res.name}" to Other Persons!`, 'success');
                         }
                     }
                 });
